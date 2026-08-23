@@ -10,13 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/database"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-const databaseName = "ecvb.db"
+const databaseName = database.Filename
 
-const applicationID = 0x65637662 // ASCII "ecvb".
+const applicationID = database.ApplicationID
 
 func createDatabase(ctx context.Context, directory string) (err error) {
 	if err := requireDirectory(directory); err != nil {
