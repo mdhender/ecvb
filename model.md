@@ -179,3 +179,45 @@ unit-specific rule.
 | `work_group_id` | The work group containing the units. |
 | `tech_level` | Required technology level, from 0 through 10. |
 | `quantity` | Number of units at the technology level. |
+
+## Order entry
+
+### `order_entry`
+
+`order_entry` holds only the orders submitted for the current turn. Orders are
+replaced as a complete set for each faction and removed after the game advances.
+The table does not retain order history.
+
+| Column | Description |
+| --- | --- |
+| `game_id` | The game in which the order is issued. Required. |
+| `faction_id` | The faction submitting the order. Required. |
+| `sequence` | The order's deterministic sequence within the faction's submission. Required. |
+| `entity_id` | The entity receiving the order. Required. |
+| `verb` | Engine-defined order verb, such as `jump`, `bombard`, or `draft`. Required. |
+| `target_entity_id` | Optional entity targeted by the order. |
+| `support_entity_id` | Optional entity supported by the order. |
+| `parameters` | Raw parameter text for the game engine. Required; defaults to an empty string. |
+
+`(faction_id, sequence)` is the primary key. There is no `turn` column because
+the table contains orders only for the current turn. `game_id` allows games to
+advance and clear orders independently.
+
+The database enforces the required columns and foreign keys. The game engine is
+responsible for validating that:
+
+- The faction belongs to the game.
+- The issuing entity belongs to the submitting faction and game.
+- Target and support entities are valid for the order.
+- The verb is recognized.
+- The parameters have the format required by the verb.
+- The order satisfies verb-specific fit, ownership, range, and capability rules.
+
+Replacing a faction's orders is atomic. In one transaction, the engine validates
+the complete submission, deletes the faction's existing orders, inserts the new
+set, and commits. A failure rolls back the replacement and preserves the prior
+order set.
+
+Advancing a game turn is also atomic. The engine processes the game's current
+orders, applies their results, increments `game.turn`, deletes all
+`order_entry` rows for that game, and commits the transaction.
