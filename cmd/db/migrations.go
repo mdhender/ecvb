@@ -151,6 +151,9 @@ CREATE INDEX order_entry_entity_id_idx ON order_entry(entity_id);
 CREATE INDEX order_entry_target_entity_id_idx ON order_entry(target_entity_id);
 CREATE INDEX order_entry_support_entity_id_idx ON order_entry(support_entity_id);
 `,
+		`
+CREATE UNIQUE INDEX game_code_idx ON game(code);
+`,
 	},
 }
 

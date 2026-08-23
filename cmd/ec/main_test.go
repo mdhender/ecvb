@@ -92,6 +92,105 @@ func TestRunDBVerifyInvalidDatabaseOmitsVersion(t *testing.T) {
 	}
 }
 
+func TestRunGameCreate(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "database")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+	seed := filepath.Join(t.TempDir(), "game.json")
+	if err := os.WriteFile(seed, []byte(`{"code":"BETA-001"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run(context.Background(), []string{"--db-path", directory, "game", "create", "--game-seed", seed}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run game create: %v", err)
+	}
+
+	conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	var code string
+	var turn int
+	if err := sqlitex.ExecuteTransient(conn, "SELECT code, turn FROM game;", &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			code = stmt.ColumnText(0)
+			turn = stmt.ColumnInt(1)
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if code != "BETA-001" || turn != 0 {
+		t.Fatalf("game = (%q, %d); want (%q, 0)", code, turn, "BETA-001")
+	}
+}
+
+func TestRunGameCreateUsesDefaultSeedPath(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "db")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+	if err := os.WriteFile(filepath.Join(directory, "game-seed.json"), []byte(`{"code":"DEFAULT"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWorkingDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWorkingDirectory) })
+
+	if err := run(context.Background(), []string{"game", "create"}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run game create with default seed: %v", err)
+	}
+}
+
+func TestCreateGameRejectsInvalidSeedAndDuplicateCode(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "database")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+
+	tests := []struct {
+		name    string
+		content string
+		pathDir bool
+		want    string
+	}{
+		{name: "invalid JSON", content: `{`, want: "parse game seed"},
+		{name: "missing code", content: `{}`, want: "code must be uppercase"},
+		{name: "lowercase code", content: `{"code":"beta"}`, want: "code must be uppercase"},
+		{name: "path is directory", pathDir: true, want: "not a regular file"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "seed")
+			if tt.pathDir {
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.WriteFile(path, []byte(tt.content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			err := createGame(context.Background(), directory, path)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("createGame error = %v; want containing %q", err, tt.want)
+			}
+		})
+	}
+
+	seed := filepath.Join(t.TempDir(), "game.json")
+	if err := os.WriteFile(seed, []byte(`{"code":"DUPLICATE"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := createGame(context.Background(), directory, seed); err != nil {
+		t.Fatalf("first createGame: %v", err)
+	}
+	if err := createGame(context.Background(), directory, seed); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("duplicate createGame error = %v; want duplicate error", err)
+	}
+}
+
 func TestVerifyDatabase(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -139,6 +238,18 @@ func createTestDatabase(t *testing.T, directory string, applicationID, version i
 		t.Fatal(err)
 	}
 	if err := sqlitex.ExecuteTransient(conn, fmt.Sprintf("PRAGMA user_version = %d;", version), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, strings.TrimSpace(`
+		CREATE TABLE game (
+			id INTEGER PRIMARY KEY,
+			code TEXT NOT NULL,
+			turn INTEGER NOT NULL DEFAULT 0 CHECK (turn >= 0)
+		);
+	`), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, "CREATE UNIQUE INDEX game_code_idx ON game(code);", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Close(); err != nil {

@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mdhender/ecvb/internal/database"
 	"github.com/mdhender/ecvb/internal/dotenv"
@@ -84,37 +86,135 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 			},
 		},
 	}
-	root.Subcommands = []*ff.Command{db}
+	game := &ff.Command{
+		Name:      "game",
+		Usage:     "ec game SUBCOMMAND",
+		ShortHelp: "manage games",
+		Exec: func(context.Context, []string) error {
+			return fmt.Errorf("a game subcommand is required (create)")
+		},
+	}
+	createFlags := ff.NewFlagSet("game create")
+	gameSeed := createFlags.StringLong("game-seed", "db/game-seed.json", "path to the game seed JSON file")
+	game.Subcommands = []*ff.Command{
+		{
+			Name:      "create",
+			Usage:     "ec game create [--game-seed PATH]",
+			ShortHelp: "create a game from seed metadata",
+			Flags:     createFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 0 {
+					return fmt.Errorf("unexpected arguments: %v", args)
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				if *gameSeed == "" {
+					return fmt.Errorf("game-seed is required")
+				}
+				return createGame(ctx, *dbPath, *gameSeed)
+			},
+		},
+	}
+	root.Subcommands = []*ff.Command{db, game}
 
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }
 
-func verifyDatabase(ctx context.Context, directory string) (version int, err error) {
-	path := filepath.Join(directory, database.Filename)
-	info, err := os.Stat(path)
+type gameMetadata struct {
+	Code string `json:"code"`
+}
+
+func createGame(ctx context.Context, directory, seedPath string) (err error) {
+	metadata, err := readGameMetadata(seedPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return 0, fmt.Errorf("database %s does not exist", path)
-		}
-		return 0, fmt.Errorf("stat database %s: %w", path, err)
+		return err
 	}
-	if !info.Mode().IsRegular() {
-		return 0, fmt.Errorf("database %s is not a regular file", path)
+	if metadata.Code == "" || metadata.Code != strings.ToUpper(metadata.Code) {
+		return fmt.Errorf("invalid game code %q: code must be uppercase", metadata.Code)
 	}
 
-	conn, err := sqlite.OpenConn(path, sqlite.OpenReadWrite)
+	conn, _, err := openVerifiedDatabase(ctx, directory)
 	if err != nil {
-		return 0, fmt.Errorf("open database %s: %w", path, err)
+		return err
 	}
-	conn.SetInterrupt(ctx.Done())
 	defer func() {
 		if closeErr := conn.Close(); err == nil && closeErr != nil {
 			err = fmt.Errorf("close database: %w", closeErr)
 		}
 	}()
 
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code) VALUES (?);", &sqlitex.ExecOptions{
+		Args: []any{metadata.Code},
+	}); err != nil {
+		if sqlite.ErrCode(err) == sqlite.ResultConstraintUnique {
+			return fmt.Errorf("game code %q already exists", metadata.Code)
+		}
+		return fmt.Errorf("create game %q: %w", metadata.Code, err)
+	}
+	return nil
+}
+
+func readGameMetadata(path string) (gameMetadata, error) {
+	if path == "" {
+		return gameMetadata{}, fmt.Errorf("game-seed is required")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return gameMetadata{}, fmt.Errorf("stat game seed %s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return gameMetadata{}, fmt.Errorf("game seed %s is not a regular file", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return gameMetadata{}, fmt.Errorf("read game seed %s: %w", path, err)
+	}
+	var metadata gameMetadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return gameMetadata{}, fmt.Errorf("parse game seed %s: %w", path, err)
+	}
+	return metadata, nil
+}
+
+func verifyDatabase(ctx context.Context, directory string) (version int, err error) {
+	conn, version, err := openVerifiedDatabase(ctx, directory)
+	if err != nil {
+		return 0, err
+	}
+	if closeErr := conn.Close(); closeErr != nil {
+		return 0, fmt.Errorf("close database: %w", closeErr)
+	}
+	return version, nil
+}
+
+func openVerifiedDatabase(ctx context.Context, directory string) (conn *sqlite.Conn, version int, err error) {
+	path := filepath.Join(directory, database.Filename)
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, 0, fmt.Errorf("database %s does not exist", path)
+		}
+		return nil, 0, fmt.Errorf("stat database %s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, 0, fmt.Errorf("database %s is not a regular file", path)
+	}
+
+	conn, err = sqlite.OpenConn(path, sqlite.OpenReadWrite)
+	if err != nil {
+		return nil, 0, fmt.Errorf("open database %s: %w", path, err)
+	}
+	conn.SetInterrupt(ctx.Done())
+	defer func() {
+		if err != nil {
+			_ = conn.Close()
+			conn = nil
+		}
+	}()
+
 	if err := sqlitex.ExecuteTransient(conn, "PRAGMA foreign_keys = ON;", nil); err != nil {
-		return 0, fmt.Errorf("enable foreign keys: %w", err)
+		return nil, 0, fmt.Errorf("enable foreign keys: %w", err)
 	}
 
 	var applicationID int
@@ -124,10 +224,10 @@ func verifyDatabase(ctx context.Context, directory string) (version int, err err
 			return nil
 		},
 	}); err != nil {
-		return 0, fmt.Errorf("read application id: %w", err)
+		return nil, 0, fmt.Errorf("read application id: %w", err)
 	}
 	if applicationID != database.ApplicationID {
-		return 0, fmt.Errorf("invalid application id: got %#x, want %#x", applicationID, database.ApplicationID)
+		return nil, 0, fmt.Errorf("invalid application id: got %#x, want %#x", applicationID, database.ApplicationID)
 	}
 
 	if err := sqlitex.ExecuteTransient(conn, "PRAGMA user_version;", &sqlitex.ExecOptions{
@@ -136,11 +236,11 @@ func verifyDatabase(ctx context.Context, directory string) (version int, err err
 			return nil
 		},
 	}); err != nil {
-		return 0, fmt.Errorf("read database version: %w", err)
+		return nil, 0, fmt.Errorf("read database version: %w", err)
 	}
 	if version != database.SchemaVersion {
-		return 0, fmt.Errorf("invalid database version: got %d, want %d", version, database.SchemaVersion)
+		return nil, 0, fmt.Errorf("invalid database version: got %d, want %d", version, database.SchemaVersion)
 	}
 
-	return version, nil
+	return conn, version, nil
 }
