@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -20,6 +22,7 @@ import (
 )
 
 const stelliaSeedFilename = "stellia-seed.json"
+const systemsSeedFilename = "systems-seed.json"
 
 func main() {
 	env, ok := os.LookupEnv("EC_ENV")
@@ -43,7 +46,7 @@ func run(ctx context.Context, args []string) error {
 		Usage:     "ecgen SUBCOMMAND",
 		ShortHelp: "generate ECVB seed files",
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a subcommand is required (stellia)")
+			return fmt.Errorf("a subcommand is required (stellia, systems)")
 		},
 	}
 
@@ -60,6 +63,17 @@ func run(ctx context.Context, args []string) error {
 					return fmt.Errorf("expected exactly one directory path")
 				}
 				return generateStellia(args[0], *seed)
+			},
+		},
+		{
+			Name:      "systems",
+			Usage:     "ecgen systems <path>",
+			ShortHelp: "generate systems from stellia-seed.json",
+			Exec: func(_ context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one directory path")
+				}
+				return generateSystems(args[0])
 			},
 		},
 	}
@@ -83,6 +97,16 @@ type stellium struct {
 	Y           int    `json:"y"`
 	Z           int    `json:"z"`
 	SystemCount int    `json:"system-count"`
+}
+
+type systemsSeed struct {
+	Systems []system `json:"systems"`
+}
+
+type system struct {
+	UUID         string `json:"uuid"`
+	StelliumUUID string `json:"stellium-uuid"`
+	Sequence     string `json:"sequence"`
 }
 
 func generateStellia(directory string, seed int64) (err error) {
@@ -190,6 +214,83 @@ func newStelliaSeed(seed int64) stelliaSeed {
 	}
 }
 
+func generateSystems(directory string) (err error) {
+	inputPath := filepath.Join(directory, stelliaSeedFilename)
+	input, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("open input file %s: %w", inputPath, err)
+	}
+	defer input.Close()
+
+	var stellia stelliaSeed
+	decoder := json.NewDecoder(input)
+	if err := decoder.Decode(&stellia); err != nil {
+		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			err = errors.New("unexpected additional JSON value")
+		}
+		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	}
+
+	data := systemsSeed{Systems: make([]system, 0, len(stellia.Stellia))}
+	seenStellia := make(map[string]bool, len(stellia.Stellia))
+	for i, s := range stellia.Stellia {
+		if s.UUID == "" {
+			return fmt.Errorf("parse input file %s: stellia[%d] has no uuid", inputPath, i)
+		}
+		if seenStellia[s.UUID] {
+			return fmt.Errorf("parse input file %s: stellia[%d] has duplicate uuid %q", inputPath, i, s.UUID)
+		}
+		seenStellia[s.UUID] = true
+		if s.SystemCount < 1 || s.SystemCount > 5 {
+			return fmt.Errorf("parse input file %s: stellia[%d] system-count %d is outside 1 through 5", inputPath, i, s.SystemCount)
+		}
+		for sequence := 0; sequence < s.SystemCount; sequence++ {
+			letter := string(rune('A' + sequence))
+			data.Systems = append(data.Systems, system{
+				UUID:         systemUUID(s.UUID, letter),
+				StelliumUUID: s.UUID,
+				Sequence:     letter,
+			})
+		}
+	}
+
+	outputPath := filepath.Join(directory, systemsSeedFilename)
+	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("output file %s already exists", outputPath)
+		}
+		return fmt.Errorf("create output file %s: %w", outputPath, err)
+	}
+	complete := false
+	defer func() {
+		if closeErr := output.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close output file %s: %w", outputPath, closeErr)
+		}
+		if !complete {
+			_ = os.Remove(outputPath)
+		}
+	}()
+
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("write output file %s: %w", outputPath, err)
+	}
+	complete = true
+	return nil
+}
+
+func systemUUID(stelliumUUID, sequence string) string {
+	id := sha256.Sum256([]byte("ecvb/system/" + stelliumUUID + "/" + sequence))
+	id[6] = id[6]&0x0f | 0x40
+	id[8] = id[8]&0x3f | 0x80
+	return formatUUID([16]byte(id[:16]))
+}
+
 func splitMix64(state *uint64) uint64 {
 	*state += 0x9e3779b97f4a7c15
 	z := *state
@@ -204,7 +305,10 @@ func randomUUID(rng *rand.Rand) string {
 	binary.BigEndian.PutUint64(id[8:], rng.Uint64())
 	id[6] = id[6]&0x0f | 0x40
 	id[8] = id[8]&0x3f | 0x80
+	return formatUUID(id)
+}
 
+func formatUUID(id [16]byte) string {
 	var text [36]byte
 	hex.Encode(text[0:8], id[0:4])
 	text[8] = '-'

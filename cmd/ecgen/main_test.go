@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -105,6 +106,93 @@ func TestRunUsesDefaultAndEnvironmentSeed(t *testing.T) {
 	assertFilesEqual(t, environmentDirectory, matchingDirectory)
 }
 
+func TestRunGeneratesSystemsFromStellia(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	input := stelliaSeed{Stellia: []stellium{
+		{UUID: "11111111-1111-4111-8111-111111111111", SystemCount: 1},
+		{UUID: "22222222-2222-4222-8222-222222222222", SystemCount: 3},
+	}}
+	for _, directory := range []string{first, second} {
+		writeJSON(t, filepath.Join(directory, stelliaSeedFilename), input)
+		if err := run(context.Background(), []string{"systems", directory}); err != nil {
+			t.Fatalf("run systems: %v", err)
+		}
+	}
+
+	firstData, err := os.ReadFile(filepath.Join(first, systemsSeedFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondData, err := os.ReadFile(filepath.Join(second, systemsSeedFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(firstData) != string(secondData) {
+		t.Fatal("same stellia generated different systems files")
+	}
+
+	var data systemsSeed
+	if err := json.Unmarshal(firstData, &data); err != nil {
+		t.Fatalf("parse generated file: %v", err)
+	}
+	if got, want := len(data.Systems), 4; got != want {
+		t.Fatalf("system count = %d; want %d", got, want)
+	}
+	wantParents := []string{input.Stellia[0].UUID, input.Stellia[1].UUID, input.Stellia[1].UUID, input.Stellia[1].UUID}
+	wantSequences := []string{"A", "A", "B", "C"}
+	uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	seen := make(map[string]bool)
+	for i, system := range data.Systems {
+		if system.StelliumUUID != wantParents[i] || system.Sequence != wantSequences[i] {
+			t.Errorf("systems[%d] = %#v; want parent %q and sequence %q", i, system, wantParents[i], wantSequences[i])
+		}
+		if !uuidPattern.MatchString(system.UUID) {
+			t.Errorf("systems[%d] UUID = %q; want UUID v4", i, system.UUID)
+		}
+		if seen[system.UUID] {
+			t.Errorf("systems[%d] has duplicate UUID %q", i, system.UUID)
+		}
+		seen[system.UUID] = true
+	}
+}
+
+func TestGenerateSystemsRejectsInvalidInputAndExistingOutput(t *testing.T) {
+	missingDirectory := t.TempDir()
+	if err := generateSystems(missingDirectory); err == nil || !strings.Contains(err.Error(), "open input file") {
+		t.Fatalf("missing input error = %v", err)
+	}
+
+	invalidDirectory := t.TempDir()
+	writeJSON(t, filepath.Join(invalidDirectory, stelliaSeedFilename), stelliaSeed{
+		Stellia: []stellium{{UUID: "11111111-1111-4111-8111-111111111111", SystemCount: 6}},
+	})
+	if err := generateSystems(invalidDirectory); err == nil || !strings.Contains(err.Error(), "outside 1 through 5") {
+		t.Fatalf("invalid system-count error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(invalidDirectory, systemsSeedFilename)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("invalid input created output: %v", err)
+	}
+
+	existingDirectory := t.TempDir()
+	writeJSON(t, filepath.Join(existingDirectory, stelliaSeedFilename), stelliaSeed{
+		Stellia: []stellium{{UUID: "11111111-1111-4111-8111-111111111111", SystemCount: 1}},
+	})
+	outputPath := filepath.Join(existingDirectory, systemsSeedFilename)
+	if err := os.WriteFile(outputPath, []byte("keep me"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateSystems(existingDirectory); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("existing output error = %v", err)
+	}
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "keep me" {
+		t.Fatalf("existing output was changed to %q", data)
+	}
+}
+
 func TestGenerateStelliaRejectsInvalidOutput(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
 	if err := generateStellia(missing, 1912); err == nil || !strings.Contains(err.Error(), "stat output directory") {
@@ -158,5 +246,16 @@ func assertFilesEqual(t *testing.T, first, second string) {
 	}
 	if string(a) != string(b) {
 		t.Fatal("generated files differ")
+	}
+}
+
+func writeJSON(t *testing.T, path string, value any) {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
