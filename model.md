@@ -199,6 +199,22 @@ The table does not retain order history.
 | `support_entity_id` | Optional entity supported by the order. |
 | `parameters` | Raw parameter text for the game engine. Required; defaults to an empty string. |
 
+For example, the order arguments map to stored fields as follows. Each row also
+has the required `game_id`, `faction_id`, and `sequence` supplied by the order
+submission context.
+
+| Order | `entity_id` | `verb` | `support_entity_id` | `target_entity_id` | `parameters` |
+| --- | ---: | --- | ---: | ---: | --- |
+| `38, pay, USK, 70%` | 38 | `pay` | null | null | `USK, 70%` |
+| `39, bombard, 121, 75%` | 39 | `bombard` | null | 121 | `75%` |
+| `20, support, 39, 121, 45%` | 20 | `support` | 39 | 121 | `45%` |
+| `42, support, 121, 55%` | 42 | `support` | 121 | null | `55%` |
+
+In the first support order, entity 20 supports entity 39's attack against entity
+121. In the second, entity 42 supports entity 121 against all attackers, so
+there is no specific target. The `pay` order's `USK` unit code and percentage
+remain raw engine parameters because neither value refers to an entity.
+
 `(faction_id, sequence)` is the primary key. There is no `turn` column because
 the table contains orders only for the current turn. `game_id` allows games to
 advance and clear orders independently.
