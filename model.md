@@ -163,10 +163,13 @@ planet must belong to the selected system. See
 | `entity_id` | The entity containing the work group. |
 | `unit` | One of `FACT`, `FARM`, or `MINE`. |
 | `sequence` | Sequence from 1 through 99. |
-| `deposit_id` | The deposit worked by a mining group. |
+| `deposit_id` | The deposit worked by a mining group; nullable. |
 
-`sequence` is unique by `(entity_id, unit, sequence)`. `deposit_id` is required
-for a `MINE` group and optional for the other unit codes.
+`sequence` is unique by `(entity_id, unit, sequence)`.
+
+The game engine requires `deposit_id` for a `MINE` group and requires it to be
+null for `FACT` and `FARM` groups. The database model does not enforce this
+unit-specific rule.
 
 ### `work_group_units`
 
