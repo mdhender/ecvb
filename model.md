@@ -161,12 +161,12 @@ planet must belong to the selected system. See
 | --- | --- |
 | `id` | Primary key. |
 | `entity_id` | The entity containing the work group. |
-| `kind` | One of `FACT`, `FARM`, or `MINE`. |
+| `unit` | One of `FACT`, `FARM`, or `MINE`. |
 | `sequence` | Sequence from 1 through 99. |
 | `deposit_id` | The deposit worked by a mining group. |
 
-`sequence` is unique by `(entity_id, kind, sequence)`. `deposit_id` is required
-for a `MINE` group and optional for other work-group kinds.
+`sequence` is unique by `(entity_id, unit, sequence)`. `deposit_id` is required
+for a `MINE` group and optional for the other unit codes.
 
 ### `work_group_units`
 
