@@ -6,6 +6,7 @@
 # build files
 /db
 /ec
+/ecgen
 
 # sqlite database files
 *.db
