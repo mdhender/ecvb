@@ -19,6 +19,16 @@ Entity location rules are defined in [Entity Location](entity-location.md).
 | `id` | Primary key. |
 | `code` | Game code. |
 
+### `agent`
+
+| Column | Description |
+| --- | --- |
+| `id` | Primary key. |
+| `description` | Human-readable description of the agent. |
+
+Agents are implemented by the game engine. The data model stores no other agent
+attributes.
+
 ### `faction`
 
 | Column | Description |
@@ -28,8 +38,7 @@ Entity location rules are defined in [Entity Location](entity-location.md).
 | `user_id` | The user controlling the faction; null for an agent-controlled faction. |
 | `agent_id` | The agent controlling the faction; null for a user-controlled faction. |
 
-Exactly one of `user_id` and `agent_id` is set. The agent model is not yet
-defined.
+Exactly one of `user_id` and `agent_id` is set.
 
 ## Space
 
@@ -114,6 +123,7 @@ types.
 | --- | --- |
 | `id` | Primary key. |
 | `unit` | One of `SHIP`, `COPN`, `CSFC`, or `CORB`. |
+| `tech_level` | Required technology level, from 0 through 10. |
 | `stellium_id` | The stellium containing the entity. Required. |
 | `system_id` | The entity's system when it is at a planet; otherwise null. |
 | `planet_id` | The entity's planet; optional for a ship and required for a colony. |
@@ -139,7 +149,8 @@ planet must belong to the selected system. See
 | --- | --- |
 | `entity_id` | The entity holding the inventory. |
 | `section` | One of `component`, `operational`, `unassembled`, or `cargo`. |
-| `unit` | Unit code and technology level, such as `TRAN-8`. |
+| `unit` | Unit code, such as `TRAN`. |
+| `tech_level` | Required technology level, from 0 through 10. |
 | `quantity` | Quantity held. |
 
 ## Work groups
@@ -162,5 +173,5 @@ for a `MINE` group and optional for other work-group kinds.
 | Column | Description |
 | --- | --- |
 | `work_group_id` | The work group containing the units. |
-| `tech_level` | Unit technology level, such as `8`. |
+| `tech_level` | Required technology level, from 0 through 10. |
 | `quantity` | Number of units at the technology level. |
