@@ -18,6 +18,7 @@ Entity location rules are defined in [Entity Location](entity-location.md).
 | --- | --- |
 | `id` | Primary key. |
 | `code` | Game code. |
+| `turn` | Required current turn number; defaults to 0. |
 
 ### `agent`
 
