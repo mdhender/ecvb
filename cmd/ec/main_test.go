@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -45,19 +46,49 @@ func TestRunDatabasePathSources(t *testing.T) {
 		}
 	})
 
-	if err := run(context.Background(), nil); err != nil {
+	if err := run(context.Background(), []string{"db", "verify"}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run with default db-path: %v", err)
 	}
 
-	if err := os.WriteFile(".env", []byte("EC_DB_PATH=beta\n"), 0o600); err != nil {
+	if err := os.Setenv("EC_DB_PATH", "beta"); err != nil {
 		t.Fatal(err)
 	}
-	if err := run(context.Background(), nil); err != nil {
-		t.Fatalf("run with EC_DB_PATH from dotenv: %v", err)
+	if err := run(context.Background(), []string{"db", "verify"}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run with EC_DB_PATH: %v", err)
 	}
 
-	if err := run(context.Background(), []string{"--db-path", "db"}); err != nil {
+	if err := run(context.Background(), []string{"--db-path", "db", "db", "verify"}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run with command-line db-path: %v", err)
+	}
+}
+
+func TestRunDBVerifyOutput(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "game")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+
+	var stderr bytes.Buffer
+	if err := run(context.Background(), []string{"--db-path", directory, "db", "verify"}, &stderr); err != nil {
+		t.Fatalf("run db verify: %v", err)
+	}
+	want := fmt.Sprintf("database path: %s\ndatabase name: %s\ndatabase version: %d\n",
+		directory, database.Filename, database.SchemaVersion)
+	if got := stderr.String(); got != want {
+		t.Fatalf("stderr = %q; want %q", got, want)
+	}
+}
+
+func TestRunDBVerifyInvalidDatabaseOmitsVersion(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "game")
+	createTestDatabase(t, directory, 0, database.SchemaVersion)
+
+	var stderr bytes.Buffer
+	err := run(context.Background(), []string{"--db-path", directory, "db", "verify"}, &stderr)
+	if err == nil {
+		t.Fatal("run db verify succeeded; want error")
+	}
+	want := fmt.Sprintf("database path: %s\ndatabase name: %s\n", directory, database.Filename)
+	if got := stderr.String(); got != want {
+		t.Fatalf("stderr = %q; want %q", got, want)
 	}
 }
 
@@ -77,7 +108,7 @@ func TestVerifyDatabase(t *testing.T) {
 			directory := filepath.Join(t.TempDir(), "game")
 			createTestDatabase(t, directory, tt.applicationID, tt.version)
 
-			err := verifyDatabase(context.Background(), directory)
+			_, err := verifyDatabase(context.Background(), directory)
 			if tt.wantError == "" && err != nil {
 				t.Fatalf("verifyDatabase: %v", err)
 			}
@@ -89,7 +120,7 @@ func TestVerifyDatabase(t *testing.T) {
 }
 
 func TestVerifyDatabaseRequiresExistingFile(t *testing.T) {
-	if err := verifyDatabase(context.Background(), t.TempDir()); err == nil {
+	if _, err := verifyDatabase(context.Background(), t.TempDir()); err == nil {
 		t.Fatal("verifyDatabase succeeded; want error")
 	}
 }
