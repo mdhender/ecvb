@@ -34,13 +34,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := run(context.Background(), os.Args[1:], os.Stderr); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintf(os.Stderr, "ec: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, args []string, stderr io.Writer) error {
+func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	flags := ff.NewFlagSet("ec")
 	dbPath := flags.StringLong("db-path", "db", "path to the database directory")
 	root := &ff.Command{
@@ -49,7 +49,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		ShortHelp: "manage an ECVB game",
 		Flags:     flags,
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a subcommand is required (db)")
+			return fmt.Errorf("a subcommand is required (add, db, game, or load)")
 		},
 	}
 	db := &ff.Command{
@@ -120,10 +120,12 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	createFlags := ff.NewFlagSet("game create")
 	gameSeed := createFlags.StringLong("game-seed", "db/game-seed.json", "path to the game seed JSON file")
+	seedHigh := createFlags.Int64Long("seed-high", 19, "high half of the game's PCG seed")
+	seedLow := createFlags.Int64Long("seed-low", 12, "low half of the game's PCG seed")
 	game.Subcommands = []*ff.Command{
 		{
 			Name:      "create",
-			Usage:     "ec game create [--game-seed PATH]",
+			Usage:     "ec game create [--game-seed PATH] [--seed-high N] [--seed-low N]",
 			ShortHelp: "create a game from seed metadata",
 			Flags:     createFlags,
 			Exec: func(ctx context.Context, args []string) error {
@@ -136,11 +138,49 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 				if *gameSeed == "" {
 					return fmt.Errorf("game-seed is required")
 				}
-				return createGame(ctx, *dbPath, *gameSeed)
+				if *seedHigh < 0 || *seedLow < 0 {
+					return fmt.Errorf("seed-high and seed-low must be nonnegative")
+				}
+				return createGame(ctx, *dbPath, *gameSeed, *seedHigh, *seedLow)
 			},
 		},
 	}
-	root.Subcommands = []*ff.Command{db, game, load}
+	add := &ff.Command{
+		Name:      "add",
+		Usage:     "ec add SUBCOMMAND",
+		ShortHelp: "add objects to a game",
+		Exec: func(context.Context, []string) error {
+			return fmt.Errorf("an add subcommand is required (player)")
+		},
+	}
+	playerFlags := ff.NewFlagSet("add player")
+	playerGame := playerFlags.StringLong("game", "", "code of the game")
+	playerEmail := playerFlags.StringLong("email", "", "email address of the player")
+	add.Subcommands = []*ff.Command{
+		{
+			Name:      "player",
+			Usage:     "ec add player --game CODE --email EMAIL",
+			ShortHelp: "add a player to a game",
+			Flags:     playerFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 0 {
+					return fmt.Errorf("unexpected arguments: %v", args)
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				factionID, err := addPlayer(ctx, *dbPath, *playerGame, *playerEmail)
+				if err != nil {
+					return err
+				}
+				if _, err := fmt.Fprintln(stdout, factionID); err != nil {
+					return fmt.Errorf("write faction id: %w", err)
+				}
+				return nil
+			},
+		},
+	}
+	root.Subcommands = []*ff.Command{add, db, game, load}
 
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }
@@ -149,7 +189,10 @@ type gameMetadata struct {
 	Code string `json:"code"`
 }
 
-func createGame(ctx context.Context, directory, seedPath string) (err error) {
+func createGame(ctx context.Context, directory, seedPath string, seedHigh, seedLow int64) (err error) {
+	if seedHigh < 0 || seedLow < 0 {
+		return fmt.Errorf("seed-high and seed-low must be nonnegative")
+	}
 	metadata, err := readGameMetadata(seedPath)
 	if err != nil {
 		return err
@@ -168,8 +211,8 @@ func createGame(ctx context.Context, directory, seedPath string) (err error) {
 		}
 	}()
 
-	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code) VALUES (?);", &sqlitex.ExecOptions{
-		Args: []any{metadata.Code},
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code, seed_high, seed_low) VALUES (?, ?, ?);", &sqlitex.ExecOptions{
+		Args: []any{metadata.Code, seedHigh, seedLow},
 	}); err != nil {
 		if sqlite.ErrCode(err) == sqlite.ResultConstraintUnique {
 			return fmt.Errorf("game code %q already exists", metadata.Code)

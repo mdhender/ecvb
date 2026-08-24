@@ -75,6 +75,32 @@ func TestCreateDatabase(t *testing.T) {
 	if users != 0 {
 		t.Errorf("users after create = %d; want 0", users)
 	}
+
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code) VALUES ('DEFAULT-SEED');", nil); err != nil {
+		t.Fatalf("insert game with default seed: %v", err)
+	}
+	var seedHigh, seedLow int64
+	if err := sqlitex.ExecuteTransient(conn, "SELECT seed_high, seed_low FROM game WHERE code = 'DEFAULT-SEED';", &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			seedHigh, seedLow = stmt.ColumnInt64(0), stmt.ColumnInt64(1)
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("read default game seed: %v", err)
+	}
+	if seedHigh != 19 || seedLow != 12 {
+		t.Errorf("default game seed = (%d, %d); want (19, 12)", seedHigh, seedLow)
+	}
+
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO users (email, role) VALUES ('player@example.com', 'non-administrator');", nil); err != nil {
+		t.Fatalf("insert player: %v", err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, user_id) VALUES (1, 1);", nil); err != nil {
+		t.Fatalf("insert player faction: %v", err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, user_id) VALUES (1, 1);", nil); err == nil {
+		t.Fatal("insert duplicate player faction succeeded; want unique constraint error")
+	}
 }
 
 func TestCreateDatabaseRejectsInvalidPaths(t *testing.T) {

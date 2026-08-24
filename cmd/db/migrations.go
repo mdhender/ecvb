@@ -154,6 +154,11 @@ CREATE INDEX order_entry_support_entity_id_idx ON order_entry(support_entity_id)
 		`
 CREATE UNIQUE INDEX game_code_idx ON game(code);
 `,
+		`
+ALTER TABLE game ADD COLUMN seed_high INTEGER NOT NULL DEFAULT 19 CHECK (seed_high >= 0);
+ALTER TABLE game ADD COLUMN seed_low INTEGER NOT NULL DEFAULT 12 CHECK (seed_low >= 0);
+CREATE UNIQUE INDEX faction_game_user_idx ON faction(game_id, user_id) WHERE user_id IS NOT NULL;
+`,
 	},
 }
 

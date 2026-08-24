@@ -46,18 +46,18 @@ func TestRunDatabasePathSources(t *testing.T) {
 		}
 	})
 
-	if err := run(context.Background(), []string{"db", "verify"}, &bytes.Buffer{}); err != nil {
+	if err := run(context.Background(), []string{"db", "verify"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run with default db-path: %v", err)
 	}
 
 	if err := os.Setenv("EC_DB_PATH", "beta"); err != nil {
 		t.Fatal(err)
 	}
-	if err := run(context.Background(), []string{"db", "verify"}, &bytes.Buffer{}); err != nil {
+	if err := run(context.Background(), []string{"db", "verify"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run with EC_DB_PATH: %v", err)
 	}
 
-	if err := run(context.Background(), []string{"--db-path", "db", "db", "verify"}, &bytes.Buffer{}); err != nil {
+	if err := run(context.Background(), []string{"--db-path", "db", "db", "verify"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run with command-line db-path: %v", err)
 	}
 }
@@ -67,7 +67,7 @@ func TestRunDBVerifyOutput(t *testing.T) {
 	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
 
 	var stderr bytes.Buffer
-	if err := run(context.Background(), []string{"--db-path", directory, "db", "verify"}, &stderr); err != nil {
+	if err := run(context.Background(), []string{"--db-path", directory, "db", "verify"}, &bytes.Buffer{}, &stderr); err != nil {
 		t.Fatalf("run db verify: %v", err)
 	}
 	want := fmt.Sprintf("database path: %s\ndatabase name: %s\ndatabase version: %d\n",
@@ -82,7 +82,7 @@ func TestRunDBVerifyInvalidDatabaseOmitsVersion(t *testing.T) {
 	createTestDatabase(t, directory, 0, database.SchemaVersion)
 
 	var stderr bytes.Buffer
-	err := run(context.Background(), []string{"--db-path", directory, "db", "verify"}, &stderr)
+	err := run(context.Background(), []string{"--db-path", directory, "db", "verify"}, &bytes.Buffer{}, &stderr)
 	if err == nil {
 		t.Fatal("run db verify succeeded; want error")
 	}
@@ -100,7 +100,7 @@ func TestRunGameCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := run(context.Background(), []string{"--db-path", directory, "game", "create", "--game-seed", seed}, &bytes.Buffer{}); err != nil {
+	if err := run(context.Background(), []string{"--db-path", directory, "game", "create", "--game-seed", seed}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run game create: %v", err)
 	}
 
@@ -111,17 +111,48 @@ func TestRunGameCreate(t *testing.T) {
 	t.Cleanup(func() { _ = conn.Close() })
 	var code string
 	var turn int
-	if err := sqlitex.ExecuteTransient(conn, "SELECT code, turn FROM game;", &sqlitex.ExecOptions{
+	var seedHigh, seedLow int64
+	if err := sqlitex.ExecuteTransient(conn, "SELECT code, turn, seed_high, seed_low FROM game;", &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			code = stmt.ColumnText(0)
 			turn = stmt.ColumnInt(1)
+			seedHigh = stmt.ColumnInt64(2)
+			seedLow = stmt.ColumnInt64(3)
 			return nil
 		},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if code != "BETA-001" || turn != 0 {
-		t.Fatalf("game = (%q, %d); want (%q, 0)", code, turn, "BETA-001")
+	if code != "BETA-001" || turn != 0 || seedHigh != 19 || seedLow != 12 {
+		t.Fatalf("game = (%q, %d, %d, %d); want (%q, 0, 19, 12)", code, turn, seedHigh, seedLow, "BETA-001")
+	}
+}
+
+func TestRunGameCreateWithExplicitSeed(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "database")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+	seed := filepath.Join(t.TempDir(), "game.json")
+	if err := os.WriteFile(seed, []byte(`{"code":"SEEDED"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run(context.Background(), []string{"--db-path", directory, "game", "create", "--game-seed", seed, "--seed-high", "41", "--seed-low", "73"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run game create: %v", err)
+	}
+	conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	var high, low int64
+	if err := sqlitex.ExecuteTransient(conn, "SELECT seed_high, seed_low FROM game WHERE code = 'SEEDED';", &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+		high, low = stmt.ColumnInt64(0), stmt.ColumnInt64(1)
+		return nil
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if high != 41 || low != 73 {
+		t.Fatalf("seed = (%d, %d); want (41, 73)", high, low)
 	}
 }
 
@@ -142,7 +173,7 @@ func TestRunGameCreateUsesDefaultSeedPath(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(oldWorkingDirectory) })
 
-	if err := run(context.Background(), []string{"game", "create"}, &bytes.Buffer{}); err != nil {
+	if err := run(context.Background(), []string{"game", "create"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run game create with default seed: %v", err)
 	}
 }
@@ -172,7 +203,7 @@ func TestCreateGameRejectsInvalidSeedAndDuplicateCode(t *testing.T) {
 			} else if err := os.WriteFile(path, []byte(tt.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			err := createGame(context.Background(), directory, path)
+			err := createGame(context.Background(), directory, path, 19, 12)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("createGame error = %v; want containing %q", err, tt.want)
 			}
@@ -183,10 +214,10 @@ func TestCreateGameRejectsInvalidSeedAndDuplicateCode(t *testing.T) {
 	if err := os.WriteFile(seed, []byte(`{"code":"DUPLICATE"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := createGame(context.Background(), directory, seed); err != nil {
+	if err := createGame(context.Background(), directory, seed, 19, 12); err != nil {
 		t.Fatalf("first createGame: %v", err)
 	}
-	if err := createGame(context.Background(), directory, seed); err == nil || !strings.Contains(err.Error(), "already exists") {
+	if err := createGame(context.Background(), directory, seed, 19, 12); err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("duplicate createGame error = %v; want duplicate error", err)
 	}
 }
@@ -207,7 +238,7 @@ func TestRunLoadGame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := run(context.Background(), []string{"--db-path", directory, "load", "game", "BETA-001"}, &bytes.Buffer{}); err != nil {
+	if err := run(context.Background(), []string{"--db-path", directory, "load", "game", "BETA-001"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run load game: %v", err)
 	}
 
@@ -333,14 +364,24 @@ func createTestDatabase(t *testing.T, directory string, applicationID, version i
 		t.Fatal(err)
 	}
 	if err := sqlitex.ExecuteScript(conn, strings.TrimSpace(`
+		CREATE TABLE users (
+			id INTEGER PRIMARY KEY,
+			email TEXT NOT NULL UNIQUE,
+			role TEXT NOT NULL
+		);
 		CREATE TABLE game (
 			id INTEGER PRIMARY KEY,
 			code TEXT NOT NULL,
-			turn INTEGER NOT NULL DEFAULT 0 CHECK (turn >= 0)
+			turn INTEGER NOT NULL DEFAULT 0 CHECK (turn >= 0),
+			seed_high INTEGER NOT NULL DEFAULT 19 CHECK (seed_high >= 0),
+			seed_low INTEGER NOT NULL DEFAULT 12 CHECK (seed_low >= 0)
 		);
 		CREATE TABLE faction (
 			id INTEGER PRIMARY KEY,
-			game_id INTEGER NOT NULL REFERENCES game(id)
+			game_id INTEGER NOT NULL REFERENCES game(id),
+			user_id INTEGER REFERENCES users(id),
+			agent_id INTEGER,
+			CHECK ((user_id IS NOT NULL) <> (agent_id IS NOT NULL))
 		);
 		CREATE TABLE stellium (
 			id INTEGER PRIMARY KEY,
@@ -362,6 +403,7 @@ func createTestDatabase(t *testing.T, directory string, applicationID, version i
 			orbit INTEGER NOT NULL CHECK (orbit BETWEEN 1 AND 10),
 			kind TEXT NOT NULL CHECK (kind IN ('rocky', 'asteroid', 'gas-giant', 'ice-giant')),
 			habitability INTEGER NOT NULL CHECK (habitability BETWEEN 0 AND 25),
+			faction_id INTEGER REFERENCES faction(id),
 			UNIQUE (system_id, orbit)
 		);
 		CREATE TABLE deposit (
@@ -381,6 +423,9 @@ func createTestDatabase(t *testing.T, directory string, applicationID, version i
 		t.Fatal(err)
 	}
 	if err := sqlitex.ExecuteTransient(conn, "CREATE UNIQUE INDEX game_code_idx ON game(code);", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, "CREATE UNIQUE INDEX faction_game_user_idx ON faction(game_id, user_id) WHERE user_id IS NOT NULL;", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Close(); err != nil {
