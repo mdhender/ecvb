@@ -62,9 +62,17 @@ func TestReadKitRejectsUnknownFieldsAndInsufficientSpace(t *testing.T) {
 			name: "insufficient space",
 			content: `{
 				"kit-name":"test",
-				"colonies":{"COPN":{"entity":{"tech-level":1,"population":{"USK":1},"components":{"STRC-1":2}}}}
+				"entities":{"entity":{"kind":"COPN","tech-level":1,"population":{"USK":1},"components":{"STRC-1":2}}}
 			}`,
 			want: "need at least 3 VU",
+		},
+		{
+			name: "invalid entity kind",
+			content: `{
+				"kit-name":"test",
+				"entities":{"entity":{"kind":"BASE","tech-level":1}}
+			}`,
+			want: "invalid kind",
 		},
 	}
 	for _, tt := range tests {
@@ -176,7 +184,7 @@ func TestAddPlayerRollsBackInvalidKit(t *testing.T) {
 	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
 	if err := os.WriteFile(filepath.Join(directory, "home-planet-seed.json"), []byte(`{
 		"kit-name":"invalid",
-		"colonies":{"COPN":{"entity":{"tech-level":1,"population":{"USK":1}}}}
+		"entities":{"entity":{"kind":"COPN","tech-level":1,"population":{"USK":1}}}
 	}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -220,11 +228,11 @@ func writeTestKit(t *testing.T, directory string) {
 	t.Helper()
 	content := `{
 		"kit-name":"test",
-		"colonies":{
-			"COPN":{"controlled":{"tech-level":1,"population":{"USK":1},"components":{"STRC-1":3}}},
-			"CORB":{"uncontrolled":{"tech-level":1}}
-		},
-		"SHIP":{"ship":{"tech-level":1,"population":{"SKW":1},"components":{"STRC-1":30}}}
+		"entities":{
+			"controlled":{"kind":"COPN","tech-level":1,"population":{"USK":1},"components":{"STRC-1":3}},
+			"uncontrolled":{"kind":"CORB","tech-level":1},
+			"ship":{"kind":"SHIP","tech-level":1,"population":{"SKW":1},"components":{"STRC-1":30}}
+		}
 	}`
 	if err := os.WriteFile(filepath.Join(directory, "home-planet-seed.json"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)

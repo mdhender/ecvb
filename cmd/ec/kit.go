@@ -20,13 +20,13 @@ import (
 const uncontrolledAgentCode = "uncontrolled"
 
 type kitSeed struct {
-	ID       string                         `json:"id"`
-	Name     string                         `json:"kit-name"`
-	Colonies map[string]map[string]kitAsset `json:"colonies"`
-	Ships    map[string]kitAsset            `json:"SHIP"`
+	ID       string              `json:"id"`
+	Name     string              `json:"kit-name"`
+	Entities map[string]kitAsset `json:"entities"`
 }
 
 type kitAsset struct {
+	Kind        string           `json:"kind"`
 	TechLevel   *int             `json:"tech-level"`
 	Population  map[string]int64 `json:"population"`
 	Components  map[string]int64 `json:"components"`
@@ -111,39 +111,25 @@ func prepareKit(seed kitSeed) (preparedKit, error) {
 	if strings.TrimSpace(seed.Name) == "" {
 		return preparedKit{}, fmt.Errorf("kit-name is required")
 	}
-	for kind := range seed.Colonies {
-		if kind != "COPN" && kind != "CSFC" && kind != "CORB" {
-			return preparedKit{}, fmt.Errorf("unknown colony unit %q", kind)
-		}
-	}
-
 	kit := preparedKit{name: seed.Name}
-	seenIDs := make(map[string]bool)
-	for _, group := range []struct {
-		kind   string
-		assets map[string]kitAsset
-	}{
-		{kind: "COPN", assets: seed.Colonies["COPN"]},
-		{kind: "CSFC", assets: seed.Colonies["CSFC"]},
-		{kind: "CORB", assets: seed.Colonies["CORB"]},
-		{kind: "SHIP", assets: seed.Ships},
-	} {
-		ids := make([]string, 0, len(group.assets))
-		for id := range group.assets {
-			ids = append(ids, id)
+	ids := make([]string, 0, len(seed.Entities))
+	for id := range seed.Entities {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		if id == "" {
+			return preparedKit{}, fmt.Errorf("entity id is required")
 		}
-		sort.Strings(ids)
-		for _, id := range ids {
-			if id == "" || seenIDs[id] {
-				return preparedKit{}, fmt.Errorf("%s has missing or duplicate entity id %q", group.kind, id)
-			}
-			seenIDs[id] = true
-			entity, err := prepareEntity(group.kind, id, group.assets[id])
-			if err != nil {
-				return preparedKit{}, err
-			}
-			kit.entities = append(kit.entities, entity)
+		asset := seed.Entities[id]
+		if asset.Kind != "COPN" && asset.Kind != "CSFC" && asset.Kind != "CORB" && asset.Kind != "SHIP" {
+			return preparedKit{}, fmt.Errorf("entity %q has invalid kind %q", id, asset.Kind)
 		}
+		entity, err := prepareEntity(asset.Kind, id, asset)
+		if err != nil {
+			return preparedKit{}, err
+		}
+		kit.entities = append(kit.entities, entity)
 	}
 	if len(kit.entities) == 0 {
 		return preparedKit{}, fmt.Errorf("kit has no entities")
