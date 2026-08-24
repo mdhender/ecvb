@@ -94,6 +94,9 @@ seeding a database.
 - Keep `cmd/*` packages thin. Put reusable server, authentication, template, and
   database behavior in focused internal packages as those responsibilities
   emerge.
+- Command-line functions must be thin wrappers around internal package logic.
+  Limit them to obtaining and validating flag values, reporting errors, and
+  writing output.
 - Prefer the standard library and small, direct functions over frameworks,
   dependency injection containers, or speculative abstractions.
 - Pass `context.Context` through request-scoped and database operations.

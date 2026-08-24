@@ -10,16 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mdhender/ecvb/internal/database"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
-
-func TestSchemaVersion(t *testing.T) {
-	if got := latestSchemaVersion(); got != database.SchemaVersion {
-		t.Fatalf("migration count = %d; database schema version = %d", got, database.SchemaVersion)
-	}
-}
 
 func TestCreateDatabase(t *testing.T) {
 	directory := t.TempDir()

@@ -6,5 +6,4 @@ package database
 const (
 	Filename      = "ecvb.db"
 	ApplicationID = 0x65637662 // ASCII "ecvb".
-	SchemaVersion = 3
 )
