@@ -12,7 +12,7 @@ import (
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func showOrdersReport(ctx context.Context, directory, gameCode, email string, factionID int64, output io.Writer) (err error) {
+func showOrdersReport(ctx context.Context, directory, gameCode, email string, factionID int64, turn int, output io.Writer) (err error) {
 	conn, err := openDatabase(ctx, directory)
 	if err != nil {
 		return err
@@ -27,12 +27,15 @@ func showOrdersReport(ctx context.Context, directory, gameCode, email string, fa
 	if err != nil {
 		return err
 	}
+	if turn == -1 {
+		turn = faction.turn
+	}
 
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(w, "ORDERS REPORT")
 	fmt.Fprintln(w, "GAME\tTURN\tFACTION\tCONTROLLER")
-	fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", gameCode, faction.turn, faction.id, faction.controller)
-	if err := writeOrders(w, conn, gameCode, faction.id, "ORDERS"); err != nil {
+	fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", gameCode, turn, faction.id, faction.controller)
+	if err := writeOrders(w, conn, gameCode, turn, faction.id, "ORDERS"); err != nil {
 		return err
 	}
 	if err := w.Flush(); err != nil {
@@ -41,23 +44,53 @@ func showOrdersReport(ctx context.Context, directory, gameCode, email string, fa
 	return nil
 }
 
-func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, factionID int64, heading string) error {
+func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
 	fmt.Fprintf(w, "\n%s\n", heading)
-	fmt.Fprintln(w, "SEQUENCE\tENTITY\tVERB\tTARGET\tSUPPORT\tPARAMETERS")
+	fmt.Fprintln(w, "SEQUENCE\tLINE\tENTITY\tVERB\tINPUT\tSTATUS\tSTART\tFINAL\tERROR")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT sequence, entity_id, verb, target_entity_id, support_entity_id, parameters
-		FROM order_entry
-		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND faction_id = ?
-		ORDER BY sequence;`, &sqlitex.ExecOptions{
-		Args: []any{gameCode, factionID},
+		SELECT sequence, source_line, ship_id, verb, input, status, error_message,
+			start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
+			final_stellium_id, final_system_id, final_planet_id, final_planet_ring
+		FROM (
+			SELECT sequence, source_line, ship_id, 'move' AS verb,
+				CASE WHEN requested_system IS NULL
+					THEN printf('orbit %d', requested_orbit)
+					ELSE printf('system %s orbit %d', requested_system, requested_orbit)
+				END AS input,
+				status, error_message,
+				start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
+				final_stellium_id, final_system_id, final_planet_id, final_planet_ring
+			FROM move_order
+			WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
+			UNION ALL
+			SELECT sequence, source_line, ship_id, 'jump' AS verb,
+				printf('(%d,%d,%d)', destination_x, destination_y, destination_z) AS input,
+				status, error_message,
+				start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
+				final_stellium_id, final_system_id, final_planet_id, final_planet_ring
+			FROM jump_order
+			WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
+		)
+		ORDER BY sequence, verb;`, &sqlitex.ExecOptions{
+		Args: []any{gameCode, turn, factionID, gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%s\t%s\n",
-				stmt.ColumnInt(0), stmt.ColumnInt64(1), stmt.ColumnText(2),
-				nullableInt(stmt, 3), nullableInt(stmt, 4), stmt.ColumnText(5))
+			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
+				stmt.ColumnText(4), stmt.ColumnText(5), orderLocation(stmt, 7), orderLocation(stmt, 11), nullableText(stmt, 6))
 			return nil
 		},
 	}); err != nil {
 		return fmt.Errorf("query submitted orders: %w", err)
 	}
 	return nil
+}
+
+func orderLocation(stmt *sqlite.Stmt, column int) string {
+	if stmt.ColumnIsNull(column) {
+		return "-"
+	}
+	if stmt.ColumnIsNull(column + 1) {
+		return fmt.Sprintf("%d/-/-/-", stmt.ColumnInt64(column))
+	}
+	return fmt.Sprintf("%d/%d/%d/%d", stmt.ColumnInt64(column), stmt.ColumnInt64(column+1), stmt.ColumnInt64(column+2), stmt.ColumnInt(column+3))
 }

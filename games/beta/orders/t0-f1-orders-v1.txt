@@ -3,4 +3,4 @@ id faction 1
 
 move ship 2 to orbit 6
 jump ship 2 to (-1,1,6)
-move ship 2 to system B orbit 4
+move ship 2 to system A orbit 4

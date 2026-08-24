@@ -156,7 +156,7 @@ func showTurnReport(ctx context.Context, directory, gameCode, email string, fact
 		}
 	}
 
-	if err := writeOrders(w, conn, gameCode, factionID, "SUBMITTED ORDERS"); err != nil {
+	if err := writeOrders(w, conn, gameCode, faction.turn, factionID, "ORDERS"); err != nil {
 		return err
 	}
 

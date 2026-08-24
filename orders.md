@@ -1,8 +1,9 @@
 # Order File Reference
 
 An order file identifies one game turn and one submitting faction, followed by
-zero or more orders. Orders for the same ship are evaluated sequentially in file
-order.
+zero or more orders. The engine resolves every `MOVE` order before any `JUMP`
+order. File sequence controls orders for the same ship only when those orders
+resolve in the same phase, segment, and step.
 
 ## File names
 
@@ -110,9 +111,9 @@ ec --db-path games/beta orders submit games/beta/orders/t0-f1-orders-v1.txt
 ```
 
 Submission parses and validates the file again. A valid submission atomically
-replaces the faction's existing `order_entry` rows. An invalid submission leaves
-the existing order set unchanged. Errors include the source line number when
-applicable.
+replaces the faction's pending `move_order` and `jump_order` rows for the current
+turn. An invalid submission leaves the existing order set unchanged. Errors
+include the source line number when applicable.
 
 ## Reporting submitted orders
 
@@ -128,5 +129,9 @@ The player email may be used instead of the faction ID:
 ecrpt --db-path games/beta show orders --game BETA-001 --email user01@example.com
 ```
 
-The report displays the game turn, faction, controller, sequence, entity, verb,
-target, support, and raw parameters stored in `order_entry`.
+Use `--turn NUMBER` to review the retained orders from the previous turn after
+the next turn has opened.
+
+The report displays each order's input, status, starting location, final
+location, and error message. Pending orders have no outcome locations. For a
+failed order, the starting and final locations are identical.

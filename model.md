@@ -19,6 +19,7 @@ Entity location rules are defined in [Entity Location](entity-location.md).
 | `id` | Primary key. |
 | `code` | Game code. |
 | `turn` | Required current turn number; defaults to 0. |
+| `turn_state` | One of `open` or `resolved`; defaults to `open`. |
 | `seed_high` | Required high half of the game's PCG seed; defaults to 19. |
 | `seed_low` | Required low half of the game's PCG seed; defaults to 12. |
 
@@ -211,60 +212,35 @@ unit-specific rule.
 | `tech_level` | Required technology level, from 0 through 10. |
 | `quantity` | Number of units at the technology level. |
 
-## Order entry
+## Orders
 
-### `order_entry`
+Orders are stored in intent-specific tables. Both `jump_order` and `move_order`
+identify the game, turn, faction, source line, sequence, and ship. Their status
+is one of `pending`, `succeeded`, or `failed`.
 
-`order_entry` holds only the orders submitted for the current turn. Orders are
-replaced as a complete set for each faction and removed after the game advances.
-The table does not retain order history.
+Resolved rows record the ship's complete location immediately before and after
+the order. A failed order also records an error message, and its final location
+equals its starting location.
 
-| Column | Description |
-| --- | --- |
-| `game_id` | The game in which the order is issued. Required. |
-| `faction_id` | The faction submitting the order. Required. |
-| `sequence` | The order's deterministic sequence within the faction's submission. Required. |
-| `entity_id` | The entity receiving the order. Required. |
-| `verb` | Engine-defined order verb, such as `jump`, `bombard`, or `draft`. Required. |
-| `target_entity_id` | Optional entity targeted by the order. |
-| `support_entity_id` | Optional entity supported by the order. |
-| `parameters` | Raw parameter text for the game engine. Required; defaults to an empty string. |
+### `jump_order`
 
-For example, the order arguments map to stored fields as follows. Each row also
-has the required `game_id`, `faction_id`, and `sequence` supplied by the order
-submission context.
+A jump order stores the requested X, Y, and Z coordinates and the resolved
+destination stellium ID. A successful jump clears the ship's system, planet,
+and ring.
 
-| Order | `entity_id` | `verb` | `support_entity_id` | `target_entity_id` | `parameters` |
-| --- | ---: | --- | ---: | ---: | --- |
-| `38, pay, USK, 70%` | 38 | `pay` | null | null | `USK, 70%` |
-| `39, bombard, 121, 75%` | 39 | `bombard` | null | 121 | `75%` |
-| `20, support, 39, 121, 45%` | 20 | `support` | 39 | 121 | `45%` |
-| `42, support, 121, 55%` | 42 | `support` | 121 | null | `55%` |
+### `move_order`
 
-In the first support order, entity 20 supports entity 39's attack against entity
-121. In the second, entity 42 supports entity 121 against all attackers, so
-there is no specific target. The `pay` order's `USK` unit code and percentage
-remain raw engine parameters because neither value refers to an entity.
+A move order stores the optional requested system letter, requested orbit, and
+the resolved destination stellium, system, and planet IDs. A successful move
+places the ship in ring 99.
 
-`(faction_id, sequence)` is the primary key. There is no `turn` column because
-the table contains orders only for the current turn. `game_id` allows games to
-advance and clear orders independently.
+Submission atomically replaces both kinds of pending order for the faction and
+current turn. Semantic validation follows engine resolution order: all moves
+are validated before all jumps. The stored sequence records that resolution
+order; the source line records the order's position in the submitted file.
 
-The database enforces the required columns and foreign keys. The game engine is
-responsible for validating that:
-
-- The faction belongs to the game.
-- The issuing entity belongs to the submitting faction and game.
-- Target and support entities are valid for the order.
-- The verb is recognized.
-- The parameters have the format required by the verb.
-- The order satisfies verb-specific fit, ownership, range, and capability rules.
-
-Replacing a faction's orders is atomic. In one transaction, the engine validates
-the complete submission, deletes the faction's existing orders, inserts the new
-set, and commits. A failure rolls back the replacement and preserves the prior
-order set.
-
-Advancing a game turn is also atomic. The engine processes the game's current
-orders, applies their results, increments `game.turn`, deletes all
-`order_entry` rows for that game, and commits the transaction.
+Resolving a turn is atomic. The engine executes all moves, then all jumps,
+updates entities and order outcomes, and changes the game from `open` to
+`resolved`. The turn number does not change until the gamemaster opens the next
+turn. Opening the next turn retains the most recently resolved order rows and
+purges older rows.

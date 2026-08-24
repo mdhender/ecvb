@@ -167,9 +167,10 @@ func gameHasData(conn *sqlite.Conn, gameID int64) (loaded bool, err error) {
 		SELECT EXISTS (
 			SELECT 1 FROM stellium WHERE game_id = ?
 			UNION ALL SELECT 1 FROM faction WHERE game_id = ?
-			UNION ALL SELECT 1 FROM order_entry WHERE game_id = ?
+			UNION ALL SELECT 1 FROM move_order WHERE game_id = ?
+			UNION ALL SELECT 1 FROM jump_order WHERE game_id = ?
 		);`, &sqlitex.ExecOptions{
-		Args: []any{gameID, gameID, gameID},
+		Args: []any{gameID, gameID, gameID, gameID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			loaded = stmt.ColumnInt(0) != 0
 			return nil

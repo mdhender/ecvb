@@ -21,10 +21,25 @@ type Result struct {
 	Orders    int
 }
 
-type storedOrder struct {
-	entityID   int64
-	verb       string
-	parameters string
+type storedMove struct {
+	sequence              int
+	line                  int
+	shipID                int64
+	requestedSystem       string
+	requestedOrbit        int
+	destinationStelliumID int64
+	destinationSystemID   int64
+	destinationPlanetID   int64
+}
+
+type storedJump struct {
+	sequence              int
+	line                  int
+	shipID                int64
+	x                     int
+	y                     int
+	z                     int
+	destinationStelliumID int64
 }
 
 type shipLocation struct {
@@ -35,7 +50,9 @@ type shipLocation struct {
 
 type validatedSubmission struct {
 	result Result
-	orders []storedOrder
+	gameID int64
+	moves  []storedMove
+	jumps  []storedJump
 }
 
 // Check parses and validates an order file without changing the database.
@@ -71,18 +88,40 @@ func Submit(ctx context.Context, conn *sqlite.Conn, r io.Reader) (result Result,
 	if err != nil {
 		return Result{}, err
 	}
-	if err := sqlitex.ExecuteTransient(conn, "DELETE FROM order_entry WHERE faction_id = ?;", &sqlitex.ExecOptions{
-		Args: []any{validated.result.FactionID},
+	if err := sqlitex.ExecuteTransient(conn, "DELETE FROM move_order WHERE game_id = ? AND turn = ? AND faction_id = ?;", &sqlitex.ExecOptions{
+		Args: []any{validated.gameID, validated.result.Turn, validated.result.FactionID},
 	}); err != nil {
-		return Result{}, fmt.Errorf("delete previous orders: %w", err)
+		return Result{}, fmt.Errorf("delete previous move orders: %w", err)
 	}
-	for i, order := range validated.orders {
+	if err := sqlitex.ExecuteTransient(conn, "DELETE FROM jump_order WHERE game_id = ? AND turn = ? AND faction_id = ?;", &sqlitex.ExecOptions{
+		Args: []any{validated.gameID, validated.result.Turn, validated.result.FactionID},
+	}); err != nil {
+		return Result{}, fmt.Errorf("delete previous jump orders: %w", err)
+	}
+	for _, order := range validated.moves {
 		if err := sqlitex.ExecuteTransient(conn, `
-			INSERT INTO order_entry (game_id, faction_id, sequence, entity_id, verb, parameters)
-			VALUES ((SELECT id FROM game WHERE code = ?), ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
-			Args: []any{submission.GameCode, validated.result.FactionID, i + 1, order.entityID, order.verb, order.parameters},
+			INSERT INTO move_order (
+				game_id, turn, faction_id, sequence, source_line, ship_id,
+				requested_system, requested_orbit,
+				destination_stellium_id, destination_system_id, destination_planet_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
+			Args: []any{validated.gameID, submission.Turn, validated.result.FactionID,
+				order.sequence, order.line, order.shipID, nullableString(order.requestedSystem), order.requestedOrbit,
+				order.destinationStelliumID, order.destinationSystemID, order.destinationPlanetID},
 		}); err != nil {
-			return Result{}, fmt.Errorf("insert order from line %d: %w", submission.Orders[i].Line, err)
+			return Result{}, fmt.Errorf("insert move order from line %d: %w", order.line, err)
+		}
+	}
+	for _, order := range validated.jumps {
+		if err := sqlitex.ExecuteTransient(conn, `
+			INSERT INTO jump_order (
+				game_id, turn, faction_id, sequence, source_line, ship_id,
+				destination_x, destination_y, destination_z, destination_stellium_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
+			Args: []any{validated.gameID, submission.Turn, validated.result.FactionID,
+				order.sequence, order.line, order.shipID, order.x, order.y, order.z, order.destinationStelliumID},
+		}); err != nil {
+			return Result{}, fmt.Errorf("insert jump order from line %d: %w", order.line, err)
 		}
 	}
 	return validated.result, nil
@@ -92,7 +131,7 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	if err := ctx.Err(); err != nil {
 		return validatedSubmission{}, err
 	}
-	gameID, currentTurn, found, err := findGame(conn, submission.GameCode)
+	gameID, currentTurn, turnState, found, err := findGame(conn, submission.GameCode)
 	if err != nil {
 		return validatedSubmission{}, err
 	}
@@ -102,6 +141,9 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	var foundProblems problems
 	if currentTurn != submission.Turn {
 		foundProblems = append(foundProblems, problem{1, fmt.Sprintf("game %q is on turn %d, not turn %d", submission.GameCode, currentTurn, submission.Turn)})
+	}
+	if turnState != "open" {
+		foundProblems = append(foundProblems, problem{1, fmt.Sprintf("game %q turn %d is resolved and not accepting orders", submission.GameCode, currentTurn)})
 	}
 	factionID, identityProblems, err := resolveFaction(conn, gameID, submission.Identity)
 	if err != nil {
@@ -113,8 +155,13 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	}
 
 	locations := make(map[int64]shipLocation)
-	stored := make([]storedOrder, 0, len(submission.Orders))
+	moves := make([]storedMove, 0, len(submission.Orders))
+	jumps := make([]storedJump, 0, len(submission.Orders))
+	resolutionSequence := 0
 	for _, order := range submission.Orders {
+		if order.Verb != "move" {
+			continue
+		}
 		if err := ctx.Err(); err != nil {
 			return validatedSubmission{}, err
 		}
@@ -132,68 +179,92 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 			locations[order.ShipID] = location
 		}
 
-		switch order.Verb {
-		case "jump":
-			destinationID, exists, err := findStellium(conn, gameID, order.X, order.Y, order.Z)
+		systemID := location.systemID
+		if order.System != "" {
+			var exists bool
+			systemID, exists, err = findSystem(conn, location.stelliumID, order.System)
 			if err != nil {
 				return validatedSubmission{}, err
 			}
 			if !exists {
-				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("game %q has no stellium at (%d,%d,%d)", submission.GameCode, order.X, order.Y, order.Z)})
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("current stellium has no system %s", order.System)})
 				continue
 			}
-			locations[order.ShipID] = shipLocation{stelliumID: destinationID}
-			stored = append(stored, storedOrder{order.ShipID, "jump", fmt.Sprintf("(%d,%d,%d)", order.X, order.Y, order.Z)})
-		case "move":
-			systemID := location.systemID
-			if order.System != "" {
-				var exists bool
-				systemID, exists, err = findSystem(conn, location.stelliumID, order.System)
-				if err != nil {
-					return validatedSubmission{}, err
-				}
-				if !exists {
-					foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("current stellium has no system %s", order.System)})
-					continue
-				}
-			} else if systemID == 0 {
-				foundProblems = append(foundProblems, problem{order.Line, "ship has no current system; specify a destination system"})
-				continue
-			}
-			planetID, exists, err := findPlanet(conn, systemID, order.Orbit)
-			if err != nil {
-				return validatedSubmission{}, err
-			}
-			if !exists {
-				system := order.System
-				if system == "" {
-					system = "current"
-				}
-				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("system %s has no planet in orbit %d", system, order.Orbit)})
-				continue
-			}
-			locations[order.ShipID] = shipLocation{stelliumID: location.stelliumID, systemID: systemID, planetID: planetID}
-			parameters := fmt.Sprintf("orbit %d", order.Orbit)
-			if order.System != "" {
-				parameters = fmt.Sprintf("system %s orbit %d", order.System, order.Orbit)
-			}
-			stored = append(stored, storedOrder{order.ShipID, "move", parameters})
+		} else if systemID == 0 {
+			foundProblems = append(foundProblems, problem{order.Line, "ship has no current system; specify a destination system"})
+			continue
 		}
+		planetID, exists, err := findPlanet(conn, systemID, order.Orbit)
+		if err != nil {
+			return validatedSubmission{}, err
+		}
+		if !exists {
+			system := order.System
+			if system == "" {
+				system = "current"
+			}
+			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("system %s has no planet in orbit %d", system, order.Orbit)})
+			continue
+		}
+		locations[order.ShipID] = shipLocation{stelliumID: location.stelliumID, systemID: systemID, planetID: planetID}
+		resolutionSequence++
+		moves = append(moves, storedMove{
+			sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
+			requestedSystem: order.System, requestedOrbit: order.Orbit,
+			destinationStelliumID: location.stelliumID, destinationSystemID: systemID, destinationPlanetID: planetID,
+		})
+	}
+	for _, order := range submission.Orders {
+		if order.Verb != "jump" {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return validatedSubmission{}, err
+		}
+		location, ok := locations[order.ShipID]
+		if !ok {
+			var orderProblems problems
+			location, orderProblems, err = findShip(conn, gameID, factionID, order)
+			if err != nil {
+				return validatedSubmission{}, err
+			}
+			if len(orderProblems) != 0 {
+				foundProblems = append(foundProblems, orderProblems...)
+				continue
+			}
+			locations[order.ShipID] = location
+		}
+		destinationID, exists, err := findStellium(conn, gameID, order.X, order.Y, order.Z)
+		if err != nil {
+			return validatedSubmission{}, err
+		}
+		if !exists {
+			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("game %q has no stellium at (%d,%d,%d)", submission.GameCode, order.X, order.Y, order.Z)})
+			continue
+		}
+		locations[order.ShipID] = shipLocation{stelliumID: destinationID}
+		resolutionSequence++
+		jumps = append(jumps, storedJump{
+			sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
+			x: order.X, y: order.Y, z: order.Z, destinationStelliumID: destinationID,
+		})
 	}
 	if len(foundProblems) != 0 {
 		return validatedSubmission{}, foundProblems
 	}
 	return validatedSubmission{
-		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID, Orders: len(stored)},
-		orders: stored,
+		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID, Orders: len(moves) + len(jumps)},
+		gameID: gameID,
+		moves:  moves,
+		jumps:  jumps,
 	}, nil
 }
 
-func findGame(conn *sqlite.Conn, code string) (id int64, turn int, found bool, err error) {
-	err = sqlitex.ExecuteTransient(conn, "SELECT id, turn FROM game WHERE code = ?;", &sqlitex.ExecOptions{
+func findGame(conn *sqlite.Conn, code string) (id int64, turn int, state string, found bool, err error) {
+	err = sqlitex.ExecuteTransient(conn, "SELECT id, turn, turn_state FROM game WHERE code = ?;", &sqlitex.ExecOptions{
 		Args: []any{code},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			id, turn, found = stmt.ColumnInt64(0), stmt.ColumnInt(1), true
+			id, turn, state, found = stmt.ColumnInt64(0), stmt.ColumnInt(1), stmt.ColumnText(2), true
 			return nil
 		},
 	})
@@ -201,6 +272,13 @@ func findGame(conn *sqlite.Conn, code string) (id int64, turn int, found bool, e
 		err = fmt.Errorf("find game %q: %w", code, err)
 	}
 	return
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, problems, error) {

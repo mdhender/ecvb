@@ -55,6 +55,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 	ordersGame := ordersFlags.StringLong("game", "", "code of the game")
 	ordersEmail := ordersFlags.StringLong("email", "", "email address of the player")
 	ordersFaction := ordersFlags.Int64Long("faction", 0, "id of the player's faction")
+	ordersTurn := ordersFlags.IntLong("turn", -1, "turn to report; defaults to the game's current turn")
 	turnFlags := ff.NewFlagSet("show turn")
 	turnGame := turnFlags.StringLong("game", "", "code of the game")
 	turnEmail := turnFlags.StringLong("email", "", "email address of the player")
@@ -65,7 +66,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 	show.Subcommands = []*ff.Command{
 		{
 			Name:      "orders",
-			Usage:     "ecrpt show orders --game CODE (--email EMAIL | --faction ID)",
+			Usage:     "ecrpt show orders --game CODE (--email EMAIL | --faction ID) [--turn NUMBER]",
 			ShortHelp: "show a faction's submitted orders",
 			Flags:     ordersFlags,
 			Exec: func(ctx context.Context, args []string) error {
@@ -79,8 +80,11 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if err != nil {
 					return err
 				}
+				if *ordersTurn < -1 {
+					return fmt.Errorf("turn must be nonnegative")
+				}
 				return writeReport(*showOutput, stdout, func(output io.Writer) error {
-					return showOrdersReport(ctx, *dbPath, *ordersGame, email, *ordersFaction, output)
+					return showOrdersReport(ctx, *dbPath, *ordersGame, email, *ordersFaction, *ordersTurn, output)
 				})
 			},
 		},

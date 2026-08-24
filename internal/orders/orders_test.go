@@ -35,16 +35,15 @@ func TestCheckValidatesSequentialOrdersWithoutWriting(t *testing.T) {
 	}
 }
 
-func TestCheckRejectsImplicitSystemAfterJump(t *testing.T) {
+func TestCheckValidatesMovesBeforeJumpsRegardlessOfFileOrder(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 3
 id faction 1
 jump ship 40 to (1,2,3)
 move ship 40 to orbit 4
 `
-	_, err := Check(context.Background(), conn, strings.NewReader(input))
-	if err == nil || !strings.Contains(err.Error(), "line 4: ship has no current system") {
-		t.Fatalf("Check error = %v; want missing current system", err)
+	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatalf("Check: %v", err)
 	}
 }
 
@@ -87,8 +86,16 @@ func TestSubmitAtomicallyReplacesOrders(t *testing.T) {
 
 	var rows []string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT printf('%d|%d|%s|%s', sequence, entity_id, verb, parameters)
-		FROM order_entry WHERE faction_id = 1 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		SELECT printf('%d|%d|%s|%s', sequence, ship_id, verb, input)
+		FROM (
+			SELECT sequence, ship_id, 'move' AS verb,
+				CASE WHEN requested_system IS NULL THEN printf('orbit %d', requested_orbit)
+				ELSE printf('system %s orbit %d', requested_system, requested_orbit) END AS input
+			FROM move_order WHERE faction_id = 1 AND turn = 3
+			UNION ALL
+			SELECT sequence, ship_id, 'jump', printf('(%d,%d,%d)', destination_x, destination_y, destination_z)
+			FROM jump_order WHERE faction_id = 1 AND turn = 3
+		) ORDER BY sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			rows = append(rows, stmt.ColumnText(0))
 			return nil
@@ -98,8 +105,8 @@ func TestSubmitAtomicallyReplacesOrders(t *testing.T) {
 	}
 	want := []string{
 		"1|40|move|orbit 6",
-		"2|40|jump|(1,2,3)",
-		"3|40|move|system B orbit 4",
+		"2|40|move|system B orbit 4",
+		"3|40|jump|(1,2,3)",
 	}
 	if strings.Join(rows, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("orders = %q; want %q", rows, want)
@@ -111,6 +118,42 @@ func TestSubmitAtomicallyReplacesOrders(t *testing.T) {
 	}
 	if got := orderCount(t, conn); got != 3 {
 		t.Fatalf("order count after rejected submit = %d; want 3", got)
+	}
+}
+
+func TestSubmitRejectsResolvedTurn(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	if err := sqlitex.ExecuteTransient(conn, "UPDATE game SET turn_state = 'resolved' WHERE id = 1;", nil); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Submit(context.Background(), conn, strings.NewReader(validOrders))
+	if err == nil || !strings.Contains(err.Error(), "resolved and not accepting orders") {
+		t.Fatalf("Submit error = %v; want resolved turn error", err)
+	}
+	if got := orderCount(t, conn); got != 1 {
+		t.Fatalf("order count after rejected submit = %d; want 1", got)
+	}
+}
+
+func TestSpecializedOrderForeignKeysEnforceOwnershipAndDestinationGame(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	for name, script := range map[string]string{
+		"ship ownership": `
+			INSERT INTO jump_order (
+				game_id, turn, faction_id, sequence, source_line, ship_id,
+				destination_x, destination_y, destination_z, destination_stellium_id
+			) VALUES (1, 3, 1, 2, 4, 42, 1, 2, 3, 11);`,
+		"destination game": `
+			INSERT INTO jump_order (
+				game_id, turn, faction_id, sequence, source_line, ship_id,
+				destination_x, destination_y, destination_z, destination_stellium_id
+			) VALUES (1, 3, 1, 2, 4, 40, 1, 2, 3, 12);`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := sqlitex.ExecuteTransient(conn, script, nil); err == nil {
+				t.Fatal("insert succeeded; want foreign key error")
+			}
+		})
 	}
 }
 
@@ -142,15 +185,18 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES
 			(10, 1, 0, 0, 0), (11, 1, 1, 2, 3), (12, 2, 1, 2, 3);
 		INSERT INTO system (id, stellium_id, sequence) VALUES
-			(20, 10, 'A'), (21, 11, 'A'), (22, 11, 'B');
+			(20, 10, 'A'), (21, 11, 'A'), (22, 11, 'B'), (23, 10, 'B');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES
-			(30, 20, 4, 'rocky', 10), (31, 20, 6, 'rocky', 10), (32, 22, 4, 'rocky', 10);
+			(30, 20, 4, 'rocky', 10), (31, 20, 6, 'rocky', 10),
+			(32, 22, 4, 'rocky', 10), (33, 23, 4, 'rocky', 10);
 		INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume) VALUES
 			(40, 'SHIP', 1, 10, 20, 30, 64, 1, 100),
 			(41, 'COPN', 1, 10, 20, 30, 0, 1, 100),
 			(42, 'SHIP', 1, 10, 20, 30, 64, 2, 100);
-		INSERT INTO order_entry (game_id, faction_id, sequence, entity_id, verb, parameters)
-		VALUES (1, 1, 1, 40, 'jump', '(0,0,0)');
+		INSERT INTO jump_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id,
+			destination_x, destination_y, destination_z, destination_stellium_id
+		) VALUES (1, 3, 1, 1, 3, 40, 0, 0, 0, 10);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +206,9 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 func orderCount(t *testing.T, conn *sqlite.Conn) int {
 	t.Helper()
 	count := 0
-	if err := sqlitex.ExecuteTransient(conn, "SELECT count(*) FROM order_entry WHERE faction_id = 1;", &sqlitex.ExecOptions{
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT (SELECT count(*) FROM move_order WHERE faction_id = 1 AND turn = 3)
+			+ (SELECT count(*) FROM jump_order WHERE faction_id = 1 AND turn = 3);`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			count = stmt.ColumnInt(0)
 			return nil

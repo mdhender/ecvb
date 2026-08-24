@@ -178,6 +178,61 @@ func TestRunGameCreateUsesDefaultSeedPath(t *testing.T) {
 	}
 }
 
+func TestRunResolveAndOpenTurn(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "database")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+	conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadWrite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, "PRAGMA foreign_keys = ON;", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO users (id, email, role) VALUES (1, 'player@example.com', 'non-administrator');
+		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 0);
+		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
+		INSERT INTO stellium (id, game_id, x, y, z) VALUES (10, 1, 0, 0, 0), (11, 1, 1, 2, 3);
+		INSERT INTO system (id, stellium_id, sequence) VALUES (20, 10, 'A');
+		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES (30, 20, 4, 'rocky', 10);
+		INSERT INTO entity (
+			id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume
+		) VALUES (40, 'SHIP', 1, 10, 20, 30, 64, 1, 100);
+		INSERT INTO jump_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id,
+			destination_x, destination_y, destination_z, destination_stellium_id
+		) VALUES (1, 0, 1, 1, 3, 40, 1, 2, 3, 11);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := run(context.Background(), []string{
+		"--db-path", directory, "turn", "resolve", "--game", "TEST", "--turn", "0",
+	}, &stdout, &stderr); err != nil {
+		t.Fatalf("resolve turn: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "1 orders, 1 succeeded, 0 failed") {
+		t.Fatalf("resolve output = %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "order_type=jump") || !strings.Contains(stderr.String(), "status=succeeded") {
+		t.Fatalf("resolve log = %q", stderr.String())
+	}
+
+	stdout.Reset()
+	if err := run(context.Background(), []string{
+		"--db-path", directory, "turn", "open", "--game", "TEST", "--turn", "0",
+	}, &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatalf("open turn: %v", err)
+	}
+	if got := stdout.String(); got != "opened game TEST turn 1\n" {
+		t.Fatalf("open output = %q", got)
+	}
+}
+
 func TestCreateGameRejectsInvalidSeedAndDuplicateCode(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "database")
 	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)

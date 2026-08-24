@@ -162,6 +162,139 @@ CREATE TABLE entity_population (
     PRIMARY KEY (entity_id, class)
 );
 `,
+	`
+ALTER TABLE game ADD COLUMN turn_state TEXT NOT NULL DEFAULT 'open'
+    CHECK (turn_state IN ('open', 'resolved'));
+
+CREATE TABLE order_migration_guard (id INTEGER);
+CREATE TRIGGER order_migration_requires_empty_order_entry
+BEFORE INSERT ON order_migration_guard
+BEGIN
+    SELECT RAISE(ABORT, 'cannot migrate submitted order_entry rows; preserve the order files, clear the submissions, and submit them after migration');
+END;
+INSERT INTO order_migration_guard SELECT 1 FROM order_entry LIMIT 1;
+DROP TRIGGER order_migration_requires_empty_order_entry;
+DROP TABLE order_migration_guard;
+DROP TABLE order_entry;
+
+CREATE UNIQUE INDEX faction_id_game_id_idx ON faction(id, game_id);
+CREATE UNIQUE INDEX entity_id_faction_id_idx ON entity(id, faction_id);
+CREATE UNIQUE INDEX stellium_id_game_id_idx ON stellium(id, game_id);
+
+CREATE TABLE jump_order (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    source_line INTEGER NOT NULL CHECK (source_line > 0),
+    ship_id INTEGER NOT NULL,
+    destination_x INTEGER NOT NULL,
+    destination_y INTEGER NOT NULL,
+    destination_z INTEGER NOT NULL,
+    destination_stellium_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'succeeded', 'failed')),
+    error_message TEXT,
+    start_stellium_id INTEGER,
+    start_system_id INTEGER,
+    start_planet_id INTEGER,
+    start_planet_ring INTEGER,
+    final_stellium_id INTEGER,
+    final_system_id INTEGER,
+    final_planet_id INTEGER,
+    final_planet_ring INTEGER,
+    PRIMARY KEY (game_id, turn, faction_id, sequence),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
+    FOREIGN KEY (ship_id, faction_id) REFERENCES entity(id, faction_id),
+    FOREIGN KEY (destination_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (start_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (start_system_id, start_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (start_planet_id, start_system_id) REFERENCES planet(id, system_id),
+    FOREIGN KEY (final_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (final_system_id, final_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (final_planet_id, final_system_id) REFERENCES planet(id, system_id),
+    CHECK (
+        (status = 'pending' AND error_message IS NULL
+            AND start_stellium_id IS NULL AND start_system_id IS NULL
+            AND start_planet_id IS NULL AND start_planet_ring IS NULL
+            AND final_stellium_id IS NULL AND final_system_id IS NULL
+            AND final_planet_id IS NULL AND final_planet_ring IS NULL)
+        OR
+        (status = 'succeeded' AND error_message IS NULL
+            AND start_stellium_id IS NOT NULL AND final_stellium_id IS NOT NULL)
+        OR
+        (status = 'failed' AND error_message IS NOT NULL AND error_message <> ''
+            AND start_stellium_id IS NOT NULL AND final_stellium_id IS start_stellium_id
+            AND final_system_id IS start_system_id AND final_planet_id IS start_planet_id
+            AND final_planet_ring IS start_planet_ring)
+    ),
+    CHECK ((start_system_id IS NULL AND start_planet_id IS NULL AND start_planet_ring IS NULL)
+        OR (start_system_id IS NOT NULL AND start_planet_id IS NOT NULL AND start_planet_ring IS NOT NULL)),
+    CHECK ((final_system_id IS NULL AND final_planet_id IS NULL AND final_planet_ring IS NULL)
+        OR (final_system_id IS NOT NULL AND final_planet_id IS NOT NULL AND final_planet_ring IS NOT NULL))
+);
+
+CREATE TABLE move_order (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    source_line INTEGER NOT NULL CHECK (source_line > 0),
+    ship_id INTEGER NOT NULL,
+    requested_system TEXT CHECK (requested_system IS NULL OR requested_system IN ('A', 'B', 'C', 'D', 'E')),
+    requested_orbit INTEGER NOT NULL CHECK (requested_orbit BETWEEN 1 AND 10),
+    destination_stellium_id INTEGER NOT NULL,
+    destination_system_id INTEGER NOT NULL,
+    destination_planet_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'succeeded', 'failed')),
+    error_message TEXT,
+    start_stellium_id INTEGER,
+    start_system_id INTEGER,
+    start_planet_id INTEGER,
+    start_planet_ring INTEGER,
+    final_stellium_id INTEGER,
+    final_system_id INTEGER,
+    final_planet_id INTEGER,
+    final_planet_ring INTEGER,
+    PRIMARY KEY (game_id, turn, faction_id, sequence),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
+    FOREIGN KEY (ship_id, faction_id) REFERENCES entity(id, faction_id),
+    FOREIGN KEY (destination_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (destination_system_id, destination_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (destination_planet_id, destination_system_id) REFERENCES planet(id, system_id),
+    FOREIGN KEY (start_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (start_system_id, start_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (start_planet_id, start_system_id) REFERENCES planet(id, system_id),
+    FOREIGN KEY (final_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (final_system_id, final_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (final_planet_id, final_system_id) REFERENCES planet(id, system_id),
+    CHECK (
+        (status = 'pending' AND error_message IS NULL
+            AND start_stellium_id IS NULL AND start_system_id IS NULL
+            AND start_planet_id IS NULL AND start_planet_ring IS NULL
+            AND final_stellium_id IS NULL AND final_system_id IS NULL
+            AND final_planet_id IS NULL AND final_planet_ring IS NULL)
+        OR
+        (status = 'succeeded' AND error_message IS NULL
+            AND start_stellium_id IS NOT NULL AND final_stellium_id IS NOT NULL)
+        OR
+        (status = 'failed' AND error_message IS NOT NULL AND error_message <> ''
+            AND start_stellium_id IS NOT NULL AND final_stellium_id IS start_stellium_id
+            AND final_system_id IS start_system_id AND final_planet_id IS start_planet_id
+            AND final_planet_ring IS start_planet_ring)
+    ),
+    CHECK ((start_system_id IS NULL AND start_planet_id IS NULL AND start_planet_ring IS NULL)
+        OR (start_system_id IS NOT NULL AND start_planet_id IS NOT NULL AND start_planet_ring IS NOT NULL)),
+    CHECK ((final_system_id IS NULL AND final_planet_id IS NULL AND final_planet_ring IS NULL)
+        OR (final_system_id IS NOT NULL AND final_planet_id IS NOT NULL AND final_planet_ring IS NOT NULL))
+);
+
+CREATE INDEX jump_order_game_turn_idx ON jump_order(game_id, turn);
+CREATE INDEX jump_order_ship_id_idx ON jump_order(ship_id);
+CREATE INDEX move_order_game_turn_idx ON move_order(game_id, turn);
+CREATE INDEX move_order_ship_id_idx ON move_order(ship_id);
+`,
 }
 
 // SchemaVersion is the latest database schema version.

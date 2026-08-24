@@ -106,7 +106,7 @@ func TestECRptShowTurnByEmail(t *testing.T) {
 		"ENTITIES", "501  SHIP  2", "502  COPN  1",
 		"CENSUS", "501     SKW    1200",
 		"INVENTORY", "501     cargo        FUEL", "502     cargo        GOLD",
-		"SUBMITTED ORDERS", "1         501     jump", "2         502     pay",
+		"ORDERS", "1         4     501     move", "2         3     501     jump",
 	} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("output does not contain %q:\n%s", want, output.String())
@@ -129,8 +129,8 @@ func TestECRptShowOrdersByEmail(t *testing.T) {
 	}
 	for _, want := range []string{
 		"ORDERS REPORT", "BETA-001  3     41       player@example.com",
-		"SEQUENCE  ENTITY  VERB", "1         501     jump", "2         502     pay",
-		"USK, 70%",
+		"SEQUENCE  LINE  ENTITY  VERB", "1         4     501     move", "2         3     501     jump",
+		"orbit 1", "pending",
 	} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("output does not contain %q:\n%s", want, output.String())
@@ -281,7 +281,7 @@ func createTestDatabase(t *testing.T) string {
 		PRAGMA application_id = %d;
 		PRAGMA user_version = %d;
 		CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL);
-		CREATE TABLE game (id INTEGER PRIMARY KEY, code TEXT NOT NULL, turn INTEGER NOT NULL DEFAULT 0);
+		CREATE TABLE game (id INTEGER PRIMARY KEY, code TEXT NOT NULL, turn INTEGER NOT NULL DEFAULT 0, turn_state TEXT NOT NULL DEFAULT 'open');
 		CREATE TABLE agent (id INTEGER PRIMARY KEY, code TEXT, description TEXT NOT NULL);
 		CREATE TABLE faction (id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL, user_id INTEGER, agent_id INTEGER);
 		CREATE TABLE stellium (id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL);
@@ -293,7 +293,23 @@ func createTestDatabase(t *testing.T) string {
 		CREATE TABLE entity_population (entity_id INTEGER NOT NULL, class TEXT NOT NULL, quantity INTEGER NOT NULL);
 		CREATE TABLE work_group (id INTEGER PRIMARY KEY, entity_id INTEGER NOT NULL, unit TEXT NOT NULL, sequence INTEGER NOT NULL, deposit_id INTEGER);
 		CREATE TABLE work_group_units (work_group_id INTEGER NOT NULL, tech_level INTEGER NOT NULL, quantity INTEGER NOT NULL);
-		CREATE TABLE order_entry (game_id INTEGER NOT NULL, faction_id INTEGER NOT NULL, sequence INTEGER NOT NULL, entity_id INTEGER NOT NULL, verb TEXT NOT NULL, target_entity_id INTEGER, support_entity_id INTEGER, parameters TEXT NOT NULL DEFAULT '');
+		CREATE TABLE jump_order (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,
+			destination_x INTEGER NOT NULL, destination_y INTEGER NOT NULL, destination_z INTEGER NOT NULL,
+			destination_stellium_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
+			start_stellium_id INTEGER, start_system_id INTEGER, start_planet_id INTEGER, start_planet_ring INTEGER,
+			final_stellium_id INTEGER, final_system_id INTEGER, final_planet_id INTEGER, final_planet_ring INTEGER
+		);
+		CREATE TABLE move_order (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,
+			requested_system TEXT, requested_orbit INTEGER NOT NULL,
+			destination_stellium_id INTEGER NOT NULL, destination_system_id INTEGER NOT NULL, destination_planet_id INTEGER NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
+			start_stellium_id INTEGER, start_system_id INTEGER, start_planet_id INTEGER, start_planet_ring INTEGER,
+			final_stellium_id INTEGER, final_system_id INTEGER, final_planet_id INTEGER, final_planet_ring INTEGER
+		);
 		INSERT INTO users (id, email) VALUES (11, 'player@example.com');
 		INSERT INTO game (id, code, turn) VALUES (1, 'BETA-001', 3), (2, 'OTHER', 0);
 		INSERT INTO agent (id, code, description) VALUES (21, 'uncontrolled', 'Uncontrolled faction');
@@ -315,8 +331,14 @@ func createTestDatabase(t *testing.T) string {
 		INSERT INTO entity_population (entity_id, class, quantity) VALUES (501, 'SKW', 12), (502, 'USK', 20);
 		INSERT INTO work_group (id, entity_id, unit, sequence, deposit_id) VALUES (61, 502, 'MINE', 1, 1);
 		INSERT INTO work_group_units (work_group_id, tech_level, quantity) VALUES (61, 1, 4);
-		INSERT INTO order_entry (game_id, faction_id, sequence, entity_id, verb, target_entity_id, support_entity_id, parameters) VALUES
-			(1, 41, 1, 501, 'jump', NULL, NULL, '79'), (1, 41, 2, 502, 'pay', NULL, NULL, 'USK, 70%%');
+		INSERT INTO jump_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id,
+			destination_x, destination_y, destination_z, destination_stellium_id
+		) VALUES (1, 3, 41, 2, 3, 501, 9, 13, -5, 79);
+		INSERT INTO move_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+			destination_stellium_id, destination_system_id, destination_planet_id
+		) VALUES (1, 3, 41, 1, 4, 501, 1, 79, 88, 871);
 	`, database.ApplicationID, database.SchemaVersion)
 	if err := sqlitex.ExecuteScript(conn, script, nil); err != nil {
 		t.Fatal(err)

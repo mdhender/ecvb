@@ -49,7 +49,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		ShortHelp: "manage an ECVB game",
 		Flags:     flags,
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a subcommand is required (add, db, game, load, or orders)")
+			return fmt.Errorf("a subcommand is required (add, db, game, load, orders, or turn)")
 		},
 	}
 	db := &ff.Command{
@@ -231,7 +231,64 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			},
 		},
 	}
-	root.Subcommands = []*ff.Command{add, db, game, load, orders}
+	turn := &ff.Command{
+		Name:      "turn",
+		Usage:     "ec turn SUBCOMMAND",
+		ShortHelp: "resolve a turn or open the next turn",
+		Exec: func(context.Context, []string) error {
+			return fmt.Errorf("a turn subcommand is required (open or resolve)")
+		},
+	}
+	resolveTurnFlags := ff.NewFlagSet("turn resolve")
+	resolveTurnGame := resolveTurnFlags.StringLong("game", "", "code of the game")
+	resolveTurnNumber := resolveTurnFlags.IntLong("turn", -1, "turn number to resolve")
+	openTurnFlags := ff.NewFlagSet("turn open")
+	openTurnGame := openTurnFlags.StringLong("game", "", "code of the game")
+	openResolvedTurn := openTurnFlags.IntLong("turn", -1, "resolved turn after which to open the next turn")
+	turn.Subcommands = []*ff.Command{
+		{
+			Name:      "resolve",
+			Usage:     "ec turn resolve --game CODE --turn NUMBER",
+			ShortHelp: "resolve all orders for an open turn",
+			Flags:     resolveTurnFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 0 {
+					return fmt.Errorf("unexpected arguments: %v", args)
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				result, err := resolveGameTurn(ctx, *dbPath, *resolveTurnGame, *resolveTurnNumber, stderr)
+				if err != nil {
+					return err
+				}
+				_, err = fmt.Fprintf(stdout, "resolved game %s turn %d: %d orders, %d succeeded, %d failed\n",
+					result.GameCode, result.Turn, result.Orders, result.Succeeded, result.Failed)
+				return err
+			},
+		},
+		{
+			Name:      "open",
+			Usage:     "ec turn open --game CODE --turn RESOLVED-TURN",
+			ShortHelp: "open the turn following a resolved turn",
+			Flags:     openTurnFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 0 {
+					return fmt.Errorf("unexpected arguments: %v", args)
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				result, err := openGameTurn(ctx, *dbPath, *openTurnGame, *openResolvedTurn)
+				if err != nil {
+					return err
+				}
+				_, err = fmt.Fprintf(stdout, "opened game %s turn %d\n", result.GameCode, result.Turn)
+				return err
+			},
+		},
+	}
+	root.Subcommands = []*ff.Command{add, db, game, load, orders, turn}
 
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }
