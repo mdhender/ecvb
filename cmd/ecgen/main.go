@@ -23,6 +23,8 @@ import (
 
 const stelliaSeedFilename = "stellia-seed.json"
 const systemsSeedFilename = "systems-seed.json"
+const planetsSeedFilename = "planets-seed.json"
+const depositsSeedFilename = "deposits-seed.json"
 
 func main() {
 	env, ok := os.LookupEnv("EC_ENV")
@@ -46,7 +48,7 @@ func run(ctx context.Context, args []string) error {
 		Usage:     "ecgen SUBCOMMAND",
 		ShortHelp: "generate ECVB seed files",
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a subcommand is required (stellia, systems)")
+			return fmt.Errorf("a subcommand is required (stellia, systems, planets, deposits)")
 		},
 	}
 
@@ -74,6 +76,28 @@ func run(ctx context.Context, args []string) error {
 					return fmt.Errorf("expected exactly one directory path")
 				}
 				return generateSystems(args[0])
+			},
+		},
+		{
+			Name:      "planets",
+			Usage:     "ecgen planets <path>",
+			ShortHelp: "generate planets from systems-seed.json",
+			Exec: func(_ context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one directory path")
+				}
+				return generatePlanets(args[0])
+			},
+		},
+		{
+			Name:      "deposits",
+			Usage:     "ecgen deposits <path>",
+			ShortHelp: "generate deposits from planets-seed.json",
+			Exec: func(_ context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one directory path")
+				}
+				return generateDeposits(args[0])
 			},
 		},
 	}
@@ -107,6 +131,30 @@ type system struct {
 	UUID         string `json:"uuid"`
 	StelliumUUID string `json:"stellium-uuid"`
 	Sequence     string `json:"sequence"`
+}
+
+type planetsSeed struct {
+	Planets []planet `json:"planets"`
+}
+
+type planet struct {
+	UUID         string `json:"uuid"`
+	SystemUUID   string `json:"system-uuid"`
+	Orbit        int    `json:"orbit"`
+	Type         string `json:"type"`
+	Habitability int    `json:"habitability"`
+}
+
+type depositsSeed struct {
+	Deposits []deposit `json:"deposits"`
+}
+
+type deposit struct {
+	PlanetUUID string `json:"planet-uuid"`
+	Sequence   int    `json:"sequence"`
+	Resource   string `json:"resource"`
+	Quantity   int    `json:"quantity"`
+	Quality    int    `json:"quality"`
 }
 
 func generateStellia(directory string, seed int64) (err error) {
@@ -289,6 +337,206 @@ func systemUUID(stelliumUUID, sequence string) string {
 	id[6] = id[6]&0x0f | 0x40
 	id[8] = id[8]&0x3f | 0x80
 	return formatUUID([16]byte(id[:16]))
+}
+
+func generatePlanets(directory string) (err error) {
+	inputPath := filepath.Join(directory, systemsSeedFilename)
+	input, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("open input file %s: %w", inputPath, err)
+	}
+	defer input.Close()
+
+	var systems systemsSeed
+	decoder := json.NewDecoder(input)
+	if err := decoder.Decode(&systems); err != nil {
+		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			err = errors.New("unexpected additional JSON value")
+		}
+		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	}
+
+	types := [...]string{
+		"rocky", "rocky", "rocky", "rocky", "asteroids",
+		"gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroids",
+	}
+	habitability := [...]int{0, 1, 8, 25, 0, 15, 4, 2, 0, 0}
+	data := planetsSeed{Planets: make([]planet, 0, len(systems.Systems)*len(types))}
+	seenSystems := make(map[string]bool, len(systems.Systems))
+	for i, system := range systems.Systems {
+		if system.UUID == "" {
+			return fmt.Errorf("parse input file %s: systems[%d] has no uuid", inputPath, i)
+		}
+		if seenSystems[system.UUID] {
+			return fmt.Errorf("parse input file %s: systems[%d] has duplicate uuid %q", inputPath, i, system.UUID)
+		}
+		seenSystems[system.UUID] = true
+		for index := range types {
+			orbit := index + 1
+			data.Planets = append(data.Planets, planet{
+				UUID:         planetUUID(system.UUID, orbit),
+				SystemUUID:   system.UUID,
+				Orbit:        orbit,
+				Type:         types[index],
+				Habitability: habitability[index],
+			})
+		}
+	}
+
+	outputPath := filepath.Join(directory, planetsSeedFilename)
+	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("output file %s already exists", outputPath)
+		}
+		return fmt.Errorf("create output file %s: %w", outputPath, err)
+	}
+	complete := false
+	defer func() {
+		if closeErr := output.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close output file %s: %w", outputPath, closeErr)
+		}
+		if !complete {
+			_ = os.Remove(outputPath)
+		}
+	}()
+
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("write output file %s: %w", outputPath, err)
+	}
+	complete = true
+	return nil
+}
+
+func planetUUID(systemUUID string, orbit int) string {
+	id := sha256.Sum256([]byte("ecvb/planet/" + systemUUID + "/" + strconv.Itoa(orbit)))
+	id[6] = id[6]&0x0f | 0x40
+	id[8] = id[8]&0x3f | 0x80
+	return formatUUID([16]byte(id[:16]))
+}
+
+func generateDeposits(directory string) (err error) {
+	inputPath := filepath.Join(directory, planetsSeedFilename)
+	input, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("open input file %s: %w", inputPath, err)
+	}
+	defer input.Close()
+
+	var planets planetsSeed
+	decoder := json.NewDecoder(input)
+	if err := decoder.Decode(&planets); err != nil {
+		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			err = errors.New("unexpected additional JSON value")
+		}
+		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	}
+
+	data := depositsSeed{Deposits: make([]deposit, 0, len(planets.Planets)*20)}
+	seenPlanets := make(map[string]bool, len(planets.Planets))
+	for i, planet := range planets.Planets {
+		if planet.UUID == "" {
+			return fmt.Errorf("parse input file %s: planets[%d] has no uuid", inputPath, i)
+		}
+		if seenPlanets[planet.UUID] {
+			return fmt.Errorf("parse input file %s: planets[%d] has duplicate uuid %q", inputPath, i, planet.UUID)
+		}
+		seenPlanets[planet.UUID] = true
+
+		count, sides := 15, 6
+		switch planet.Type {
+		case "rocky":
+			count, sides = 20, 3
+		case "asteroids":
+			count, sides = 35, 100
+		case "gas-giant", "ice-giant":
+		default:
+			return fmt.Errorf("parse input file %s: planets[%d] has invalid type %q", inputPath, i, planet.Type)
+		}
+		for sequence := 1; sequence <= count; sequence++ {
+			roll := depositRoll(planet.UUID, sequence, sides)
+			data.Deposits = append(data.Deposits, deposit{
+				PlanetUUID: planet.UUID,
+				Sequence:   sequence,
+				Resource:   depositResource(planet.Type, roll),
+				Quantity:   10_000_000,
+				Quality:    5,
+			})
+		}
+	}
+
+	outputPath := filepath.Join(directory, depositsSeedFilename)
+	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("output file %s already exists", outputPath)
+		}
+		return fmt.Errorf("create output file %s: %w", outputPath, err)
+	}
+	complete := false
+	defer func() {
+		if closeErr := output.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close output file %s: %w", outputPath, closeErr)
+		}
+		if !complete {
+			_ = os.Remove(outputPath)
+		}
+	}()
+
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("write output file %s: %w", outputPath, err)
+	}
+	complete = true
+	return nil
+}
+
+func depositRoll(planetUUID string, sequence, sides int) int {
+	digest := sha256.Sum256([]byte("ecvb/deposit/" + planetUUID + "/" + strconv.Itoa(sequence)))
+	return int(binary.BigEndian.Uint64(digest[:8])%uint64(sides)) + 1
+}
+
+func depositResource(planetType string, roll int) string {
+	switch planetType {
+	case "asteroids":
+		if roll <= 4 {
+			return "gold"
+		}
+		if roll >= 6 && roll <= 52 {
+			return "metals"
+		}
+	case "rocky":
+		if roll == 1 {
+			return "fuel"
+		}
+		if roll == 2 {
+			return "metals"
+		}
+	case "gas-giant":
+		if roll <= 3 {
+			return "fuel"
+		}
+		if roll == 4 {
+			return "metals"
+		}
+	case "ice-giant":
+		if roll <= 2 {
+			return "fuel"
+		}
+		if roll == 3 {
+			return "metals"
+		}
+	}
+	return "minerals"
 }
 
 func splitMix64(state *uint64) uint64 {

@@ -193,6 +193,215 @@ func TestGenerateSystemsRejectsInvalidInputAndExistingOutput(t *testing.T) {
 	}
 }
 
+func TestRunGeneratesPlanetsFromSystems(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	input := systemsSeed{Systems: []system{
+		{UUID: "11111111-1111-4111-8111-111111111111"},
+		{UUID: "22222222-2222-4222-8222-222222222222"},
+	}}
+	for _, directory := range []string{first, second} {
+		writeJSON(t, filepath.Join(directory, systemsSeedFilename), input)
+		if err := run(context.Background(), []string{"planets", directory}); err != nil {
+			t.Fatalf("run planets: %v", err)
+		}
+	}
+
+	firstData, err := os.ReadFile(filepath.Join(first, planetsSeedFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondData, err := os.ReadFile(filepath.Join(second, planetsSeedFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(firstData) != string(secondData) {
+		t.Fatal("same systems generated different planets files")
+	}
+
+	var data planetsSeed
+	if err := json.Unmarshal(firstData, &data); err != nil {
+		t.Fatalf("parse generated file: %v", err)
+	}
+	if got, want := len(data.Planets), 20; got != want {
+		t.Fatalf("planet count = %d; want %d", got, want)
+	}
+	wantTypes := []string{"rocky", "rocky", "rocky", "rocky", "asteroids", "gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroids"}
+	wantHabitability := []int{0, 1, 8, 25, 0, 15, 4, 2, 0, 0}
+	uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	seen := make(map[string]bool)
+	for i, planet := range data.Planets {
+		systemIndex, orbitIndex := i/10, i%10
+		if planet.SystemUUID != input.Systems[systemIndex].UUID || planet.Orbit != orbitIndex+1 {
+			t.Errorf("planets[%d] = %#v; want system %q and orbit %d", i, planet, input.Systems[systemIndex].UUID, orbitIndex+1)
+		}
+		if planet.Type != wantTypes[orbitIndex] || planet.Habitability != wantHabitability[orbitIndex] {
+			t.Errorf("planets[%d] = type %q, habitability %d; want %q, %d", i, planet.Type, planet.Habitability, wantTypes[orbitIndex], wantHabitability[orbitIndex])
+		}
+		if !uuidPattern.MatchString(planet.UUID) {
+			t.Errorf("planets[%d] UUID = %q; want UUID v4", i, planet.UUID)
+		}
+		if seen[planet.UUID] {
+			t.Errorf("planets[%d] has duplicate UUID %q", i, planet.UUID)
+		}
+		seen[planet.UUID] = true
+	}
+}
+
+func TestGeneratePlanetsRejectsInvalidInputAndExistingOutput(t *testing.T) {
+	missingDirectory := t.TempDir()
+	if err := generatePlanets(missingDirectory); err == nil || !strings.Contains(err.Error(), "open input file") {
+		t.Fatalf("missing input error = %v", err)
+	}
+
+	invalidDirectory := t.TempDir()
+	writeJSON(t, filepath.Join(invalidDirectory, systemsSeedFilename), systemsSeed{
+		Systems: []system{{UUID: "11111111-1111-4111-8111-111111111111"}, {UUID: "11111111-1111-4111-8111-111111111111"}},
+	})
+	if err := generatePlanets(invalidDirectory); err == nil || !strings.Contains(err.Error(), "duplicate uuid") {
+		t.Fatalf("duplicate system UUID error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(invalidDirectory, planetsSeedFilename)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("invalid input created output: %v", err)
+	}
+
+	existingDirectory := t.TempDir()
+	writeJSON(t, filepath.Join(existingDirectory, systemsSeedFilename), systemsSeed{
+		Systems: []system{{UUID: "11111111-1111-4111-8111-111111111111"}},
+	})
+	outputPath := filepath.Join(existingDirectory, planetsSeedFilename)
+	if err := os.WriteFile(outputPath, []byte("keep me"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := generatePlanets(existingDirectory); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("existing output error = %v", err)
+	}
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "keep me" {
+		t.Fatalf("existing output was changed to %q", data)
+	}
+}
+
+func TestRunGeneratesDepositsFromPlanets(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	input := planetsSeed{Planets: []planet{
+		{UUID: "11111111-1111-4111-8111-111111111111", Type: "rocky"},
+		{UUID: "22222222-2222-4222-8222-222222222222", Type: "asteroids"},
+		{UUID: "33333333-3333-4333-8333-333333333333", Type: "gas-giant"},
+		{UUID: "44444444-4444-4444-8444-444444444444", Type: "ice-giant"},
+	}}
+	for _, directory := range []string{first, second} {
+		writeJSON(t, filepath.Join(directory, planetsSeedFilename), input)
+		if err := run(context.Background(), []string{"deposits", directory}); err != nil {
+			t.Fatalf("run deposits: %v", err)
+		}
+	}
+
+	firstData, err := os.ReadFile(filepath.Join(first, depositsSeedFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondData, err := os.ReadFile(filepath.Join(second, depositsSeedFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(firstData) != string(secondData) {
+		t.Fatal("same planets generated different deposits files")
+	}
+
+	var data depositsSeed
+	if err := json.Unmarshal(firstData, &data); err != nil {
+		t.Fatalf("parse generated file: %v", err)
+	}
+	wantCounts := []int{20, 35, 15, 15}
+	if got, want := len(data.Deposits), 85; got != want {
+		t.Fatalf("deposit count = %d; want %d", got, want)
+	}
+	index := 0
+	for planetIndex, count := range wantCounts {
+		for sequence := 1; sequence <= count; sequence++ {
+			deposit := data.Deposits[index]
+			if deposit.PlanetUUID != input.Planets[planetIndex].UUID || deposit.Sequence != sequence {
+				t.Errorf("deposits[%d] = %#v; want planet %q and sequence %d", index, deposit, input.Planets[planetIndex].UUID, sequence)
+			}
+			if deposit.Quantity != 10_000_000 || deposit.Quality != 5 {
+				t.Errorf("deposits[%d] = quantity %d, quality %d; want 10000000, 5", index, deposit.Quantity, deposit.Quality)
+			}
+			if deposit.Resource != "fuel" && deposit.Resource != "gold" && deposit.Resource != "metals" && deposit.Resource != "minerals" {
+				t.Errorf("deposits[%d] has invalid resource %q", index, deposit.Resource)
+			}
+			if input.Planets[planetIndex].Type == "asteroids" && deposit.Resource == "fuel" {
+				t.Errorf("deposits[%d] gives asteroids fuel", index)
+			}
+			if input.Planets[planetIndex].Type != "asteroids" && deposit.Resource == "gold" {
+				t.Errorf("deposits[%d] gives %s gold", index, input.Planets[planetIndex].Type)
+			}
+			index++
+		}
+	}
+}
+
+func TestDepositResourceRolls(t *testing.T) {
+	tests := []struct {
+		planetType string
+		roll       int
+		want       string
+	}{
+		{"asteroids", 1, "gold"}, {"asteroids", 4, "gold"},
+		{"asteroids", 5, "minerals"}, {"asteroids", 6, "metals"},
+		{"asteroids", 52, "metals"}, {"asteroids", 53, "minerals"},
+		{"rocky", 1, "fuel"}, {"rocky", 2, "metals"}, {"rocky", 3, "minerals"},
+		{"gas-giant", 1, "fuel"}, {"gas-giant", 3, "fuel"},
+		{"gas-giant", 4, "metals"}, {"gas-giant", 5, "minerals"},
+		{"ice-giant", 1, "fuel"}, {"ice-giant", 2, "fuel"},
+		{"ice-giant", 3, "metals"}, {"ice-giant", 4, "minerals"},
+	}
+	for _, test := range tests {
+		if got := depositResource(test.planetType, test.roll); got != test.want {
+			t.Errorf("depositResource(%q, %d) = %q; want %q", test.planetType, test.roll, got, test.want)
+		}
+	}
+}
+
+func TestGenerateDepositsRejectsInvalidInputAndExistingOutput(t *testing.T) {
+	missingDirectory := t.TempDir()
+	if err := generateDeposits(missingDirectory); err == nil || !strings.Contains(err.Error(), "open input file") {
+		t.Fatalf("missing input error = %v", err)
+	}
+
+	invalidDirectory := t.TempDir()
+	writeJSON(t, filepath.Join(invalidDirectory, planetsSeedFilename), planetsSeed{
+		Planets: []planet{{UUID: "11111111-1111-4111-8111-111111111111", Type: "ocean"}},
+	})
+	if err := generateDeposits(invalidDirectory); err == nil || !strings.Contains(err.Error(), "invalid type") {
+		t.Fatalf("invalid planet type error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(invalidDirectory, depositsSeedFilename)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("invalid input created output: %v", err)
+	}
+
+	existingDirectory := t.TempDir()
+	writeJSON(t, filepath.Join(existingDirectory, planetsSeedFilename), planetsSeed{
+		Planets: []planet{{UUID: "11111111-1111-4111-8111-111111111111", Type: "rocky"}},
+	})
+	outputPath := filepath.Join(existingDirectory, depositsSeedFilename)
+	if err := os.WriteFile(outputPath, []byte("keep me"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateDeposits(existingDirectory); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("existing output error = %v", err)
+	}
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "keep me" {
+		t.Fatalf("existing output was changed to %q", data)
+	}
+}
+
 func TestGenerateStelliaRejectsInvalidOutput(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
 	if err := generateStellia(missing, 1912); err == nil || !strings.Contains(err.Error(), "stat output directory") {
