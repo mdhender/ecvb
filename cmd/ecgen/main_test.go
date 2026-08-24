@@ -225,7 +225,7 @@ func TestRunGeneratesPlanetsFromSystems(t *testing.T) {
 	if got, want := len(data.Planets), 20; got != want {
 		t.Fatalf("planet count = %d; want %d", got, want)
 	}
-	wantTypes := []string{"rocky", "rocky", "rocky", "rocky", "asteroids", "gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroids"}
+	wantTypes := []string{"rocky", "rocky", "rocky", "rocky", "asteroid", "gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroid"}
 	wantHabitability := []int{0, 1, 8, 25, 0, 15, 4, 2, 0, 0}
 	uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 	seen := make(map[string]bool)
@@ -288,7 +288,7 @@ func TestRunGeneratesDepositsFromPlanets(t *testing.T) {
 	first, second := t.TempDir(), t.TempDir()
 	input := planetsSeed{Planets: []planet{
 		{UUID: "11111111-1111-4111-8111-111111111111", Type: "rocky"},
-		{UUID: "22222222-2222-4222-8222-222222222222", Type: "asteroids"},
+		{UUID: "22222222-2222-4222-8222-222222222222", Type: "asteroid"},
 		{UUID: "33333333-3333-4333-8333-333333333333", Type: "gas-giant"},
 		{UUID: "44444444-4444-4444-8444-444444444444", Type: "ice-giant"},
 	}}
@@ -332,10 +332,10 @@ func TestRunGeneratesDepositsFromPlanets(t *testing.T) {
 			if deposit.Resource != "fuel" && deposit.Resource != "gold" && deposit.Resource != "metals" && deposit.Resource != "minerals" {
 				t.Errorf("deposits[%d] has invalid resource %q", index, deposit.Resource)
 			}
-			if input.Planets[planetIndex].Type == "asteroids" && deposit.Resource == "fuel" {
-				t.Errorf("deposits[%d] gives asteroids fuel", index)
+			if input.Planets[planetIndex].Type == "asteroid" && deposit.Resource == "fuel" {
+				t.Errorf("deposits[%d] gives asteroid fuel", index)
 			}
-			if input.Planets[planetIndex].Type != "asteroids" && deposit.Resource == "gold" {
+			if input.Planets[planetIndex].Type != "asteroid" && deposit.Resource == "gold" {
 				t.Errorf("deposits[%d] gives %s gold", index, input.Planets[planetIndex].Type)
 			}
 			index++
@@ -349,9 +349,9 @@ func TestDepositResourceRolls(t *testing.T) {
 		roll       int
 		want       string
 	}{
-		{"asteroids", 1, "gold"}, {"asteroids", 4, "gold"},
-		{"asteroids", 5, "minerals"}, {"asteroids", 6, "metals"},
-		{"asteroids", 52, "metals"}, {"asteroids", 53, "minerals"},
+		{"asteroid", 1, "gold"}, {"asteroid", 4, "gold"},
+		{"asteroid", 5, "minerals"}, {"asteroid", 6, "metals"},
+		{"asteroid", 52, "metals"}, {"asteroid", 53, "minerals"},
 		{"rocky", 1, "fuel"}, {"rocky", 2, "metals"}, {"rocky", 3, "minerals"},
 		{"gas-giant", 1, "fuel"}, {"gas-giant", 3, "fuel"},
 		{"gas-giant", 4, "metals"}, {"gas-giant", 5, "minerals"},

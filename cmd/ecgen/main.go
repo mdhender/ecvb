@@ -360,8 +360,8 @@ func generatePlanets(directory string) (err error) {
 	}
 
 	types := [...]string{
-		"rocky", "rocky", "rocky", "rocky", "asteroids",
-		"gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroids",
+		"rocky", "rocky", "rocky", "rocky", "asteroid",
+		"gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroid",
 	}
 	habitability := [...]int{0, 1, 8, 25, 0, 15, 4, 2, 0, 0}
 	data := planetsSeed{Planets: make([]planet, 0, len(systems.Systems)*len(types))}
@@ -455,7 +455,7 @@ func generateDeposits(directory string) (err error) {
 		switch planet.Type {
 		case "rocky":
 			count, sides = 20, 3
-		case "asteroids":
+		case "asteroid":
 			count, sides = 35, 100
 		case "gas-giant", "ice-giant":
 		default:
@@ -507,7 +507,7 @@ func depositRoll(planetUUID string, sequence, sides int) int {
 
 func depositResource(planetType string, roll int) string {
 	switch planetType {
-	case "asteroids":
+	case "asteroid":
 		if roll <= 4 {
 			return "gold"
 		}

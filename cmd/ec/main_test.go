@@ -191,6 +191,98 @@ func TestCreateGameRejectsInvalidSeedAndDuplicateCode(t *testing.T) {
 	}
 }
 
+func TestRunLoadGame(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "database")
+	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+	writeTestGameSeeds(t, directory)
+
+	conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadWrite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code) VALUES ('BETA-001');", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run(context.Background(), []string{"--db-path", directory, "load", "game", "BETA-001"}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run load game: %v", err)
+	}
+
+	conn, err = sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	for table, want := range map[string]int{"stellium": 1, "system": 1, "planet": 1, "deposit": 1} {
+		var got int
+		if err := sqlitex.ExecuteTransient(conn, "SELECT COUNT(*) FROM "+table+";", &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+			got = stmt.ColumnInt(0)
+			return nil
+		}}); err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Errorf("%s count = %d; want %d", table, got, want)
+		}
+	}
+}
+
+func TestLoadGameRejectsMissingFilesUnknownGameAndLoadedGame(t *testing.T) {
+	t.Run("missing seed file", func(t *testing.T) {
+		directory := filepath.Join(t.TempDir(), "database")
+		createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+		err := loadGame(context.Background(), directory, "BETA-001")
+		if err == nil || !strings.Contains(err.Error(), "stellia-seed.json does not exist") {
+			t.Fatalf("loadGame error = %v; want missing seed file", err)
+		}
+	})
+
+	t.Run("unknown and loaded game", func(t *testing.T) {
+		directory := filepath.Join(t.TempDir(), "database")
+		createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+		writeTestGameSeeds(t, directory)
+		if err := loadGame(context.Background(), directory, "UNKNOWN"); err == nil || !strings.Contains(err.Error(), "does not exist") {
+			t.Fatalf("unknown loadGame error = %v; want game not found", err)
+		}
+
+		conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadWrite)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code) VALUES ('LOADED');", nil); err != nil {
+			t.Fatal(err)
+		}
+		gameID := conn.LastInsertRowID()
+		if err := sqlitex.ExecuteTransient(conn, "INSERT INTO stellium (game_id, x, y, z) VALUES (?, 1, 1, 1);", &sqlitex.ExecOptions{Args: []any{gameID}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := conn.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := loadGame(context.Background(), directory, "LOADED"); err == nil || !strings.Contains(err.Error(), "already has data loaded") {
+			t.Fatalf("loaded loadGame error = %v; want already loaded", err)
+		}
+	})
+}
+
+func writeTestGameSeeds(t *testing.T, directory string) {
+	t.Helper()
+	files := map[string]string{
+		"stellia-seed.json":  `{"stellia":[{"uuid":"st-1","x":1,"y":2,"z":3}]}`,
+		"systems-seed.json":  `{"systems":[{"uuid":"sy-1","stellium-uuid":"st-1","sequence":"A"}]}`,
+		"planets-seed.json":  `{"planets":[{"uuid":"pl-1","system-uuid":"sy-1","orbit":1,"type":"asteroid","habitability":0}]}`,
+		"deposits-seed.json": `{"deposits":[{"planet-uuid":"pl-1","sequence":1,"resource":"metals","quantity":100,"quality":5}]}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestVerifyDatabase(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -240,11 +332,50 @@ func createTestDatabase(t *testing.T, directory string, applicationID, version i
 	if err := sqlitex.ExecuteTransient(conn, fmt.Sprintf("PRAGMA user_version = %d;", version), nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := sqlitex.ExecuteTransient(conn, strings.TrimSpace(`
+	if err := sqlitex.ExecuteScript(conn, strings.TrimSpace(`
 		CREATE TABLE game (
 			id INTEGER PRIMARY KEY,
 			code TEXT NOT NULL,
 			turn INTEGER NOT NULL DEFAULT 0 CHECK (turn >= 0)
+		);
+		CREATE TABLE faction (
+			id INTEGER PRIMARY KEY,
+			game_id INTEGER NOT NULL REFERENCES game(id)
+		);
+		CREATE TABLE stellium (
+			id INTEGER PRIMARY KEY,
+			game_id INTEGER NOT NULL REFERENCES game(id),
+			x INTEGER NOT NULL CHECK (x BETWEEN -15 AND 15),
+			y INTEGER NOT NULL CHECK (y BETWEEN -15 AND 15),
+			z INTEGER NOT NULL CHECK (z BETWEEN -15 AND 15),
+			UNIQUE (game_id, x, y, z)
+		);
+		CREATE TABLE system (
+			id INTEGER PRIMARY KEY,
+			stellium_id INTEGER NOT NULL REFERENCES stellium(id),
+			sequence TEXT NOT NULL CHECK (sequence IN ('A', 'B', 'C', 'D', 'E')),
+			UNIQUE (stellium_id, sequence)
+		);
+		CREATE TABLE planet (
+			id INTEGER PRIMARY KEY,
+			system_id INTEGER NOT NULL REFERENCES system(id),
+			orbit INTEGER NOT NULL CHECK (orbit BETWEEN 1 AND 10),
+			kind TEXT NOT NULL CHECK (kind IN ('rocky', 'asteroid', 'gas-giant', 'ice-giant')),
+			habitability INTEGER NOT NULL CHECK (habitability BETWEEN 0 AND 25),
+			UNIQUE (system_id, orbit)
+		);
+		CREATE TABLE deposit (
+			id INTEGER PRIMARY KEY,
+			planet_id INTEGER NOT NULL REFERENCES planet(id),
+			sequence INTEGER NOT NULL CHECK (sequence BETWEEN 1 AND 45),
+			resource TEXT NOT NULL CHECK (resource IN ('fuel', 'gold', 'metals', 'minerals')),
+			quality INTEGER NOT NULL,
+			initial_qty INTEGER NOT NULL,
+			current_qty INTEGER NOT NULL,
+			UNIQUE (planet_id, sequence)
+		);
+		CREATE TABLE order_entry (
+			game_id INTEGER NOT NULL REFERENCES game(id)
 		);
 	`), nil); err != nil {
 		t.Fatal(err)

@@ -94,6 +94,30 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 			return fmt.Errorf("a game subcommand is required (create)")
 		},
 	}
+	load := &ff.Command{
+		Name:      "load",
+		Usage:     "ec load SUBCOMMAND",
+		ShortHelp: "load seed data",
+		Exec: func(context.Context, []string) error {
+			return fmt.Errorf("a load subcommand is required (game)")
+		},
+	}
+	load.Subcommands = []*ff.Command{
+		{
+			Name:      "game",
+			Usage:     "ec load game <code>",
+			ShortHelp: "load a game's seed files",
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one game code")
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				return loadGame(ctx, *dbPath, args[0])
+			},
+		},
+	}
 	createFlags := ff.NewFlagSet("game create")
 	gameSeed := createFlags.StringLong("game-seed", "db/game-seed.json", "path to the game seed JSON file")
 	game.Subcommands = []*ff.Command{
@@ -116,7 +140,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 			},
 		},
 	}
-	root.Subcommands = []*ff.Command{db, game}
+	root.Subcommands = []*ff.Command{db, game, load}
 
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }

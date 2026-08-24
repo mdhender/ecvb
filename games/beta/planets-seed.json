@@ -32,7 +32,7 @@
       "uuid": "f86527f0-5912-4359-ab07-51638c9c183c",
       "system-uuid": "b8fa714f-bddb-4d8a-a2ff-56be047334dd",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -67,7 +67,7 @@
       "uuid": "34393192-2b7d-46f6-a618-b9e611adfbf1",
       "system-uuid": "b8fa714f-bddb-4d8a-a2ff-56be047334dd",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -102,7 +102,7 @@
       "uuid": "ad31d536-208f-4972-be79-6ba2f142ae89",
       "system-uuid": "595b57d7-e1dd-4c75-bd3a-bec5fc1d6879",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -137,7 +137,7 @@
       "uuid": "dee5a7ed-f57a-42aa-a95b-226d25da84b0",
       "system-uuid": "595b57d7-e1dd-4c75-bd3a-bec5fc1d6879",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -172,7 +172,7 @@
       "uuid": "8c030d33-3a87-48ca-98ab-f9eaea3fae7a",
       "system-uuid": "0c03d795-7949-4126-b558-8c0e94c6b9ea",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -207,7 +207,7 @@
       "uuid": "c863fa29-6ca1-4532-ab09-63b449293e58",
       "system-uuid": "0c03d795-7949-4126-b558-8c0e94c6b9ea",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -242,7 +242,7 @@
       "uuid": "b0249ab1-5a68-4089-b671-44a518198066",
       "system-uuid": "0ee84f94-b8c2-4b73-a18c-0aab84654c12",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -277,7 +277,7 @@
       "uuid": "fd5ee845-bcc5-4535-bf0c-80b1e0760f3b",
       "system-uuid": "0ee84f94-b8c2-4b73-a18c-0aab84654c12",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -312,7 +312,7 @@
       "uuid": "ecf148b9-e86b-47a3-8014-b468db9cc975",
       "system-uuid": "1f96d4fe-4b4c-46f7-8876-16157750f0d9",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -347,7 +347,7 @@
       "uuid": "cf34d26a-b290-4a2a-8812-688a15dde3a0",
       "system-uuid": "1f96d4fe-4b4c-46f7-8876-16157750f0d9",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -382,7 +382,7 @@
       "uuid": "f7bfea29-2003-4a47-b77c-bd6344b3cd58",
       "system-uuid": "b0f8615c-9fcd-41a8-b2db-108c1c74499e",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -417,7 +417,7 @@
       "uuid": "9cce79db-05e3-4118-a194-2e20fdc1b60e",
       "system-uuid": "b0f8615c-9fcd-41a8-b2db-108c1c74499e",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -452,7 +452,7 @@
       "uuid": "df357bbf-6dea-4ad8-a346-23b558a36dad",
       "system-uuid": "ae6b25c8-712d-45fa-b7e9-6afdbbf471d7",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -487,7 +487,7 @@
       "uuid": "4badb3d6-e088-438e-b34d-38ab283db047",
       "system-uuid": "ae6b25c8-712d-45fa-b7e9-6afdbbf471d7",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -522,7 +522,7 @@
       "uuid": "0a47975c-9339-4873-a045-2d39e9cfe2a5",
       "system-uuid": "b25980d8-c782-4fc9-8435-303fa975e9c4",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -557,7 +557,7 @@
       "uuid": "ef3bfab2-face-46a4-a00a-7a4bf7b03233",
       "system-uuid": "b25980d8-c782-4fc9-8435-303fa975e9c4",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -592,7 +592,7 @@
       "uuid": "f95caba5-c30b-4979-a743-44103f16b2b5",
       "system-uuid": "cf9c2065-e054-4929-b1e0-945996fbbe59",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -627,7 +627,7 @@
       "uuid": "db465079-e25e-4840-9313-f3e504e16035",
       "system-uuid": "cf9c2065-e054-4929-b1e0-945996fbbe59",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -662,7 +662,7 @@
       "uuid": "bf5cf44b-9886-4b92-bc1a-bbe15f07500f",
       "system-uuid": "3579fac2-14d3-4130-8ea4-7b059af7dce8",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -697,7 +697,7 @@
       "uuid": "d22ab987-ccd5-4347-8fc6-9b50c11f99e8",
       "system-uuid": "3579fac2-14d3-4130-8ea4-7b059af7dce8",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -732,7 +732,7 @@
       "uuid": "d8e7ff4d-ac51-44a6-85a2-6439a801da6c",
       "system-uuid": "30df9628-cea2-4f16-942d-dffa9baac7f9",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -767,7 +767,7 @@
       "uuid": "8cdaa546-adc5-4bdc-bfa3-284a54c929e0",
       "system-uuid": "30df9628-cea2-4f16-942d-dffa9baac7f9",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -802,7 +802,7 @@
       "uuid": "c525147e-31d8-4e17-a9dd-bbd4854d5049",
       "system-uuid": "58efc33a-5d65-4193-b637-513fd879210a",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -837,7 +837,7 @@
       "uuid": "53abb865-1820-4aed-9c22-708f4d3d26f8",
       "system-uuid": "58efc33a-5d65-4193-b637-513fd879210a",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -872,7 +872,7 @@
       "uuid": "b447b0fb-a26a-4592-92b8-87ae8764ab28",
       "system-uuid": "4c22dcea-b3f8-4b07-b42c-3e3d5c0dfefe",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -907,7 +907,7 @@
       "uuid": "fa053eef-d07f-4ce0-8b25-434862b9f939",
       "system-uuid": "4c22dcea-b3f8-4b07-b42c-3e3d5c0dfefe",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -942,7 +942,7 @@
       "uuid": "97bdba5f-cbf6-4f42-be04-e055982c3ee3",
       "system-uuid": "deeb59c4-7861-49a9-9806-200432a2a71e",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -977,7 +977,7 @@
       "uuid": "bfb1a37a-3f36-46d3-b740-37979dc5b396",
       "system-uuid": "deeb59c4-7861-49a9-9806-200432a2a71e",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1012,7 +1012,7 @@
       "uuid": "eef67e68-ec2c-4136-adf3-4e0aa13ef671",
       "system-uuid": "f2493de1-9d01-4c67-ba55-37ca78abbb1d",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1047,7 +1047,7 @@
       "uuid": "bbc8d7cf-1802-4c2f-97f3-bd9004b04345",
       "system-uuid": "f2493de1-9d01-4c67-ba55-37ca78abbb1d",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1082,7 +1082,7 @@
       "uuid": "e5b744ac-1dab-4df0-b117-fc55bc1d5515",
       "system-uuid": "b404a483-71c3-46e4-bf84-815029724049",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1117,7 +1117,7 @@
       "uuid": "17959f79-eedb-41b5-be88-93488d35f041",
       "system-uuid": "b404a483-71c3-46e4-bf84-815029724049",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1152,7 +1152,7 @@
       "uuid": "9cc41899-d9d3-466c-84ac-59a8b615f86a",
       "system-uuid": "aba1a767-4a82-4225-b689-86983dea20bb",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1187,7 +1187,7 @@
       "uuid": "a8a091b8-7359-4899-b3f2-bef02621a1eb",
       "system-uuid": "aba1a767-4a82-4225-b689-86983dea20bb",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1222,7 +1222,7 @@
       "uuid": "4f1bc01c-905d-4bf0-95a3-dbfc86cac5ad",
       "system-uuid": "96348bb8-b055-4623-a8e3-30f228cc017b",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1257,7 +1257,7 @@
       "uuid": "2ce729a3-0a71-4b36-8bf8-5dae741071d5",
       "system-uuid": "96348bb8-b055-4623-a8e3-30f228cc017b",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1292,7 +1292,7 @@
       "uuid": "26bbbb87-8ee8-43b8-bf3e-1baa6d7d703a",
       "system-uuid": "cc80aa95-5b94-4c29-90bb-f6f9813bd4b2",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1327,7 +1327,7 @@
       "uuid": "7c8f34d1-67fd-4420-a8c0-5ae563a80b5f",
       "system-uuid": "cc80aa95-5b94-4c29-90bb-f6f9813bd4b2",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1362,7 +1362,7 @@
       "uuid": "7d3e2846-0a34-4115-90fd-904b8a4d78bb",
       "system-uuid": "5b8d647b-37f5-4fc2-9fbb-b4c8ae2551d9",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1397,7 +1397,7 @@
       "uuid": "a30be62a-7b2c-45b4-92e9-489ea8617bd6",
       "system-uuid": "5b8d647b-37f5-4fc2-9fbb-b4c8ae2551d9",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1432,7 +1432,7 @@
       "uuid": "bbf7ab00-b6ba-48bd-9f23-1ab61f2dba4b",
       "system-uuid": "b0f20caa-5cb3-45f6-9e7f-fb66e93603f7",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1467,7 +1467,7 @@
       "uuid": "6bde39de-f7e2-4298-a4bc-959a87453e25",
       "system-uuid": "b0f20caa-5cb3-45f6-9e7f-fb66e93603f7",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1502,7 +1502,7 @@
       "uuid": "7ad1351b-aeb3-44a0-a265-ec0939404a9a",
       "system-uuid": "2f2289e4-9ed6-4ed2-923f-72e84c1cb2b5",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1537,7 +1537,7 @@
       "uuid": "64c3b266-6c77-483d-a6ec-fb280ddf9e6b",
       "system-uuid": "2f2289e4-9ed6-4ed2-923f-72e84c1cb2b5",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1572,7 +1572,7 @@
       "uuid": "e80052a4-0beb-4984-ac31-f5734fef11e5",
       "system-uuid": "9ba818fb-4c9e-4e5e-b255-fcf5fe72be7f",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1607,7 +1607,7 @@
       "uuid": "54651799-f329-4678-ad3a-da2fa7588ea7",
       "system-uuid": "9ba818fb-4c9e-4e5e-b255-fcf5fe72be7f",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1642,7 +1642,7 @@
       "uuid": "b17a827f-d63e-4a85-a22f-41a075468d7c",
       "system-uuid": "d0ed0f65-fd87-4d1a-ba72-608ed98524bf",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1677,7 +1677,7 @@
       "uuid": "7ffaa9da-a59d-4080-a2c9-28420bcf3116",
       "system-uuid": "d0ed0f65-fd87-4d1a-ba72-608ed98524bf",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1712,7 +1712,7 @@
       "uuid": "abf1f2fb-f4b2-4d07-8c77-b297908988d1",
       "system-uuid": "0fc0fde2-da5c-4564-9c46-7058217a2b97",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1747,7 +1747,7 @@
       "uuid": "396a393a-8d62-47ad-a189-7bf28a6bc644",
       "system-uuid": "0fc0fde2-da5c-4564-9c46-7058217a2b97",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1782,7 +1782,7 @@
       "uuid": "5fe0068b-3ad3-4cb3-8341-8b5c9eee4221",
       "system-uuid": "6112ffb8-d82a-4d1c-a6ea-4d79ac2fc34d",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1817,7 +1817,7 @@
       "uuid": "68c2a726-cdba-40a0-818b-f50181c47dc0",
       "system-uuid": "6112ffb8-d82a-4d1c-a6ea-4d79ac2fc34d",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1852,7 +1852,7 @@
       "uuid": "d7cbe899-b4f0-4f86-a2b6-d0d6dd355127",
       "system-uuid": "10f3f519-fc5e-4e84-9969-db24c821bec8",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1887,7 +1887,7 @@
       "uuid": "5ef5f1f0-aa18-474d-82a8-0aabe4cd89a6",
       "system-uuid": "10f3f519-fc5e-4e84-9969-db24c821bec8",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1922,7 +1922,7 @@
       "uuid": "eb40ebea-297c-440e-84ba-4d5c0d05559d",
       "system-uuid": "608127af-1bfd-4386-90ab-744afae62c04",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1957,7 +1957,7 @@
       "uuid": "1269617f-de37-4e52-bc2a-9b81e8e7f7b4",
       "system-uuid": "608127af-1bfd-4386-90ab-744afae62c04",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -1992,7 +1992,7 @@
       "uuid": "f4e9394d-409e-436f-821f-39bc8eaf108f",
       "system-uuid": "403c4d38-bbe2-49d1-aca7-0bb5ff94ebfa",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2027,7 +2027,7 @@
       "uuid": "fa8e3fe3-e874-42ca-a207-44227bba8e2d",
       "system-uuid": "403c4d38-bbe2-49d1-aca7-0bb5ff94ebfa",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2062,7 +2062,7 @@
       "uuid": "2c1421f9-8824-45b8-85be-40e72c29fa58",
       "system-uuid": "8f481573-0fc8-4ec2-953f-b7e62bc176e0",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2097,7 +2097,7 @@
       "uuid": "d7d62a60-89fb-4219-9373-31135d4750d3",
       "system-uuid": "8f481573-0fc8-4ec2-953f-b7e62bc176e0",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2132,7 +2132,7 @@
       "uuid": "9c917a30-2f42-40b9-b705-ba09d62627e8",
       "system-uuid": "4068cf1a-dd19-4d40-9c4c-0b5cd1d38070",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2167,7 +2167,7 @@
       "uuid": "be396ce2-0d00-44a7-b0b2-fc4c3a146f7a",
       "system-uuid": "4068cf1a-dd19-4d40-9c4c-0b5cd1d38070",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2202,7 +2202,7 @@
       "uuid": "da16f67a-ccf7-4270-8d1c-32deac22c5df",
       "system-uuid": "572345a7-280a-47b4-9e4a-48b5a403306c",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2237,7 +2237,7 @@
       "uuid": "6dc49bec-5a7c-4782-8412-74ce18f995a2",
       "system-uuid": "572345a7-280a-47b4-9e4a-48b5a403306c",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2272,7 +2272,7 @@
       "uuid": "4dd7f1f8-1295-4e10-92ff-cdf13f965c1f",
       "system-uuid": "ae712428-65d7-47a2-b252-363badb06681",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2307,7 +2307,7 @@
       "uuid": "dbb26952-22d6-4782-8c5a-8b8b491d2e34",
       "system-uuid": "ae712428-65d7-47a2-b252-363badb06681",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2342,7 +2342,7 @@
       "uuid": "57af74d2-b215-487c-ab46-a96648633bcf",
       "system-uuid": "62745d12-df2e-4921-90c3-4e45cefe1238",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2377,7 +2377,7 @@
       "uuid": "37c6921e-1142-4c9e-8c0c-148f17e2127f",
       "system-uuid": "62745d12-df2e-4921-90c3-4e45cefe1238",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2412,7 +2412,7 @@
       "uuid": "3442085e-26e5-46f1-9536-c880932cd6a7",
       "system-uuid": "461759f5-a685-4a75-b1e8-49f94f013517",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2447,7 +2447,7 @@
       "uuid": "05a48764-924a-4041-ac8f-4ade72c45ce2",
       "system-uuid": "461759f5-a685-4a75-b1e8-49f94f013517",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2482,7 +2482,7 @@
       "uuid": "9e96e9e8-8817-4821-99a0-de5431944ca0",
       "system-uuid": "44d4c0f6-2197-4995-a2b4-57c173d2ae75",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2517,7 +2517,7 @@
       "uuid": "ca98d332-96c1-4c46-96ea-31add1cedbd8",
       "system-uuid": "44d4c0f6-2197-4995-a2b4-57c173d2ae75",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2552,7 +2552,7 @@
       "uuid": "902a6a9a-0e19-48bb-95c9-e47905a20821",
       "system-uuid": "1ed8077a-3667-41b2-9c47-2172394eb05e",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2587,7 +2587,7 @@
       "uuid": "1160218f-6fd5-4228-a5d7-d48750936a65",
       "system-uuid": "1ed8077a-3667-41b2-9c47-2172394eb05e",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2622,7 +2622,7 @@
       "uuid": "8623e676-9c6d-46a8-834b-162c278898dc",
       "system-uuid": "cddc8bdc-bf17-4816-9c6b-ea5404104e6e",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2657,7 +2657,7 @@
       "uuid": "93f783dc-1f6f-4a69-9c4b-3a8d4a56747c",
       "system-uuid": "cddc8bdc-bf17-4816-9c6b-ea5404104e6e",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2692,7 +2692,7 @@
       "uuid": "5fa5591b-0250-4766-9375-3e73615875c2",
       "system-uuid": "efe680e6-48c9-4353-b26c-38804ec54a4c",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2727,7 +2727,7 @@
       "uuid": "4d81cf05-8e71-4a4d-a9e0-77e343472fd9",
       "system-uuid": "efe680e6-48c9-4353-b26c-38804ec54a4c",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2762,7 +2762,7 @@
       "uuid": "478cb104-e99b-4d84-bc2b-f4867019e435",
       "system-uuid": "3ace2d1a-a58c-4b39-accf-a12fada71d4c",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2797,7 +2797,7 @@
       "uuid": "9b757733-08e5-4f00-9b80-139e3d632038",
       "system-uuid": "3ace2d1a-a58c-4b39-accf-a12fada71d4c",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2832,7 +2832,7 @@
       "uuid": "17ea1d21-f01c-4526-8fc6-6c075aa9b5c8",
       "system-uuid": "6975075c-89db-41db-89c3-c2fb9396a705",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2867,7 +2867,7 @@
       "uuid": "64d4f378-8847-4d85-bb2d-8d89d02194cd",
       "system-uuid": "6975075c-89db-41db-89c3-c2fb9396a705",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2902,7 +2902,7 @@
       "uuid": "07aa6868-f297-4014-a149-c26039fa8eea",
       "system-uuid": "ef785345-43ae-43e7-a51f-d7d99fb8bf61",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2937,7 +2937,7 @@
       "uuid": "c385e4b3-eb33-4eee-aae3-7b93f41886c5",
       "system-uuid": "ef785345-43ae-43e7-a51f-d7d99fb8bf61",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -2972,7 +2972,7 @@
       "uuid": "1d75e855-237e-4c16-a335-de33c66f7a71",
       "system-uuid": "a736cff4-79aa-4ab7-976f-90793e2bf130",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3007,7 +3007,7 @@
       "uuid": "9a1be751-1e3c-4105-83d7-d1bff27bdb76",
       "system-uuid": "a736cff4-79aa-4ab7-976f-90793e2bf130",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3042,7 +3042,7 @@
       "uuid": "bc6d1b93-2a95-4b27-b59f-eccd33ecf4e8",
       "system-uuid": "06dec213-c24b-481c-a69b-87e9dead2877",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3077,7 +3077,7 @@
       "uuid": "56856d4d-b2c0-4c0a-b922-072355126928",
       "system-uuid": "06dec213-c24b-481c-a69b-87e9dead2877",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3112,7 +3112,7 @@
       "uuid": "cba70f14-7a70-4009-80bb-52289d441890",
       "system-uuid": "d7fede2e-7edc-48d6-844a-edc7e375307f",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3147,7 +3147,7 @@
       "uuid": "5ed1599e-0301-47cb-a880-1e057277c0ee",
       "system-uuid": "d7fede2e-7edc-48d6-844a-edc7e375307f",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3182,7 +3182,7 @@
       "uuid": "a20e6e8a-768e-40f1-bf7f-975fe34087b6",
       "system-uuid": "1ca148e0-3352-4470-bb1f-a4f06cdd668b",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3217,7 +3217,7 @@
       "uuid": "9ffe5f63-6af5-4a73-afe1-eb90909ef621",
       "system-uuid": "1ca148e0-3352-4470-bb1f-a4f06cdd668b",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3252,7 +3252,7 @@
       "uuid": "50434424-bfef-4078-8396-0791f7ac434f",
       "system-uuid": "a068bb7b-de61-4c59-b835-889902b4bfda",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3287,7 +3287,7 @@
       "uuid": "dfd74054-5a81-44a9-b7fb-0b7e5bffaa33",
       "system-uuid": "a068bb7b-de61-4c59-b835-889902b4bfda",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3322,7 +3322,7 @@
       "uuid": "6e592903-0ab9-4c89-ab1a-f7d25318d88a",
       "system-uuid": "96a90e60-d725-411d-85df-facf48ec8075",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3357,7 +3357,7 @@
       "uuid": "342178fe-3101-4aa6-aae6-adf95f2df114",
       "system-uuid": "96a90e60-d725-411d-85df-facf48ec8075",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3392,7 +3392,7 @@
       "uuid": "82461915-c01b-48ae-b564-c377282f1ec4",
       "system-uuid": "6b967119-5b99-4aaa-90bd-7e4389143b97",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3427,7 +3427,7 @@
       "uuid": "5ebb7887-b4a8-43cd-ad0c-201cd4f85c73",
       "system-uuid": "6b967119-5b99-4aaa-90bd-7e4389143b97",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3462,7 +3462,7 @@
       "uuid": "d58dddab-d5ac-40af-9ba6-39d95b833416",
       "system-uuid": "64207c56-f03e-408b-94bf-ecfe328be23d",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3497,7 +3497,7 @@
       "uuid": "bb77b2c8-2d05-40db-a61f-3c3c7ce72802",
       "system-uuid": "64207c56-f03e-408b-94bf-ecfe328be23d",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3532,7 +3532,7 @@
       "uuid": "de4d41e6-6357-4c9b-899a-e9886b69996e",
       "system-uuid": "59cb0db5-c545-4b27-9c5d-ac98a6e103e8",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3567,7 +3567,7 @@
       "uuid": "7cfd61f9-ef0c-4fe4-95e1-f54879907b2b",
       "system-uuid": "59cb0db5-c545-4b27-9c5d-ac98a6e103e8",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3602,7 +3602,7 @@
       "uuid": "e4ee6665-3bd2-40e6-a619-b26528048d17",
       "system-uuid": "05f8424c-4803-4de3-b41a-b87cb3c4096b",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3637,7 +3637,7 @@
       "uuid": "ed3cae39-477e-43a8-be05-8ae92263b002",
       "system-uuid": "05f8424c-4803-4de3-b41a-b87cb3c4096b",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3672,7 +3672,7 @@
       "uuid": "5f0514b0-3933-46dc-be2f-66644c04effe",
       "system-uuid": "d13817c1-cfc0-4b99-97c5-d3dd2ae604ba",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3707,7 +3707,7 @@
       "uuid": "a18348d8-bded-452c-b2fd-367250f6e471",
       "system-uuid": "d13817c1-cfc0-4b99-97c5-d3dd2ae604ba",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3742,7 +3742,7 @@
       "uuid": "b1d0496e-ae44-4110-8d72-b5ba2b76ed71",
       "system-uuid": "7ec6d9e9-5657-4385-8a1c-49b035742b4c",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3777,7 +3777,7 @@
       "uuid": "68a520bc-272c-4233-94ac-65f71aa13b7d",
       "system-uuid": "7ec6d9e9-5657-4385-8a1c-49b035742b4c",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3812,7 +3812,7 @@
       "uuid": "ee2a6902-cd28-4a65-8ad9-af18fd997e3e",
       "system-uuid": "2fe947a5-c97d-41b3-a842-c5158d4c66ca",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3847,7 +3847,7 @@
       "uuid": "a36de041-1cb5-430c-9ca5-bfa67ffacb8e",
       "system-uuid": "2fe947a5-c97d-41b3-a842-c5158d4c66ca",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3882,7 +3882,7 @@
       "uuid": "2464bb46-081a-41de-8a10-0c78e1f50fb1",
       "system-uuid": "8cc0301f-575a-438e-8acb-9e6108191fa4",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3917,7 +3917,7 @@
       "uuid": "f9827d36-f55f-42c8-8b42-d85dc70f35c4",
       "system-uuid": "8cc0301f-575a-438e-8acb-9e6108191fa4",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3952,7 +3952,7 @@
       "uuid": "d947b9e0-5981-49ad-a8d3-7f8c4cfb2e29",
       "system-uuid": "8949f743-3e77-4ef8-92a1-d8458b49ea1f",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -3987,7 +3987,7 @@
       "uuid": "48ec4b1c-a0b0-4700-92dd-ee5a7e633bed",
       "system-uuid": "8949f743-3e77-4ef8-92a1-d8458b49ea1f",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4022,7 +4022,7 @@
       "uuid": "82574543-e26f-4b8b-a22b-f6124e7c1122",
       "system-uuid": "a0c2d82d-a147-4e3d-b38e-f1d21886e016",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4057,7 +4057,7 @@
       "uuid": "b3b5a63c-258f-4e4e-86c5-a76e2e20a475",
       "system-uuid": "a0c2d82d-a147-4e3d-b38e-f1d21886e016",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4092,7 +4092,7 @@
       "uuid": "dd6916a3-cb05-4fe2-82db-f12ab85c9182",
       "system-uuid": "b516823d-9932-4ccf-b1e5-fefe3f728069",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4127,7 +4127,7 @@
       "uuid": "f0f751c4-1749-40c7-81e8-4cc96eb57efc",
       "system-uuid": "b516823d-9932-4ccf-b1e5-fefe3f728069",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4162,7 +4162,7 @@
       "uuid": "b1c26e71-8310-4b56-a6cf-0cfa8edfd66e",
       "system-uuid": "5d01aab4-5ec6-45e0-a225-65b16ba14270",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4197,7 +4197,7 @@
       "uuid": "2fa428f4-f7f8-48c1-8aa6-bad2b7025edb",
       "system-uuid": "5d01aab4-5ec6-45e0-a225-65b16ba14270",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4232,7 +4232,7 @@
       "uuid": "c30972b7-dfac-45e5-ab17-4466516006ce",
       "system-uuid": "2a9f5f5e-444b-4874-b81c-8a40396ea80c",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4267,7 +4267,7 @@
       "uuid": "d52dce38-3de5-4cf0-9aec-00d80c21ff0c",
       "system-uuid": "2a9f5f5e-444b-4874-b81c-8a40396ea80c",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4302,7 +4302,7 @@
       "uuid": "57495c03-249f-4749-8842-115c0b9012cb",
       "system-uuid": "86aa45d8-cad6-4d09-9ff0-552cd14eb1d3",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4337,7 +4337,7 @@
       "uuid": "133ee6cc-b505-4800-9e2d-f0e4be360dc7",
       "system-uuid": "86aa45d8-cad6-4d09-9ff0-552cd14eb1d3",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4372,7 +4372,7 @@
       "uuid": "3d4e221d-35ea-4e08-8ff4-00ac378b604f",
       "system-uuid": "13f7ee6f-d01f-4dad-823f-e0d623f639dc",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4407,7 +4407,7 @@
       "uuid": "91fe5f1a-fbbd-4ee9-a7b1-ec8955af9ee5",
       "system-uuid": "13f7ee6f-d01f-4dad-823f-e0d623f639dc",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4442,7 +4442,7 @@
       "uuid": "e8b26d09-036b-4054-a215-884b3e20f554",
       "system-uuid": "1d6ca17e-5c97-4bc3-a3ac-ba18e453bde3",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4477,7 +4477,7 @@
       "uuid": "347e34c8-4cab-4395-979b-d376d85ca843",
       "system-uuid": "1d6ca17e-5c97-4bc3-a3ac-ba18e453bde3",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4512,7 +4512,7 @@
       "uuid": "d5674226-cc54-4594-ad28-8bc7e10fdb85",
       "system-uuid": "40bf5904-61bf-4abc-9279-05d4fb849e85",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4547,7 +4547,7 @@
       "uuid": "36165b9b-2c3a-4f51-bab9-e52166c1960a",
       "system-uuid": "40bf5904-61bf-4abc-9279-05d4fb849e85",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4582,7 +4582,7 @@
       "uuid": "96a52d81-fdf7-457e-b9fb-417bee84b497",
       "system-uuid": "7c28e1a2-ce16-427b-97c0-498deac1c6ab",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4617,7 +4617,7 @@
       "uuid": "68e586e7-407d-498c-9267-295d70b2e639",
       "system-uuid": "7c28e1a2-ce16-427b-97c0-498deac1c6ab",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4652,7 +4652,7 @@
       "uuid": "6207aa89-9da4-4b11-a390-63d590873512",
       "system-uuid": "bcef6d89-1bf0-4373-90ed-5b86c521ba38",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4687,7 +4687,7 @@
       "uuid": "be2eb740-9003-4c5e-8c39-0c4ec0186f29",
       "system-uuid": "bcef6d89-1bf0-4373-90ed-5b86c521ba38",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4722,7 +4722,7 @@
       "uuid": "821e899f-2674-4360-b447-a88a40318de8",
       "system-uuid": "b34269f8-9c86-4902-ae8e-044375a63ac8",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4757,7 +4757,7 @@
       "uuid": "16b7a215-db39-42f6-9e26-8f415952268e",
       "system-uuid": "b34269f8-9c86-4902-ae8e-044375a63ac8",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4792,7 +4792,7 @@
       "uuid": "250be0b1-2290-4e03-bbc6-c8eb92768dfd",
       "system-uuid": "ec1094fa-51cc-49ba-9076-f54f18a540f6",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4827,7 +4827,7 @@
       "uuid": "4869ddac-cae6-4c1f-90b7-83615e7ad07b",
       "system-uuid": "ec1094fa-51cc-49ba-9076-f54f18a540f6",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4862,7 +4862,7 @@
       "uuid": "d7c04472-7bf3-4e1f-b495-0a2da1c9693f",
       "system-uuid": "a0f712f7-6b6a-4dc3-bdae-b52a2c5d5c0f",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4897,7 +4897,7 @@
       "uuid": "216d740a-2a71-42a0-b374-cce964f19dd9",
       "system-uuid": "a0f712f7-6b6a-4dc3-bdae-b52a2c5d5c0f",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4932,7 +4932,7 @@
       "uuid": "a113e4b4-4992-45b7-928e-4b0f6c0659fa",
       "system-uuid": "2d303b1e-18bb-4544-a9be-56901c584570",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -4967,7 +4967,7 @@
       "uuid": "6e2289ff-44c0-41d7-a757-6dc5cac5daa2",
       "system-uuid": "2d303b1e-18bb-4544-a9be-56901c584570",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5002,7 +5002,7 @@
       "uuid": "74602f72-f901-45a9-b9b6-ae97fa1c0343",
       "system-uuid": "4d951da1-6f89-423b-ad27-1c932057d525",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5037,7 +5037,7 @@
       "uuid": "d33e7c98-9bdb-42fb-b3a9-aa654759a817",
       "system-uuid": "4d951da1-6f89-423b-ad27-1c932057d525",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5072,7 +5072,7 @@
       "uuid": "756972c9-a538-4881-a844-eb66a6d14e3a",
       "system-uuid": "03cb6e7b-ac56-4600-8176-7a7bf987ecce",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5107,7 +5107,7 @@
       "uuid": "af85c731-bb61-4526-88bd-8d4f0fd452e8",
       "system-uuid": "03cb6e7b-ac56-4600-8176-7a7bf987ecce",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5142,7 +5142,7 @@
       "uuid": "565cb5b1-3d01-4eff-a4a7-302c1d666ad4",
       "system-uuid": "e9199ee7-c5d0-455e-9678-204642f84999",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5177,7 +5177,7 @@
       "uuid": "e31b977f-dd90-41d2-90bb-e9daef19f730",
       "system-uuid": "e9199ee7-c5d0-455e-9678-204642f84999",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5212,7 +5212,7 @@
       "uuid": "23b0fb7b-06bf-4130-a0d7-f713df8ab521",
       "system-uuid": "250d387c-2b40-4bc3-8bc2-07a8c2b7f768",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5247,7 +5247,7 @@
       "uuid": "ee50e717-d86f-44dd-9c12-c7bff0a7ae81",
       "system-uuid": "250d387c-2b40-4bc3-8bc2-07a8c2b7f768",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5282,7 +5282,7 @@
       "uuid": "61771a03-04d1-4393-b555-5d5d3689febd",
       "system-uuid": "27289edf-919f-47dd-83ad-42da48678edb",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5317,7 +5317,7 @@
       "uuid": "f913dd25-e725-40b9-840c-a40022ef1150",
       "system-uuid": "27289edf-919f-47dd-83ad-42da48678edb",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5352,7 +5352,7 @@
       "uuid": "094ad6ca-ce57-45a4-a073-0af709f36cc5",
       "system-uuid": "76919368-b300-478a-a898-4abc87ba9ffd",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5387,7 +5387,7 @@
       "uuid": "4ccd43e7-605d-4edb-9b3b-b57f54194232",
       "system-uuid": "76919368-b300-478a-a898-4abc87ba9ffd",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5422,7 +5422,7 @@
       "uuid": "eb5d63ee-1db1-4ded-833f-fb6ce7eadc96",
       "system-uuid": "92651ecb-95a8-4c65-a794-57914bc9c097",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5457,7 +5457,7 @@
       "uuid": "038813e6-0f40-4ea0-b71b-c84630785eeb",
       "system-uuid": "92651ecb-95a8-4c65-a794-57914bc9c097",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5492,7 +5492,7 @@
       "uuid": "5846e0d6-b90e-4905-b14a-6b84211f016a",
       "system-uuid": "5c489f5e-4216-49ef-a13e-4489eecbe482",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5527,7 +5527,7 @@
       "uuid": "79ec4b37-86de-4120-a134-44373b31dbf7",
       "system-uuid": "5c489f5e-4216-49ef-a13e-4489eecbe482",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5562,7 +5562,7 @@
       "uuid": "f4270a80-1c63-476f-9a20-1ed444a7af2f",
       "system-uuid": "6f1a92f2-9b8a-4266-a18e-a1be99c188c4",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5597,7 +5597,7 @@
       "uuid": "b5f87674-1b0d-49e3-bfe3-4dc1073e0034",
       "system-uuid": "6f1a92f2-9b8a-4266-a18e-a1be99c188c4",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5632,7 +5632,7 @@
       "uuid": "fe779f5d-e459-4bff-8cdc-c7f35f100551",
       "system-uuid": "32d576f5-6240-4e29-9b20-d1dde225147b",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5667,7 +5667,7 @@
       "uuid": "3ecf63e3-fb84-422e-8910-ca25ce82e83f",
       "system-uuid": "32d576f5-6240-4e29-9b20-d1dde225147b",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5702,7 +5702,7 @@
       "uuid": "70494213-d2b3-4e14-bbec-2963d314f419",
       "system-uuid": "d38f1212-ba63-4ab0-b552-accb65d312c3",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5737,7 +5737,7 @@
       "uuid": "69015796-4777-4de2-a296-f54afb130198",
       "system-uuid": "d38f1212-ba63-4ab0-b552-accb65d312c3",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5772,7 +5772,7 @@
       "uuid": "f0e95cf1-db8c-45cf-9651-87c29a409fc6",
       "system-uuid": "c088ab6d-56c9-48b3-bd3d-cd14f07ae131",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5807,7 +5807,7 @@
       "uuid": "ce317f05-e149-42e5-a039-b660046bd821",
       "system-uuid": "c088ab6d-56c9-48b3-bd3d-cd14f07ae131",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5842,7 +5842,7 @@
       "uuid": "5f6db43d-3e43-41dd-a266-45fe08612eb3",
       "system-uuid": "09220150-7189-49d5-89e6-51c1567092ba",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5877,7 +5877,7 @@
       "uuid": "54713f1c-3389-4843-9ff4-4a35bdd1670e",
       "system-uuid": "09220150-7189-49d5-89e6-51c1567092ba",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5912,7 +5912,7 @@
       "uuid": "000ca006-c6dd-4dfd-af2e-95f56cd7b2e1",
       "system-uuid": "b3b6dbe5-a74b-49c4-addb-59e3eca449e8",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5947,7 +5947,7 @@
       "uuid": "ef57b21c-0bc5-4d61-aca5-59b3050e5d9d",
       "system-uuid": "b3b6dbe5-a74b-49c4-addb-59e3eca449e8",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -5982,7 +5982,7 @@
       "uuid": "65c03aa9-7ba3-421c-9dfe-eb2ba3e0e21e",
       "system-uuid": "ad9418e6-b355-45d6-bc2a-e5bbafdf51ee",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6017,7 +6017,7 @@
       "uuid": "a2ebe988-ce7a-4c70-9bcd-4e5a03e08802",
       "system-uuid": "ad9418e6-b355-45d6-bc2a-e5bbafdf51ee",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6052,7 +6052,7 @@
       "uuid": "e854159d-c702-4706-985e-8c85360a24bc",
       "system-uuid": "62ede4b7-d868-4ba1-968d-d4897afc47c8",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6087,7 +6087,7 @@
       "uuid": "9357e244-2aa7-47b0-a433-b1e753edad8e",
       "system-uuid": "62ede4b7-d868-4ba1-968d-d4897afc47c8",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6122,7 +6122,7 @@
       "uuid": "8e7dad33-786a-4df6-a0b1-c0b105fe5523",
       "system-uuid": "91ea3802-18c7-40f7-a06a-9937c9cd2587",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6157,7 +6157,7 @@
       "uuid": "f32ae9e3-c494-4bd0-b47f-3c723951ca06",
       "system-uuid": "91ea3802-18c7-40f7-a06a-9937c9cd2587",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6192,7 +6192,7 @@
       "uuid": "a9a5f5c3-d6a5-4d30-829d-d1d864477f37",
       "system-uuid": "d3b939cf-19cd-42f2-a208-7b06515df6d6",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6227,7 +6227,7 @@
       "uuid": "b7414d57-76c4-4d4d-b56d-88d60b0b19ee",
       "system-uuid": "d3b939cf-19cd-42f2-a208-7b06515df6d6",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6262,7 +6262,7 @@
       "uuid": "a75d8da9-b81f-46fa-a949-659278a40f89",
       "system-uuid": "d62f85fc-8f74-4e5c-a5dd-cd7405cccf0a",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6297,7 +6297,7 @@
       "uuid": "5945c0ba-7775-46f7-b824-de95231ceb73",
       "system-uuid": "d62f85fc-8f74-4e5c-a5dd-cd7405cccf0a",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6332,7 +6332,7 @@
       "uuid": "3569d782-a935-4f6b-94e9-81ef783de181",
       "system-uuid": "7cf589a9-a861-422a-8450-dd8209ee0adb",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6367,7 +6367,7 @@
       "uuid": "0caf8c9d-c92b-447b-8122-cd75b5b84170",
       "system-uuid": "7cf589a9-a861-422a-8450-dd8209ee0adb",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6402,7 +6402,7 @@
       "uuid": "96d92b17-b482-4570-b4d1-6b65dc03618f",
       "system-uuid": "5d174409-8721-4c89-9a53-9dfb5047b484",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6437,7 +6437,7 @@
       "uuid": "6dddff96-5d4a-44d8-993d-551d1ada78b0",
       "system-uuid": "5d174409-8721-4c89-9a53-9dfb5047b484",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6472,7 +6472,7 @@
       "uuid": "c18a4925-d635-4a89-9110-1850e6ecebc5",
       "system-uuid": "0d5622b6-80af-44bc-918d-1f6ba4fb76af",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6507,7 +6507,7 @@
       "uuid": "041e2ef7-1322-41fb-8d8e-31dd700b6ab4",
       "system-uuid": "0d5622b6-80af-44bc-918d-1f6ba4fb76af",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6542,7 +6542,7 @@
       "uuid": "9c38c5e8-4a3e-4e32-9a1d-dabfa28cb8ae",
       "system-uuid": "c0742943-85b0-4a19-9928-9386198d13d0",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6577,7 +6577,7 @@
       "uuid": "14917900-34b1-46ee-a1b0-141ef2c1be23",
       "system-uuid": "c0742943-85b0-4a19-9928-9386198d13d0",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6612,7 +6612,7 @@
       "uuid": "15702f53-a320-482d-a5d7-0b826b0824dc",
       "system-uuid": "e7b1e918-829b-4bbe-8194-d9423cf8980d",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6647,7 +6647,7 @@
       "uuid": "ac24a442-61ee-4993-9083-a17f9eb26af5",
       "system-uuid": "e7b1e918-829b-4bbe-8194-d9423cf8980d",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6682,7 +6682,7 @@
       "uuid": "beb23fae-e9d3-4796-8a31-0db0dca97546",
       "system-uuid": "fc80bbf4-f684-4b8e-bc5a-9b181cf516cc",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6717,7 +6717,7 @@
       "uuid": "da15fcab-f46e-446a-86e3-6995d8bf0598",
       "system-uuid": "fc80bbf4-f684-4b8e-bc5a-9b181cf516cc",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6752,7 +6752,7 @@
       "uuid": "7344e68a-acff-4daa-bfb5-5fd3a1ffdf3f",
       "system-uuid": "3b1a26ee-7afa-4bc9-ba72-78faa3413fb0",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6787,7 +6787,7 @@
       "uuid": "a1587f43-ab0c-4abd-bbcd-d0f277118b12",
       "system-uuid": "3b1a26ee-7afa-4bc9-ba72-78faa3413fb0",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6822,7 +6822,7 @@
       "uuid": "39643923-9725-4413-8e13-d38b06035f9b",
       "system-uuid": "86051700-118e-45b9-ac10-e027b74edab6",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6857,7 +6857,7 @@
       "uuid": "06602484-6b95-4612-8869-56ec97ae303c",
       "system-uuid": "86051700-118e-45b9-ac10-e027b74edab6",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6892,7 +6892,7 @@
       "uuid": "2d0ccac2-17db-41b9-81c9-a45ec7565a36",
       "system-uuid": "034339ae-82dc-458e-af81-2dba58a80390",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6927,7 +6927,7 @@
       "uuid": "fa338914-8ce3-4661-a111-e857b129ffcf",
       "system-uuid": "034339ae-82dc-458e-af81-2dba58a80390",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6962,7 +6962,7 @@
       "uuid": "34cff6c8-c32e-4899-a96b-b9d2a8512c9f",
       "system-uuid": "b2e6adf3-8e0e-45ed-9a40-6076b684b86a",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -6997,7 +6997,7 @@
       "uuid": "5f0911d4-9eb3-4d54-95a5-c5528b2822a0",
       "system-uuid": "b2e6adf3-8e0e-45ed-9a40-6076b684b86a",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7032,7 +7032,7 @@
       "uuid": "62ecfbfd-f0a0-445a-902f-3a45fd3768f7",
       "system-uuid": "022f296d-2fd9-4629-bebd-6e8ca2336c22",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7067,7 +7067,7 @@
       "uuid": "b8da7413-0a77-4e4f-9ab1-8a5198136403",
       "system-uuid": "022f296d-2fd9-4629-bebd-6e8ca2336c22",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7102,7 +7102,7 @@
       "uuid": "3b66d9d5-1a20-496f-b1d0-ce7c8dd64764",
       "system-uuid": "688b3411-8ef9-408e-8afe-115c07cdc1aa",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7137,7 +7137,7 @@
       "uuid": "d364e647-e105-4ce9-8bf0-b3a4325e1272",
       "system-uuid": "688b3411-8ef9-408e-8afe-115c07cdc1aa",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7172,7 +7172,7 @@
       "uuid": "afcdd5f8-62e4-4240-9e9d-115f746e1a2d",
       "system-uuid": "1762eeed-a73f-4f13-b497-463d72d0fb0b",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7207,7 +7207,7 @@
       "uuid": "c3ad7859-75bb-4b2e-8470-5b6947922f15",
       "system-uuid": "1762eeed-a73f-4f13-b497-463d72d0fb0b",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7242,7 +7242,7 @@
       "uuid": "f9cd81a6-dadc-42c5-b147-1fd751982163",
       "system-uuid": "65631252-b305-4370-ac51-eff2c605119c",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7277,7 +7277,7 @@
       "uuid": "ff12974d-97c6-4d5f-8920-11f66f73272d",
       "system-uuid": "65631252-b305-4370-ac51-eff2c605119c",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7312,7 +7312,7 @@
       "uuid": "bb390d29-d468-4dd7-b78c-2716cd41f67a",
       "system-uuid": "49e97772-ff00-450b-a76a-1d32b374b240",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7347,7 +7347,7 @@
       "uuid": "6e2623d8-1a50-4753-9f90-4d9953c4400d",
       "system-uuid": "49e97772-ff00-450b-a76a-1d32b374b240",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7382,7 +7382,7 @@
       "uuid": "c70bdad8-858e-4e61-9963-80a99411cd22",
       "system-uuid": "790fd7da-2984-47f2-a7c8-d2e8ec7f8489",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7417,7 +7417,7 @@
       "uuid": "54a6d309-314a-4d1b-827a-71791f7bb8f4",
       "system-uuid": "790fd7da-2984-47f2-a7c8-d2e8ec7f8489",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7452,7 +7452,7 @@
       "uuid": "80ee6bc2-e02a-4132-971d-d7cb9306411e",
       "system-uuid": "b6302d6e-7fef-4e13-bd36-33603e9aca65",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7487,7 +7487,7 @@
       "uuid": "57a6df31-84cf-439d-a614-c47a444b34b3",
       "system-uuid": "b6302d6e-7fef-4e13-bd36-33603e9aca65",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7522,7 +7522,7 @@
       "uuid": "85070a0f-fc16-43fc-8b51-d2fac717667f",
       "system-uuid": "76a2b136-98f8-4769-b060-7781946a2aac",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7557,7 +7557,7 @@
       "uuid": "92b40b11-58bf-4285-8c8a-d4a55bd55ca5",
       "system-uuid": "76a2b136-98f8-4769-b060-7781946a2aac",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7592,7 +7592,7 @@
       "uuid": "a4001cad-ee98-457a-ac20-53fe80c51686",
       "system-uuid": "5a022d42-9cbd-4a0d-9cfd-90be6e504f7e",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7627,7 +7627,7 @@
       "uuid": "bbb8e9a4-3fc7-41f2-9bff-3832ff04f397",
       "system-uuid": "5a022d42-9cbd-4a0d-9cfd-90be6e504f7e",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7662,7 +7662,7 @@
       "uuid": "59b7a65f-7ce0-431a-8467-96542ddf5afb",
       "system-uuid": "dfa8f51a-3017-4a60-b193-5218a51d087f",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7697,7 +7697,7 @@
       "uuid": "42b2a527-6808-4e95-b1fa-84495373314a",
       "system-uuid": "dfa8f51a-3017-4a60-b193-5218a51d087f",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7732,7 +7732,7 @@
       "uuid": "492b8cbe-cc4d-43b7-9068-6da1c460bc98",
       "system-uuid": "36b71c0a-5e01-4dc3-8848-d3f8deb6c00d",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7767,7 +7767,7 @@
       "uuid": "cc8457b6-efbb-4fa5-930e-581c7cabc938",
       "system-uuid": "36b71c0a-5e01-4dc3-8848-d3f8deb6c00d",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7802,7 +7802,7 @@
       "uuid": "f5ba9ec0-0877-4956-9727-82c5321da5ae",
       "system-uuid": "b3a5c9bf-88fb-40e2-8835-419cccd54461",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7837,7 +7837,7 @@
       "uuid": "f4e44361-3c15-48ce-b18a-3aacd3f6700b",
       "system-uuid": "b3a5c9bf-88fb-40e2-8835-419cccd54461",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7872,7 +7872,7 @@
       "uuid": "20396648-92ea-4e89-9e8a-8aac50799f9c",
       "system-uuid": "e4d15a73-054b-4110-9a7e-595fc3031eda",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7907,7 +7907,7 @@
       "uuid": "7f5358ce-5b8d-4323-8908-27dd5febc147",
       "system-uuid": "e4d15a73-054b-4110-9a7e-595fc3031eda",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7942,7 +7942,7 @@
       "uuid": "a6865523-232b-4e49-aac8-a9ba42d7de84",
       "system-uuid": "1e6b96f5-abba-4048-9332-93d54254d4df",
       "orbit": 5,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     },
     {
@@ -7977,7 +7977,7 @@
       "uuid": "0ba748b2-c97b-490a-9632-d2d5a2878cff",
       "system-uuid": "1e6b96f5-abba-4048-9332-93d54254d4df",
       "orbit": 10,
-      "type": "asteroids",
+      "type": "asteroid",
       "habitability": 0
     }
   ]
