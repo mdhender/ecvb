@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/mdhender/ecvb/internal/database"
@@ -42,11 +44,18 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 		Usage:     "ecrpt show SUBCOMMAND",
 		ShortHelp: "show database data",
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a show subcommand is required (stellium or system)")
+			return fmt.Errorf("a show subcommand is required (stellium, system, or turn)")
 		},
 	}
 	systemFlags := ff.NewFlagSet("show system")
 	showDeposits := systemFlags.BoolLong("show-deposits", "show every deposit on each planet")
+	turnFlags := ff.NewFlagSet("show turn")
+	turnGame := turnFlags.StringLong("game", "", "code of the game")
+	turnEmail := turnFlags.StringLong("email", "", "email address of the player")
+	turnFaction := turnFlags.Int64Long("faction", 0, "id of the player's faction")
+	turnShowDeposits := turnFlags.BoolLong("show-deposits", "show deposits on controlled planets")
+	turnSummarizeResources := turnFlags.BoolLong("summarize-resources", "summarize resources across the player's inventory")
+	turnWorkGroups := turnFlags.BoolLong("work-groups", "show the player's work groups")
 	show.Subcommands = []*ff.Command{
 		{
 			Name:      "stellium",
@@ -83,6 +92,42 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 					return fmt.Errorf("db-path is required")
 				}
 				return showSystem(ctx, *dbPath, id, *showDeposits, stdout)
+			},
+		},
+		{
+			Name:      "turn",
+			Usage:     "ecrpt show turn --game CODE (--email EMAIL | --faction ID) [--show-deposits] [--summarize-resources] [--work-groups]",
+			ShortHelp: "show a player's turn report",
+			Flags:     turnFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 0 {
+					return fmt.Errorf("unexpected arguments: %v", args)
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				if *turnGame == "" {
+					return fmt.Errorf("game is required")
+				}
+				email := strings.ToLower(strings.TrimSpace(*turnEmail))
+				if email != "" {
+					address, err := mail.ParseAddress(email)
+					if err != nil || address.Address != email {
+						return fmt.Errorf("invalid email address %q", email)
+					}
+				}
+				if (email == "") == (*turnFaction == 0) {
+					return fmt.Errorf("exactly one of email or faction is required")
+				}
+				if *turnFaction < 0 {
+					return fmt.Errorf("invalid faction id %d", *turnFaction)
+				}
+				options := turnReportOptions{
+					showDeposits:       *turnShowDeposits,
+					summarizeResources: *turnSummarizeResources,
+					showWorkGroups:     *turnWorkGroups,
+				}
+				return showTurnReport(ctx, *dbPath, *turnGame, email, *turnFaction, options, stdout)
 			},
 		},
 	}
