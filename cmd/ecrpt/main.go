@@ -42,9 +42,11 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 		Usage:     "ecrpt show SUBCOMMAND",
 		ShortHelp: "show database data",
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a show subcommand is required (stellium)")
+			return fmt.Errorf("a show subcommand is required (stellium or system)")
 		},
 	}
+	systemFlags := ff.NewFlagSet("show system")
+	showDeposits := systemFlags.BoolLong("show-deposits", "show every deposit on each planet")
 	show.Subcommands = []*ff.Command{
 		{
 			Name:      "stellium",
@@ -62,6 +64,25 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 					return fmt.Errorf("db-path is required")
 				}
 				return showStellium(ctx, *dbPath, id, stdout)
+			},
+		},
+		{
+			Name:      "system",
+			Usage:     "ecrpt show system [--show-deposits] <id>",
+			ShortHelp: "show a system and its planets",
+			Flags:     systemFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one system id")
+				}
+				id, err := strconv.ParseInt(args[0], 10, 64)
+				if err != nil || id < 1 {
+					return fmt.Errorf("invalid system id %q", args[0])
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				return showSystem(ctx, *dbPath, id, *showDeposits, stdout)
 			},
 		},
 	}
@@ -141,6 +162,135 @@ func showStellium(ctx context.Context, directory string, id int64, output io.Wri
 	}
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("write stellium: %w", err)
+	}
+	return nil
+}
+
+type systemPlanet struct {
+	id           int64
+	orbit        int
+	kind         string
+	habitability int
+	summary      []depositSummary
+}
+
+type depositSummary struct {
+	resource string
+	quantity int64
+}
+
+func showSystem(ctx context.Context, directory string, id int64, showDeposits bool, output io.Writer) (err error) {
+	conn, err := openDatabase(ctx, directory)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := conn.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close database: %w", closeErr)
+		}
+	}()
+
+	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
+	found := false
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT sy.id, sy.stellium_id, sy.sequence
+		FROM system AS sy
+		WHERE sy.id = ?;`, &sqlitex.ExecOptions{
+		Args: []any{id},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			found = true
+			fmt.Fprintln(w, "SYSTEM")
+			fmt.Fprintln(w, "ID\tSTELLIUM\tSEQUENCE")
+			fmt.Fprintf(w, "%d\t%d\t%s\n", stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnText(2))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query system %d: %w", id, err)
+	}
+	if !found {
+		return fmt.Errorf("system %d does not exist", id)
+	}
+
+	var planets []systemPlanet
+	planetIndexByID := make(map[int64]int)
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT id, orbit, kind, habitability
+		FROM planet
+		WHERE system_id = ?
+		ORDER BY orbit;`, &sqlitex.ExecOptions{
+		Args: []any{id},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			planets = append(planets, systemPlanet{
+				id:           stmt.ColumnInt64(0),
+				orbit:        stmt.ColumnInt(1),
+				kind:         stmt.ColumnText(2),
+				habitability: stmt.ColumnInt(3),
+			})
+			planetIndexByID[planets[len(planets)-1].id] = len(planets) - 1
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query planets in system %d: %w", id, err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT d.planet_id, d.resource, SUM(d.current_qty)
+		FROM deposit AS d
+		JOIN planet AS p ON p.id = d.planet_id
+		WHERE p.system_id = ?
+		GROUP BY d.planet_id, d.resource
+		ORDER BY d.planet_id, d.resource;`, &sqlitex.ExecOptions{
+		Args: []any{id},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			planetIndex := planetIndexByID[stmt.ColumnInt64(0)]
+			planets[planetIndex].summary = append(planets[planetIndex].summary, depositSummary{
+				resource: stmt.ColumnText(1),
+				quantity: stmt.ColumnInt64(2),
+			})
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("summarize deposits in system %d: %w", id, err)
+	}
+
+	fmt.Fprintln(w, "\nPLANETS")
+	fmt.Fprintln(w, "ID\tORBIT\tKIND\tHABITABILITY\tDEPOSITS (CURRENT QUANTITY)")
+	for _, planet := range planets {
+		fmt.Fprintf(w, "%d\t%d\t%s\t%d\t", planet.id, planet.orbit, planet.kind, planet.habitability)
+		if len(planet.summary) == 0 {
+			fmt.Fprintln(w, "none")
+			continue
+		}
+		for i, summary := range planet.summary {
+			if i != 0 {
+				fmt.Fprint(w, ", ")
+			}
+			fmt.Fprintf(w, "%s=%d", summary.resource, summary.quantity)
+		}
+		fmt.Fprintln(w)
+	}
+
+	if showDeposits {
+		fmt.Fprintln(w, "\nDEPOSITS")
+		fmt.Fprintln(w, "PLANET\tORBIT\tSEQUENCE\tRESOURCE\tQUALITY\tINITIAL QUANTITY\tCURRENT QUANTITY")
+		if err := sqlitex.ExecuteTransient(conn, `
+			SELECT p.id, p.orbit, d.sequence, d.resource, d.quality, d.initial_qty, d.current_qty
+			FROM planet AS p
+			JOIN deposit AS d ON d.planet_id = p.id
+			WHERE p.system_id = ?
+			ORDER BY p.orbit, d.sequence;`, &sqlitex.ExecOptions{
+			Args: []any{id},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%d\t%d\t%d\n",
+					stmt.ColumnInt64(0), stmt.ColumnInt(1), stmt.ColumnInt(2), stmt.ColumnText(3),
+					stmt.ColumnInt(4), stmt.ColumnInt64(5), stmt.ColumnInt64(6))
+				return nil
+			},
+		}); err != nil {
+			return fmt.Errorf("query deposits in system %d: %w", id, err)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("write system: %w", err)
 	}
 	return nil
 }
