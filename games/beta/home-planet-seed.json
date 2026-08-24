@@ -1,0 +1,99 @@
+{
+  "kit-name": "Lean Start",
+  "colonies": {
+    "COPN": {
+      "2494f9f6-984d-4284-8d6d-b3ced9efd115": {
+        "tech-level": 1,
+        "population": {
+          "SKW": 14,
+          "USK": 120,
+          "SOL": 235,
+          "NAS": 123
+        },
+        "components": {
+          "STRC-1": 2018
+        },
+        "operational": {
+          "FARM-1": 85,
+          "FACT-1": 72,
+          "MINE-1": 54
+        },
+        "cargo": {
+          "CNGD": 1,
+          "GOLD": 87
+        }
+      }
+    },
+    "CSFC": {
+      "c1a67f6b-1341-4e78-afd7-c4d2fbbf175d": {
+        "tech-level": 1,
+        "population": {
+          "SKW": 1,
+          "USK": 9,
+          "SOL": 5,
+          "NAS": 413
+        },
+        "components": {
+          "STRC-1": 16775,
+          "LFSU-1": 1
+        },
+        "operational": {
+          "FARM-2": 100
+        },
+        "cargo": {
+          "CNGD": 21,
+          "FUEL": 10,
+          "METL": 100,
+          "MNRL": 100
+        }
+      }
+    },
+    "CORB": {
+      "b04586d2-9b33-47fc-94d1-ef91373dda41": {
+        "tech-level": 1,
+        "components": {
+          "STRC-1": 35470,
+          "SDRV-1": 1,
+          "LFSU-2": 1
+        },
+        "operational": {
+          "FARM-2": 100,
+          "TRAN-1": 600
+        },
+        "cargo": {
+          "FUEL": 1
+        }
+      }
+    }
+  },
+  "SHIP": {
+    "9aad3a0a-ef2f-4c32-bb77-f150c36d7183": {
+      "tech-level": 1,
+      "population": {
+        "SKW": 100,
+        "USK": 100,
+        "SOL": 25,
+        "NAS": 13
+      },
+      "components": {
+        "STRC-1": 113520,
+        "HDRV-1": 1,
+        "SDRV-1": 1,
+        "LFSU-1": 1,
+        "SNSR-1": 1
+      },
+      "operational": {
+        "FARM-2": 10
+      },
+      "cargo": {
+        "CNGD": 511,
+        "FACT-1": 1,
+        "FARM-1": 25,
+        "FARM-2": 3,
+        "FOOD": 1000,
+        "FUEL": 100,
+        "MINE-1": 1
+      }
+    }
+  }
+}
