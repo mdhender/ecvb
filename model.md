@@ -27,10 +27,11 @@ Entity location rules are defined in [Entity Location](entity-location.md).
 | Column | Description |
 | --- | --- |
 | `id` | Primary key. |
+| `code` | Stable engine-defined agent code; unique when set. |
 | `description` | Human-readable description of the agent. |
 
-Agents are implemented by the game engine. The data model stores no other agent
-attributes.
+Agents are implemented by the game engine. The `uncontrolled` agent generates
+basic orders for entities that have no population.
 
 ### `faction`
 
@@ -132,7 +133,8 @@ types.
 | `planet_id` | The entity's planet; optional for a ship and required for a colony. |
 | `planet_ring` | The entity's ring at its planet; null when a ship is at the stellium level. |
 | `faction_id` | The faction controlling the entity. |
-| `enclosed_volume` | The entity's enclosed volume. |
+| `enclosed_volume` | Raw volume enclosed by assembled structural components. |
+| `mass` | Total mass of the entity's population and inventory. |
 
 | Unit | Entity type |
 | --- | --- |
@@ -146,6 +148,16 @@ selected system and planet must belong to the selected stellium, and a selected
 planet must belong to the selected system. See
 [Entity Location](entity-location.md) for the unit-specific location rules.
 
+Every entity has a controlling faction. An entity with population is controlled
+by its player's faction. An entity without population is controlled by the
+game's `uncontrolled` agent faction.
+
+Only `STRC` and `STRL` inventory in the `component` section creates enclosed
+volume. A structural unit at technology level \(t\) encloses \(t^2\) VU. Usable
+enclosed space is the raw enclosed volume multiplied by the entity efficiency
+and rounded down. The efficiencies are 1 for `COPN`, 0.2 for `CSFC`, and 0.1
+for `CORB` and `SHIP`.
+
 ### `inventory`
 
 | Column | Description |
@@ -155,6 +167,23 @@ planet must belong to the selected system. See
 | `unit` | Unit code, such as `TRAN`. |
 | `tech_level` | Required technology level, from 0 through 10. |
 | `quantity` | Quantity held. |
+
+Assembled `STRC` and `STRL` components create enclosed volume and do not consume
+enclosed space. Structural units in other inventory sections consume space like
+other inventory. `GOLD`, `FUEL`, `METL`, and `MNRL` cargo on `COPN` and `CORB`
+is stored in external depots: it contributes mass but consumes no enclosed
+space.
+
+### `entity_population`
+
+| Column | Description |
+| --- | --- |
+| `entity_id` | The entity containing the population. |
+| `class` | One of `USK`, `SKW`, `SOL`, or `NAS`. |
+| `quantity` | Population units; one unit represents 100 persons. |
+
+`(entity_id, class)` is the primary key. Population contributes to entity mass
+and occupied enclosed space. Census reports multiply `quantity` by 100.
 
 ## Work groups
 

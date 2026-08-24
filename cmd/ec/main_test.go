@@ -357,75 +357,15 @@ func createTestDatabase(t *testing.T, directory string, applicationID, version i
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, migration := range database.Migrations() {
+		if err := sqlitex.ExecuteScript(conn, migration, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := sqlitex.ExecuteTransient(conn, fmt.Sprintf("PRAGMA application_id = %d;", applicationID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := sqlitex.ExecuteTransient(conn, fmt.Sprintf("PRAGMA user_version = %d;", version), nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := sqlitex.ExecuteScript(conn, strings.TrimSpace(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL UNIQUE,
-			role TEXT NOT NULL
-		);
-		CREATE TABLE game (
-			id INTEGER PRIMARY KEY,
-			code TEXT NOT NULL,
-			turn INTEGER NOT NULL DEFAULT 0 CHECK (turn >= 0),
-			seed_high INTEGER NOT NULL DEFAULT 19 CHECK (seed_high >= 0),
-			seed_low INTEGER NOT NULL DEFAULT 12 CHECK (seed_low >= 0)
-		);
-		CREATE TABLE faction (
-			id INTEGER PRIMARY KEY,
-			game_id INTEGER NOT NULL REFERENCES game(id),
-			user_id INTEGER REFERENCES users(id),
-			agent_id INTEGER,
-			CHECK ((user_id IS NOT NULL) <> (agent_id IS NOT NULL))
-		);
-		CREATE TABLE stellium (
-			id INTEGER PRIMARY KEY,
-			game_id INTEGER NOT NULL REFERENCES game(id),
-			x INTEGER NOT NULL CHECK (x BETWEEN -15 AND 15),
-			y INTEGER NOT NULL CHECK (y BETWEEN -15 AND 15),
-			z INTEGER NOT NULL CHECK (z BETWEEN -15 AND 15),
-			UNIQUE (game_id, x, y, z)
-		);
-		CREATE TABLE system (
-			id INTEGER PRIMARY KEY,
-			stellium_id INTEGER NOT NULL REFERENCES stellium(id),
-			sequence TEXT NOT NULL CHECK (sequence IN ('A', 'B', 'C', 'D', 'E')),
-			UNIQUE (stellium_id, sequence)
-		);
-		CREATE TABLE planet (
-			id INTEGER PRIMARY KEY,
-			system_id INTEGER NOT NULL REFERENCES system(id),
-			orbit INTEGER NOT NULL CHECK (orbit BETWEEN 1 AND 10),
-			kind TEXT NOT NULL CHECK (kind IN ('rocky', 'asteroid', 'gas-giant', 'ice-giant')),
-			habitability INTEGER NOT NULL CHECK (habitability BETWEEN 0 AND 25),
-			faction_id INTEGER REFERENCES faction(id),
-			UNIQUE (system_id, orbit)
-		);
-		CREATE TABLE deposit (
-			id INTEGER PRIMARY KEY,
-			planet_id INTEGER NOT NULL REFERENCES planet(id),
-			sequence INTEGER NOT NULL CHECK (sequence BETWEEN 1 AND 45),
-			resource TEXT NOT NULL CHECK (resource IN ('fuel', 'gold', 'metals', 'minerals')),
-			quality INTEGER NOT NULL,
-			initial_qty INTEGER NOT NULL,
-			current_qty INTEGER NOT NULL,
-			UNIQUE (planet_id, sequence)
-		);
-		CREATE TABLE order_entry (
-			game_id INTEGER NOT NULL REFERENCES game(id)
-		);
-	`), nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := sqlitex.ExecuteTransient(conn, "CREATE UNIQUE INDEX game_code_idx ON game(code);", nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := sqlitex.ExecuteTransient(conn, "CREATE UNIQUE INDEX faction_game_user_idx ON faction(game_id, user_id) WHERE user_id IS NOT NULL;", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Close(); err != nil {

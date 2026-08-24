@@ -149,6 +149,19 @@ ALTER TABLE game ADD COLUMN seed_high INTEGER NOT NULL DEFAULT 19 CHECK (seed_hi
 ALTER TABLE game ADD COLUMN seed_low INTEGER NOT NULL DEFAULT 12 CHECK (seed_low >= 0);
 CREATE UNIQUE INDEX faction_game_user_idx ON faction(game_id, user_id) WHERE user_id IS NOT NULL;
 `,
+	`
+ALTER TABLE agent ADD COLUMN code TEXT;
+CREATE UNIQUE INDEX agent_code_idx ON agent(code) WHERE code IS NOT NULL;
+CREATE UNIQUE INDEX faction_game_agent_idx ON faction(game_id, agent_id) WHERE agent_id IS NOT NULL;
+ALTER TABLE entity ADD COLUMN mass INTEGER NOT NULL DEFAULT 0 CHECK (mass >= 0);
+
+CREATE TABLE entity_population (
+    entity_id INTEGER NOT NULL REFERENCES entity(id),
+    class TEXT NOT NULL CHECK (class IN ('USK', 'SKW', 'SOL', 'NAS')),
+    quantity INTEGER NOT NULL CHECK (quantity >= 0),
+    PRIMARY KEY (entity_id, class)
+);
+`,
 }
 
 // SchemaVersion is the latest database schema version.

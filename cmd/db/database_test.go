@@ -35,7 +35,7 @@ func TestCreateDatabase(t *testing.T) {
 	}
 
 	wantTables := []string{
-		"agent", "deposit", "entity", "faction", "game", "inventory",
+		"agent", "deposit", "entity", "entity_population", "faction", "game", "inventory",
 		"order_entry", "planet", "stellium", "system", "users", "work_group",
 		"work_group_units",
 	}

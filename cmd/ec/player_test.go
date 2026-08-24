@@ -18,6 +18,7 @@ import (
 func TestRunAddPlayer(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "database")
 	createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+	writeTestKit(t, directory)
 	conn := openPlayerTestDatabase(t, directory)
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO users (email, role) VALUES ('player@example.com', 'non-administrator');
@@ -114,6 +115,7 @@ func TestAddPlayerUsesRoundedUpDistance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			directory := filepath.Join(t.TempDir(), "database")
 			createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+			writeTestKit(t, directory)
 			conn := openPlayerTestDatabase(t, directory)
 			script := fmt.Sprintf(`
 				INSERT INTO users (email, role) VALUES
@@ -151,7 +153,7 @@ func TestAddPlayerUsesRoundedUpDistance(t *testing.T) {
 			}}); err != nil {
 				t.Fatal(err)
 			}
-			wantFactions := 2
+			wantFactions := 3
 			if tt.wantError {
 				wantFactions = 1
 			}

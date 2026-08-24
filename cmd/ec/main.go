@@ -156,10 +156,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	playerFlags := ff.NewFlagSet("add player")
 	playerGame := playerFlags.StringLong("game", "", "code of the game")
 	playerEmail := playerFlags.StringLong("email", "", "email address of the player")
+	playerKit := playerFlags.StringLong("kit", "", "path to the starting kit JSON file")
 	add.Subcommands = []*ff.Command{
 		{
 			Name:      "player",
-			Usage:     "ec add player --game CODE --email EMAIL",
+			Usage:     "ec add player --game CODE --email EMAIL [--kit PATH]",
 			ShortHelp: "add a player to a game",
 			Flags:     playerFlags,
 			Exec: func(ctx context.Context, args []string) error {
@@ -169,7 +170,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				factionID, err := addPlayer(ctx, *dbPath, *playerGame, *playerEmail)
+				kitPath := *playerKit
+				if kitPath == "" {
+					kitPath = filepath.Join(*dbPath, "home-planet-seed.json")
+				}
+				factionID, err := addPlayerWithKit(ctx, *dbPath, *playerGame, *playerEmail, kitPath)
 				if err != nil {
 					return err
 				}

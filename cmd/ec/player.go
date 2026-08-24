@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net/mail"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -15,13 +16,19 @@ import (
 )
 
 type homeCandidate struct {
-	planetID int64
-	x        int
-	y        int
-	z        int
+	stelliumID int64
+	systemID   int64
+	planetID   int64
+	x          int
+	y          int
+	z          int
 }
 
 func addPlayer(ctx context.Context, directory, gameCode, email string) (factionID int64, err error) {
+	return addPlayerWithKit(ctx, directory, gameCode, email, filepath.Join(directory, "home-planet-seed.json"))
+}
+
+func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath string) (factionID int64, err error) {
 	if gameCode == "" {
 		return 0, fmt.Errorf("game is required")
 	}
@@ -115,6 +122,10 @@ func addPlayer(ctx context.Context, directory, gameCode, email string) (factionI
 	if !found {
 		return 0, fmt.Errorf("game %q has no eligible home planet", gameCode)
 	}
+	kit, err := readKit(kitPath)
+	if err != nil {
+		return 0, err
+	}
 
 	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, user_id) VALUES (?, ?);", &sqlitex.ExecOptions{
 		Args: []any{gameID, userID},
@@ -122,6 +133,16 @@ func addPlayer(ctx context.Context, directory, gameCode, email string) (factionI
 		return 0, fmt.Errorf("create faction for %q in game %q: %w", email, gameCode, err)
 	}
 	factionID = conn.LastInsertRowID()
+	uncontrolledFactionID := int64(0)
+	for _, entity := range kit.entities {
+		if !entity.controlled {
+			uncontrolledFactionID, err = ensureUncontrolledFaction(conn, gameID)
+			if err != nil {
+				return 0, err
+			}
+			break
+		}
+	}
 	if err := sqlitex.ExecuteTransient(conn, "UPDATE planet SET faction_id = ? WHERE id = ? AND faction_id IS NULL;", &sqlitex.ExecOptions{
 		Args: []any{factionID, selected.planetID},
 	}); err != nil {
@@ -130,13 +151,16 @@ func addPlayer(ctx context.Context, directory, gameCode, email string) (factionI
 	if conn.Changes() != 1 {
 		return 0, fmt.Errorf("assign home planet: planet is no longer available")
 	}
+	if err := insertKit(conn, kit, selected, factionID, uncontrolledFactionID); err != nil {
+		return 0, fmt.Errorf("load kit %q: %w", kit.name, err)
+	}
 	return factionID, nil
 }
 
 func homeCandidates(conn *sqlite.Conn, gameID int64) ([]homeCandidate, error) {
 	var candidates []homeCandidate
 	err := sqlitex.ExecuteTransient(conn, `
-		SELECT p.id, st.x, st.y, st.z
+		SELECT st.id, sy.id, p.id, st.x, st.y, st.z
 		FROM stellium AS st
 		JOIN system AS sy ON sy.stellium_id = st.id
 		JOIN planet AS p ON p.system_id = sy.id AND p.orbit = 4 AND p.habitability = 25
@@ -146,10 +170,12 @@ func homeCandidates(conn *sqlite.Conn, gameID int64) ([]homeCandidate, error) {
 		Args: []any{gameID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			candidates = append(candidates, homeCandidate{
-				planetID: stmt.ColumnInt64(0),
-				x:        stmt.ColumnInt(1),
-				y:        stmt.ColumnInt(2),
-				z:        stmt.ColumnInt(3),
+				stelliumID: stmt.ColumnInt64(0),
+				systemID:   stmt.ColumnInt64(1),
+				planetID:   stmt.ColumnInt64(2),
+				x:          stmt.ColumnInt(3),
+				y:          stmt.ColumnInt(4),
+				z:          stmt.ColumnInt(5),
 			})
 			return nil
 		},
