@@ -1,0 +1,96 @@
+{
+  "id": "148e0021-e032-42b2-8a06-6188db567710",
+  "kit-name": "Balanced Start",
+  "entities": {
+    "09c57e85-e661-4bf7-bc25-cf1cd36b2208": {
+      "kind": "COPN",
+      "tech-level": 1,
+      "population": {
+        "SKW": 20,
+        "USK": 130,
+        "SOL": 200,
+        "NAS": 110
+      },
+      "components": {
+        "STRC-10": 250
+      },
+      "operational": {
+        "FARM-1": 90,
+        "FACT-1": 80,
+        "MINE-1": 60
+      },
+      "cargo": {
+        "CNGD": 2,
+        "GOLD": 90
+      }
+    },
+    "10be1cda-068f-4cc4-9923-20634405f026": {
+      "kind": "CSFC",
+      "tech-level": 1,
+      "population": {
+        "SKW": 2,
+        "USK": 12,
+        "SOL": 6,
+        "NAS": 400
+      },
+      "components": {
+        "STRC-10": 250,
+        "LFSU-1": 1
+      },
+      "operational": {
+        "FARM-2": 100
+      },
+      "cargo": {
+        "CNGD": 25,
+        "FUEL": 10,
+        "METL": 100,
+        "MNRL": 100
+      }
+    },
+    "6b606d51-683d-40b2-87f8-17ce45228429": {
+      "kind": "CORB",
+      "tech-level": 1,
+      "components": {
+        "STRC-10": 3600,
+        "SDRV-1": 1,
+        "LFSU-2": 1
+      },
+      "operational": {
+        "FARM-2": 100,
+        "TRAN-1": 600
+      },
+      "cargo": {
+        "FUEL": 1
+      }
+    },
+    "b2068274-23f7-402c-93e2-2a86dfe4dc95": {
+      "kind": "SHIP",
+      "tech-level": 1,
+      "population": {
+        "SKW": 110,
+        "USK": 90,
+        "SOL": 30,
+        "NAS": 15
+      },
+      "components": {
+        "STRC-10": 2100,
+        "HDRV-1": 1,
+        "SDRV-1": 1,
+        "LFSU-1": 1,
+        "SNSR-1": 1
+      },
+      "operational": {
+        "FARM-2": 12
+      },
+      "cargo": {
+        "CNGD": 500,
+        "FACT-1": 1,
+        "FARM-1": 30,
+        "FARM-2": 4,
+        "FOOD": 1000,
+        "FUEL": 120,
+        "MINE-1": 2
+      }
+    }
+  }
+}

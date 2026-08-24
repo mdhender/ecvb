@@ -1,0 +1,708 @@
+{
+  "seed": {
+    "high": "-2622126769270649565",
+    "lo": "8699989649721214301"
+  },
+  "stellia": [
+    {
+      "uuid": "0d38e917-48d6-466f-bd2c-0471153897bc",
+      "x": -15,
+      "y": -6,
+      "z": 8,
+      "system-count": 1
+    },
+    {
+      "uuid": "0a8eb79c-c430-44d6-a9c2-99d8ab08950d",
+      "x": -15,
+      "y": -2,
+      "z": -7,
+      "system-count": 1
+    },
+    {
+      "uuid": "e4be8314-6079-4930-8f9b-457743b294d2",
+      "x": -15,
+      "y": 4,
+      "z": 0,
+      "system-count": 1
+    },
+    {
+      "uuid": "92686394-1397-4e99-ada9-16fce86a2f2b",
+      "x": -15,
+      "y": 10,
+      "z": 15,
+      "system-count": 1
+    },
+    {
+      "uuid": "c711211b-bfd4-4214-b9f9-345716206ff6",
+      "x": -14,
+      "y": 8,
+      "z": -13,
+      "system-count": 1
+    },
+    {
+      "uuid": "7b38bcca-54e0-4c1b-a56f-1d5f41fc3417",
+      "x": -13,
+      "y": -8,
+      "z": -15,
+      "system-count": 1
+    },
+    {
+      "uuid": "9a27890c-46cb-47cd-bb3e-428b45ab4ede",
+      "x": -13,
+      "y": -3,
+      "z": 8,
+      "system-count": 3
+    },
+    {
+      "uuid": "3f500ffd-5c03-409b-9766-73ceeb834ec6",
+      "x": -13,
+      "y": 1,
+      "z": -1,
+      "system-count": 1
+    },
+    {
+      "uuid": "ea8e7543-4fa0-4c0d-a951-641fdeda03b9",
+      "x": -12,
+      "y": -8,
+      "z": -11,
+      "system-count": 1
+    },
+    {
+      "uuid": "7bdc978c-0ef1-47b7-b94a-310d2d2aa31d",
+      "x": -12,
+      "y": -7,
+      "z": 11,
+      "system-count": 1
+    },
+    {
+      "uuid": "dff840aa-48f9-4338-a910-aca23898a81d",
+      "x": -12,
+      "y": -3,
+      "z": 12,
+      "system-count": 1
+    },
+    {
+      "uuid": "e4cc771d-52a0-4d6e-ac87-6f8e5c56c349",
+      "x": -12,
+      "y": -1,
+      "z": -2,
+      "system-count": 1
+    },
+    {
+      "uuid": "64d12c24-6ba8-4f50-bbc7-3c34c8af5bbe",
+      "x": -12,
+      "y": 4,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "ba1cce9f-6347-4dcc-8f6c-a8a63c1dcabd",
+      "x": -12,
+      "y": 14,
+      "z": 1,
+      "system-count": 1
+    },
+    {
+      "uuid": "5f81e2ca-0db6-423c-8c2f-13ffc1547041",
+      "x": -11,
+      "y": -8,
+      "z": 4,
+      "system-count": 1
+    },
+    {
+      "uuid": "cf3646dc-d4a0-4433-96f8-efaf3bd720da",
+      "x": -11,
+      "y": 8,
+      "z": -1,
+      "system-count": 1
+    },
+    {
+      "uuid": "0d8e2e9c-2f19-491e-a22e-57df0cd0dbf9",
+      "x": -11,
+      "y": 11,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "49f19c31-d60b-46ff-aa8f-089b8ca80f43",
+      "x": -10,
+      "y": -12,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "955b4ca7-2f0f-4bfd-b8ca-3ecbff1035bc",
+      "x": -10,
+      "y": -8,
+      "z": 0,
+      "system-count": 1
+    },
+    {
+      "uuid": "66afff0d-db00-4cd4-b78e-832a567a458c",
+      "x": -10,
+      "y": 8,
+      "z": 11,
+      "system-count": 2
+    },
+    {
+      "uuid": "f1508d5b-084d-4435-95de-4668811824fb",
+      "x": -9,
+      "y": -14,
+      "z": -4,
+      "system-count": 1
+    },
+    {
+      "uuid": "ea8b8d4a-57da-459f-9e8c-165ec624349a",
+      "x": -9,
+      "y": -9,
+      "z": -4,
+      "system-count": 1
+    },
+    {
+      "uuid": "6f5696f0-0803-4703-8797-0621141e264d",
+      "x": -9,
+      "y": -6,
+      "z": -10,
+      "system-count": 1
+    },
+    {
+      "uuid": "d640eceb-a37d-4eba-99b9-6062b41595e2",
+      "x": -9,
+      "y": -5,
+      "z": -5,
+      "system-count": 1
+    },
+    {
+      "uuid": "ee3fad57-d3c8-4513-b764-42bad44c1371",
+      "x": -8,
+      "y": -14,
+      "z": -1,
+      "system-count": 1
+    },
+    {
+      "uuid": "ddc7f9ca-8b68-444e-b6b7-02c02883c2f7",
+      "x": -7,
+      "y": -10,
+      "z": -2,
+      "system-count": 1
+    },
+    {
+      "uuid": "d7ad7b62-5646-4c75-a5d5-94f2a29044ad",
+      "x": -7,
+      "y": -10,
+      "z": 12,
+      "system-count": 1
+    },
+    {
+      "uuid": "d4106d2c-7071-43c9-a0d0-4669efe69286",
+      "x": -7,
+      "y": -1,
+      "z": -4,
+      "system-count": 1
+    },
+    {
+      "uuid": "271a0660-de88-4124-9706-9d8264b26d15",
+      "x": -6,
+      "y": -9,
+      "z": 8,
+      "system-count": 1
+    },
+    {
+      "uuid": "0e86c16b-419d-4df5-98e0-81045a3694cd",
+      "x": -6,
+      "y": 0,
+      "z": -15,
+      "system-count": 1
+    },
+    {
+      "uuid": "c69817f7-c4aa-43bf-bcfe-879ae3c861f8",
+      "x": -6,
+      "y": 7,
+      "z": -12,
+      "system-count": 1
+    },
+    {
+      "uuid": "e65823f4-a514-4d9d-b19f-4220db414109",
+      "x": -6,
+      "y": 13,
+      "z": 10,
+      "system-count": 2
+    },
+    {
+      "uuid": "dbd0e6fb-8452-47b0-92c4-bfa8f8ea034c",
+      "x": -5,
+      "y": -13,
+      "z": -10,
+      "system-count": 1
+    },
+    {
+      "uuid": "b5f38456-9e40-4d08-884e-381481db6ebe",
+      "x": -5,
+      "y": -1,
+      "z": 4,
+      "system-count": 1
+    },
+    {
+      "uuid": "2c670740-d182-40e9-98ee-7002fd0f6752",
+      "x": -5,
+      "y": 11,
+      "z": -2,
+      "system-count": 1
+    },
+    {
+      "uuid": "953141c4-3888-41e6-9700-f15ec0c59f8c",
+      "x": -4,
+      "y": 4,
+      "z": -8,
+      "system-count": 1
+    },
+    {
+      "uuid": "365e7e5c-df56-4b23-97fd-5a8db3a8b93d",
+      "x": -4,
+      "y": 7,
+      "z": 8,
+      "system-count": 1
+    },
+    {
+      "uuid": "0c246e11-3f29-4adf-915e-465bcc6ec966",
+      "x": -3,
+      "y": 2,
+      "z": -8,
+      "system-count": 1
+    },
+    {
+      "uuid": "b1962afd-b79e-4b6b-acb3-bd1fed5591d1",
+      "x": -3,
+      "y": 3,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "1ceaf439-7cb8-4df3-b54f-e3b7345a3a46",
+      "x": -3,
+      "y": 5,
+      "z": -11,
+      "system-count": 1
+    },
+    {
+      "uuid": "398d3fbe-d87e-4cd8-82cd-a9e5dae6df8c",
+      "x": -3,
+      "y": 6,
+      "z": 0,
+      "system-count": 1
+    },
+    {
+      "uuid": "41eb8b22-2865-4c7d-b41d-409537e7d7ea",
+      "x": -3,
+      "y": 8,
+      "z": -2,
+      "system-count": 1
+    },
+    {
+      "uuid": "d18b8eed-05c7-40df-8afe-621bd480a85c",
+      "x": -3,
+      "y": 10,
+      "z": 12,
+      "system-count": 1
+    },
+    {
+      "uuid": "99069132-daa7-43b9-8c6a-4bfb9643fd43",
+      "x": -2,
+      "y": -13,
+      "z": -9,
+      "system-count": 1
+    },
+    {
+      "uuid": "cf396279-45b3-4e6d-8b07-dd57444c1309",
+      "x": -2,
+      "y": -9,
+      "z": 6,
+      "system-count": 1
+    },
+    {
+      "uuid": "58fa7a45-0e72-4ff2-9923-cedb4a22830e",
+      "x": -2,
+      "y": -4,
+      "z": -13,
+      "system-count": 1
+    },
+    {
+      "uuid": "0bbbd90a-2088-4dbc-9b8f-847da299ee93",
+      "x": -2,
+      "y": 0,
+      "z": -13,
+      "system-count": 1
+    },
+    {
+      "uuid": "8a77bd1c-e5d0-4c25-9a8d-873a28e070e5",
+      "x": -2,
+      "y": 11,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "02e9a6bb-c6f7-4ef8-9f04-deeed009a37e",
+      "x": -2,
+      "y": 12,
+      "z": -5,
+      "system-count": 1
+    },
+    {
+      "uuid": "4a82ddef-878f-4f7c-895d-b4778f55e4e4",
+      "x": -1,
+      "y": -15,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "5432dda6-8d58-4371-a0f1-6038b59876dc",
+      "x": -1,
+      "y": -4,
+      "z": 6,
+      "system-count": 1
+    },
+    {
+      "uuid": "7d1734c8-6242-4210-a2f0-53ce8611301d",
+      "x": -1,
+      "y": 2,
+      "z": -6,
+      "system-count": 1
+    },
+    {
+      "uuid": "b6e9bb80-75c0-4ca4-9721-e588e878d725",
+      "x": 0,
+      "y": 5,
+      "z": 3,
+      "system-count": 1
+    },
+    {
+      "uuid": "c85483df-8286-4894-ac6a-7a6871c98d39",
+      "x": 0,
+      "y": 6,
+      "z": 13,
+      "system-count": 1
+    },
+    {
+      "uuid": "de53dccf-61cf-45a6-ac78-5ae6b6f1d28f",
+      "x": 1,
+      "y": -15,
+      "z": -14,
+      "system-count": 1
+    },
+    {
+      "uuid": "23ef03c4-a669-4782-a7ab-7becc984fedf",
+      "x": 1,
+      "y": -14,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "30a288d4-36d9-41fd-9bf0-b54f700e2bdd",
+      "x": 2,
+      "y": -15,
+      "z": 14,
+      "system-count": 1
+    },
+    {
+      "uuid": "b2c62473-3465-4e33-a42b-f241f5b32407",
+      "x": 2,
+      "y": -10,
+      "z": 3,
+      "system-count": 1
+    },
+    {
+      "uuid": "190f2add-a357-4322-a637-3def202475f5",
+      "x": 2,
+      "y": -9,
+      "z": -1,
+      "system-count": 1
+    },
+    {
+      "uuid": "ba4a153b-6257-4f77-add1-bf54a197011f",
+      "x": 2,
+      "y": -2,
+      "z": -15,
+      "system-count": 1
+    },
+    {
+      "uuid": "107decf8-283b-4261-8c19-7547f7447ef3",
+      "x": 2,
+      "y": 10,
+      "z": 15,
+      "system-count": 2
+    },
+    {
+      "uuid": "f3ac880e-4d2f-4e53-bc38-e91a2a3ecebd",
+      "x": 4,
+      "y": -12,
+      "z": 8,
+      "system-count": 3
+    },
+    {
+      "uuid": "dc277335-510d-40d4-b5af-2da6cd4b6b85",
+      "x": 4,
+      "y": 1,
+      "z": -2,
+      "system-count": 4
+    },
+    {
+      "uuid": "0c22007e-d5d6-4af9-8c6c-b3b65d7321f4",
+      "x": 5,
+      "y": 14,
+      "z": -7,
+      "system-count": 1
+    },
+    {
+      "uuid": "e3d40ed1-44db-4540-979e-d82334ff34d9",
+      "x": 6,
+      "y": -12,
+      "z": -13,
+      "system-count": 1
+    },
+    {
+      "uuid": "fda3c759-a4f0-4aac-a46c-3ac0ce2dc7b4",
+      "x": 6,
+      "y": -8,
+      "z": 0,
+      "system-count": 1
+    },
+    {
+      "uuid": "737bc04f-5ad3-4711-bcd6-3df948a0f96a",
+      "x": 6,
+      "y": 2,
+      "z": -11,
+      "system-count": 2
+    },
+    {
+      "uuid": "91401b25-0da3-42f1-8bfd-eb66ea4397dc",
+      "x": 6,
+      "y": 12,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "9a15076b-f55f-43f1-9975-1500c64fa6d2",
+      "x": 6,
+      "y": 12,
+      "z": 10,
+      "system-count": 1
+    },
+    {
+      "uuid": "3bb5d678-3aa6-4914-b19f-5c8fc2a4e06e",
+      "x": 7,
+      "y": -14,
+      "z": -10,
+      "system-count": 1
+    },
+    {
+      "uuid": "349fb0fa-505e-4445-a3b0-78cdc360c1da",
+      "x": 7,
+      "y": -8,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "8a56a34a-6993-4176-8f86-58d5c2f67ed8",
+      "x": 7,
+      "y": 1,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "129d629e-d446-4d07-976c-1a0375b81b93",
+      "x": 7,
+      "y": 14,
+      "z": 12,
+      "system-count": 1
+    },
+    {
+      "uuid": "e00ae72e-feb0-4882-853a-aaa49dea7b8c",
+      "x": 8,
+      "y": 1,
+      "z": -9,
+      "system-count": 1
+    },
+    {
+      "uuid": "072a1186-9550-4d3b-8832-aacbc3c2ea39",
+      "x": 9,
+      "y": -14,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "4178ca9a-9e56-4368-b667-1c0bfe9b5e1d",
+      "x": 9,
+      "y": -10,
+      "z": -13,
+      "system-count": 1
+    },
+    {
+      "uuid": "411c4678-bc64-4e6e-a4de-6933163ad1f1",
+      "x": 9,
+      "y": 2,
+      "z": 11,
+      "system-count": 1
+    },
+    {
+      "uuid": "db0a4f05-9442-4453-b132-9cc9f9983657",
+      "x": 9,
+      "y": 14,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "e300a8c6-c5ac-4ca0-8756-7383ecc67b4a",
+      "x": 10,
+      "y": -14,
+      "z": -5,
+      "system-count": 1
+    },
+    {
+      "uuid": "984e01ac-6881-4042-b993-398e95b55bf7",
+      "x": 10,
+      "y": -14,
+      "z": -2,
+      "system-count": 1
+    },
+    {
+      "uuid": "f26f56d6-113e-4117-8d04-b9424d5cee79",
+      "x": 10,
+      "y": -11,
+      "z": -11,
+      "system-count": 1
+    },
+    {
+      "uuid": "3c7e3f32-cf30-4ffd-9ec3-b6f2db104b44",
+      "x": 10,
+      "y": -2,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "99c7dfe1-2d73-4792-902d-9c428a89e447",
+      "x": 10,
+      "y": 4,
+      "z": 5,
+      "system-count": 1
+    },
+    {
+      "uuid": "587f9761-416b-48c3-831d-de1e34438295",
+      "x": 10,
+      "y": 5,
+      "z": 12,
+      "system-count": 1
+    },
+    {
+      "uuid": "f074a3ab-0a98-4ce9-b91f-9ef71bfdb61a",
+      "x": 10,
+      "y": 10,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "62ccf284-d032-4f6b-83c6-8ab7f570e961",
+      "x": 11,
+      "y": -10,
+      "z": -7,
+      "system-count": 1
+    },
+    {
+      "uuid": "aaf566a2-800a-45d6-9a10-63ed01d16f1c",
+      "x": 11,
+      "y": -8,
+      "z": 11,
+      "system-count": 1
+    },
+    {
+      "uuid": "1644d5b9-b82c-46d7-b14f-46b66a0525f6",
+      "x": 11,
+      "y": -5,
+      "z": -12,
+      "system-count": 1
+    },
+    {
+      "uuid": "4f25680d-4623-490a-8667-918cbcf6feeb",
+      "x": 11,
+      "y": -5,
+      "z": 9,
+      "system-count": 1
+    },
+    {
+      "uuid": "edfb1805-e25f-4246-a5ef-00cf748a90b9",
+      "x": 11,
+      "y": 2,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "1fea7ab2-1356-4832-a441-ca04709c5e81",
+      "x": 11,
+      "y": 4,
+      "z": -5,
+      "system-count": 2
+    },
+    {
+      "uuid": "891cbd82-41c1-4356-81bf-88ef53dea91f",
+      "x": 11,
+      "y": 15,
+      "z": 13,
+      "system-count": 1
+    },
+    {
+      "uuid": "60ac348f-2706-4e3e-8ead-2770a304e51c",
+      "x": 12,
+      "y": 4,
+      "z": -11,
+      "system-count": 1
+    },
+    {
+      "uuid": "254079d4-8b3d-45e0-87c4-2486c418e521",
+      "x": 12,
+      "y": 15,
+      "z": -7,
+      "system-count": 1
+    },
+    {
+      "uuid": "1150e46b-0515-4e5b-977e-1c55451dcbc6",
+      "x": 13,
+      "y": -11,
+      "z": 7,
+      "system-count": 2
+    },
+    {
+      "uuid": "27a97e51-0282-4147-866b-2078b0e7670d",
+      "x": 13,
+      "y": 0,
+      "z": 13,
+      "system-count": 2
+    },
+    {
+      "uuid": "7d60c1f1-92cf-4239-8124-dea93cd795cd",
+      "x": 13,
+      "y": 11,
+      "z": -8,
+      "system-count": 1
+    },
+    {
+      "uuid": "3e3369ac-4593-4e39-8f98-50cef86894c8",
+      "x": 14,
+      "y": -8,
+      "z": -3,
+      "system-count": 1
+    },
+    {
+      "uuid": "73e091e6-eb8d-4114-a85c-f710ececcd15",
+      "x": 14,
+      "y": -4,
+      "z": 2,
+      "system-count": 1
+    },
+    {
+      "uuid": "59cf8bab-77cc-43c6-aa6c-7db1988fe193",
+      "x": 15,
+      "y": 13,
+      "z": 5,
+      "system-count": 1
+    }
+  ]
+}

@@ -1,0 +1,574 @@
+{
+  "systems": [
+    {
+      "uuid": "05aed4f0-e92c-4545-9925-9d50accf9cca",
+      "stellium-uuid": "0d38e917-48d6-466f-bd2c-0471153897bc",
+      "sequence": "A"
+    },
+    {
+      "uuid": "4fa97be4-c261-4945-abbb-e9eca9ab7059",
+      "stellium-uuid": "0a8eb79c-c430-44d6-a9c2-99d8ab08950d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "7635612a-9941-4b71-ac0f-07c993f245ed",
+      "stellium-uuid": "e4be8314-6079-4930-8f9b-457743b294d2",
+      "sequence": "A"
+    },
+    {
+      "uuid": "a5eff434-90f5-427d-bd5f-0ae16b812c35",
+      "stellium-uuid": "92686394-1397-4e99-ada9-16fce86a2f2b",
+      "sequence": "A"
+    },
+    {
+      "uuid": "0f7da1ba-b056-4a2b-9797-5e4ec694b30d",
+      "stellium-uuid": "c711211b-bfd4-4214-b9f9-345716206ff6",
+      "sequence": "A"
+    },
+    {
+      "uuid": "2bf42e02-2a1b-4fbf-8275-9627cc34109b",
+      "stellium-uuid": "7b38bcca-54e0-4c1b-a56f-1d5f41fc3417",
+      "sequence": "A"
+    },
+    {
+      "uuid": "77be09b6-81e8-4ab9-9331-fe01bde9efd6",
+      "stellium-uuid": "9a27890c-46cb-47cd-bb3e-428b45ab4ede",
+      "sequence": "A"
+    },
+    {
+      "uuid": "8bb34d1b-786c-45fa-a543-ea00c848fd5c",
+      "stellium-uuid": "9a27890c-46cb-47cd-bb3e-428b45ab4ede",
+      "sequence": "B"
+    },
+    {
+      "uuid": "5b3c87ad-0bab-4b41-a360-29d3976166ce",
+      "stellium-uuid": "9a27890c-46cb-47cd-bb3e-428b45ab4ede",
+      "sequence": "C"
+    },
+    {
+      "uuid": "ac02c15f-9f65-425c-8d94-7a5b7f4b990a",
+      "stellium-uuid": "3f500ffd-5c03-409b-9766-73ceeb834ec6",
+      "sequence": "A"
+    },
+    {
+      "uuid": "2b0c878c-81d2-49e9-9fe7-8c5330589d5b",
+      "stellium-uuid": "ea8e7543-4fa0-4c0d-a951-641fdeda03b9",
+      "sequence": "A"
+    },
+    {
+      "uuid": "89ab777d-03e8-400f-9739-afc6e9485d74",
+      "stellium-uuid": "7bdc978c-0ef1-47b7-b94a-310d2d2aa31d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "efc63111-8c96-43fc-832e-908d2192b0c3",
+      "stellium-uuid": "dff840aa-48f9-4338-a910-aca23898a81d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "3c507d9e-5f69-4ae1-93cb-22d9a9d4c46c",
+      "stellium-uuid": "e4cc771d-52a0-4d6e-ac87-6f8e5c56c349",
+      "sequence": "A"
+    },
+    {
+      "uuid": "b02bb003-e300-4b67-a47a-08af606fb15b",
+      "stellium-uuid": "64d12c24-6ba8-4f50-bbc7-3c34c8af5bbe",
+      "sequence": "A"
+    },
+    {
+      "uuid": "86913ef4-a2fb-46ca-a25b-72c41e1546c2",
+      "stellium-uuid": "ba1cce9f-6347-4dcc-8f6c-a8a63c1dcabd",
+      "sequence": "A"
+    },
+    {
+      "uuid": "d93fb361-8462-40bc-99bc-cac64e46509f",
+      "stellium-uuid": "5f81e2ca-0db6-423c-8c2f-13ffc1547041",
+      "sequence": "A"
+    },
+    {
+      "uuid": "5629984d-5117-4b65-ad17-ec76ad973cbd",
+      "stellium-uuid": "cf3646dc-d4a0-4433-96f8-efaf3bd720da",
+      "sequence": "A"
+    },
+    {
+      "uuid": "5295f060-6e88-4b48-b232-bd505c0f3d7f",
+      "stellium-uuid": "0d8e2e9c-2f19-491e-a22e-57df0cd0dbf9",
+      "sequence": "A"
+    },
+    {
+      "uuid": "ed28aa21-3169-4e0b-a0ee-c74b24e4db4a",
+      "stellium-uuid": "49f19c31-d60b-46ff-aa8f-089b8ca80f43",
+      "sequence": "A"
+    },
+    {
+      "uuid": "755c82f8-6557-423a-a745-28b2785f778c",
+      "stellium-uuid": "955b4ca7-2f0f-4bfd-b8ca-3ecbff1035bc",
+      "sequence": "A"
+    },
+    {
+      "uuid": "f892a75c-814f-4bae-a6ad-33936ea3e9fa",
+      "stellium-uuid": "66afff0d-db00-4cd4-b78e-832a567a458c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "e5953c61-833c-42b4-a9b7-287290fe3491",
+      "stellium-uuid": "66afff0d-db00-4cd4-b78e-832a567a458c",
+      "sequence": "B"
+    },
+    {
+      "uuid": "1c71bb81-5bee-46af-b7fe-2ffb8fd1540e",
+      "stellium-uuid": "f1508d5b-084d-4435-95de-4668811824fb",
+      "sequence": "A"
+    },
+    {
+      "uuid": "dd861f6c-b74d-44cc-9e3a-54ef675e6bff",
+      "stellium-uuid": "ea8b8d4a-57da-459f-9e8c-165ec624349a",
+      "sequence": "A"
+    },
+    {
+      "uuid": "60779b15-6417-4321-b021-e398485ffc07",
+      "stellium-uuid": "6f5696f0-0803-4703-8797-0621141e264d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "9709c0d2-9bc1-4911-a039-eaefd8c415ee",
+      "stellium-uuid": "d640eceb-a37d-4eba-99b9-6062b41595e2",
+      "sequence": "A"
+    },
+    {
+      "uuid": "6ed0a5de-07c2-4b3b-be34-2b85b536c61d",
+      "stellium-uuid": "ee3fad57-d3c8-4513-b764-42bad44c1371",
+      "sequence": "A"
+    },
+    {
+      "uuid": "7c502b75-d4a4-4885-ac50-68c70a433561",
+      "stellium-uuid": "ddc7f9ca-8b68-444e-b6b7-02c02883c2f7",
+      "sequence": "A"
+    },
+    {
+      "uuid": "d2a1a5ab-f4db-4437-8486-e545ccc36290",
+      "stellium-uuid": "d7ad7b62-5646-4c75-a5d5-94f2a29044ad",
+      "sequence": "A"
+    },
+    {
+      "uuid": "8c2f3fa3-f322-4e6c-a716-bf514e9b5012",
+      "stellium-uuid": "d4106d2c-7071-43c9-a0d0-4669efe69286",
+      "sequence": "A"
+    },
+    {
+      "uuid": "457a3dd8-c29c-4586-82ba-cdc561a5fccc",
+      "stellium-uuid": "271a0660-de88-4124-9706-9d8264b26d15",
+      "sequence": "A"
+    },
+    {
+      "uuid": "4815c524-03cf-4699-abf2-d63558d89370",
+      "stellium-uuid": "0e86c16b-419d-4df5-98e0-81045a3694cd",
+      "sequence": "A"
+    },
+    {
+      "uuid": "7fe18b67-04e7-4c96-b58b-5df2d6099b6d",
+      "stellium-uuid": "c69817f7-c4aa-43bf-bcfe-879ae3c861f8",
+      "sequence": "A"
+    },
+    {
+      "uuid": "2f4f4f59-90cd-4e14-a88f-1b816c666445",
+      "stellium-uuid": "e65823f4-a514-4d9d-b19f-4220db414109",
+      "sequence": "A"
+    },
+    {
+      "uuid": "2aefd243-f647-47a9-bfea-9397ef7cfdc5",
+      "stellium-uuid": "e65823f4-a514-4d9d-b19f-4220db414109",
+      "sequence": "B"
+    },
+    {
+      "uuid": "64054124-0493-44f9-b4aa-5c508abb6d10",
+      "stellium-uuid": "dbd0e6fb-8452-47b0-92c4-bfa8f8ea034c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "9f591547-543a-474f-96fa-25e6dc1926b3",
+      "stellium-uuid": "b5f38456-9e40-4d08-884e-381481db6ebe",
+      "sequence": "A"
+    },
+    {
+      "uuid": "3e7ed3e8-d81e-42d4-a3f7-a07b1fc75e69",
+      "stellium-uuid": "2c670740-d182-40e9-98ee-7002fd0f6752",
+      "sequence": "A"
+    },
+    {
+      "uuid": "7064dfd8-7cdd-4b9c-bbdc-701a2c027a93",
+      "stellium-uuid": "953141c4-3888-41e6-9700-f15ec0c59f8c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "f3c79ed8-9efa-42d5-b3d9-90accb10b067",
+      "stellium-uuid": "365e7e5c-df56-4b23-97fd-5a8db3a8b93d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "9d723fe9-a515-482c-8248-8277290daf1b",
+      "stellium-uuid": "0c246e11-3f29-4adf-915e-465bcc6ec966",
+      "sequence": "A"
+    },
+    {
+      "uuid": "47445680-9320-4d1c-9825-63452a434765",
+      "stellium-uuid": "b1962afd-b79e-4b6b-acb3-bd1fed5591d1",
+      "sequence": "A"
+    },
+    {
+      "uuid": "9d4860f4-df64-4047-abcb-aac3bff9d2a6",
+      "stellium-uuid": "1ceaf439-7cb8-4df3-b54f-e3b7345a3a46",
+      "sequence": "A"
+    },
+    {
+      "uuid": "7fcbceee-a06b-445f-95d3-4ba45602359d",
+      "stellium-uuid": "398d3fbe-d87e-4cd8-82cd-a9e5dae6df8c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "d20ca874-929e-46ce-a24b-9711e7c6fb7c",
+      "stellium-uuid": "41eb8b22-2865-4c7d-b41d-409537e7d7ea",
+      "sequence": "A"
+    },
+    {
+      "uuid": "83d204cc-5992-456f-90a1-980d87c0e306",
+      "stellium-uuid": "d18b8eed-05c7-40df-8afe-621bd480a85c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "20946c48-bd7f-496a-afe9-7032dd129e9c",
+      "stellium-uuid": "99069132-daa7-43b9-8c6a-4bfb9643fd43",
+      "sequence": "A"
+    },
+    {
+      "uuid": "95914235-783b-4720-aa4f-2bf881592777",
+      "stellium-uuid": "cf396279-45b3-4e6d-8b07-dd57444c1309",
+      "sequence": "A"
+    },
+    {
+      "uuid": "9501e746-0d34-40f3-b710-a4c2829fdfdc",
+      "stellium-uuid": "58fa7a45-0e72-4ff2-9923-cedb4a22830e",
+      "sequence": "A"
+    },
+    {
+      "uuid": "b37bbbeb-ab53-4e3e-a07f-5b35a3e4b663",
+      "stellium-uuid": "0bbbd90a-2088-4dbc-9b8f-847da299ee93",
+      "sequence": "A"
+    },
+    {
+      "uuid": "fa22b385-ca07-4ada-9ffa-00be535cedd1",
+      "stellium-uuid": "8a77bd1c-e5d0-4c25-9a8d-873a28e070e5",
+      "sequence": "A"
+    },
+    {
+      "uuid": "ca51347f-66cf-460e-a5ba-f4a067222b59",
+      "stellium-uuid": "02e9a6bb-c6f7-4ef8-9f04-deeed009a37e",
+      "sequence": "A"
+    },
+    {
+      "uuid": "b2c5232b-b007-4bf1-9d6c-857348fc2164",
+      "stellium-uuid": "4a82ddef-878f-4f7c-895d-b4778f55e4e4",
+      "sequence": "A"
+    },
+    {
+      "uuid": "da77facc-c94a-48c7-8e99-5b39271ef1d4",
+      "stellium-uuid": "5432dda6-8d58-4371-a0f1-6038b59876dc",
+      "sequence": "A"
+    },
+    {
+      "uuid": "8d527ffa-f0c6-47e7-9700-4fb2d8c992c7",
+      "stellium-uuid": "7d1734c8-6242-4210-a2f0-53ce8611301d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "9336688e-76be-467a-adaa-4a6617b3bb67",
+      "stellium-uuid": "b6e9bb80-75c0-4ca4-9721-e588e878d725",
+      "sequence": "A"
+    },
+    {
+      "uuid": "961d6f5f-5511-4c18-a48c-8cfee411a6d3",
+      "stellium-uuid": "c85483df-8286-4894-ac6a-7a6871c98d39",
+      "sequence": "A"
+    },
+    {
+      "uuid": "73a63f26-269e-4df0-9831-b71453c9702a",
+      "stellium-uuid": "de53dccf-61cf-45a6-ac78-5ae6b6f1d28f",
+      "sequence": "A"
+    },
+    {
+      "uuid": "e4aaa5dc-6b3b-4334-b4ba-0c7463913312",
+      "stellium-uuid": "23ef03c4-a669-4782-a7ab-7becc984fedf",
+      "sequence": "A"
+    },
+    {
+      "uuid": "b2ba1077-4764-4c28-8a9d-d8b924841873",
+      "stellium-uuid": "30a288d4-36d9-41fd-9bf0-b54f700e2bdd",
+      "sequence": "A"
+    },
+    {
+      "uuid": "a63d68c0-30f2-46d3-9d4b-98f49047dca1",
+      "stellium-uuid": "b2c62473-3465-4e33-a42b-f241f5b32407",
+      "sequence": "A"
+    },
+    {
+      "uuid": "089b6f4e-d540-4ecd-9041-f5c5538c9b8c",
+      "stellium-uuid": "190f2add-a357-4322-a637-3def202475f5",
+      "sequence": "A"
+    },
+    {
+      "uuid": "647e7dab-8fb4-4274-b334-4168963f78dd",
+      "stellium-uuid": "ba4a153b-6257-4f77-add1-bf54a197011f",
+      "sequence": "A"
+    },
+    {
+      "uuid": "a7447a7d-7379-41a4-a152-6a8fb49bb1ea",
+      "stellium-uuid": "107decf8-283b-4261-8c19-7547f7447ef3",
+      "sequence": "A"
+    },
+    {
+      "uuid": "ae8b6350-5051-4ed5-8a5d-4f968cbfb57f",
+      "stellium-uuid": "107decf8-283b-4261-8c19-7547f7447ef3",
+      "sequence": "B"
+    },
+    {
+      "uuid": "0a31a150-3119-4fde-8b60-6063e7a0ba31",
+      "stellium-uuid": "f3ac880e-4d2f-4e53-bc38-e91a2a3ecebd",
+      "sequence": "A"
+    },
+    {
+      "uuid": "61e0f2e3-2399-40e6-ae25-1f1f3be7169f",
+      "stellium-uuid": "f3ac880e-4d2f-4e53-bc38-e91a2a3ecebd",
+      "sequence": "B"
+    },
+    {
+      "uuid": "8c824fdc-43fe-4ff8-a0e1-439908069a73",
+      "stellium-uuid": "f3ac880e-4d2f-4e53-bc38-e91a2a3ecebd",
+      "sequence": "C"
+    },
+    {
+      "uuid": "0dddfbf8-71c1-4bbb-93e1-20e2cf4a660f",
+      "stellium-uuid": "dc277335-510d-40d4-b5af-2da6cd4b6b85",
+      "sequence": "A"
+    },
+    {
+      "uuid": "cd2e2a73-0426-4a33-a5d2-d48d59ccb54e",
+      "stellium-uuid": "dc277335-510d-40d4-b5af-2da6cd4b6b85",
+      "sequence": "B"
+    },
+    {
+      "uuid": "f263e94a-2358-4598-a5fd-92869140de84",
+      "stellium-uuid": "dc277335-510d-40d4-b5af-2da6cd4b6b85",
+      "sequence": "C"
+    },
+    {
+      "uuid": "e40fb5c9-7cbf-4572-90b6-be1beda1757b",
+      "stellium-uuid": "dc277335-510d-40d4-b5af-2da6cd4b6b85",
+      "sequence": "D"
+    },
+    {
+      "uuid": "6cbd9ec6-9bc2-4fbb-a796-65c3f983912b",
+      "stellium-uuid": "0c22007e-d5d6-4af9-8c6c-b3b65d7321f4",
+      "sequence": "A"
+    },
+    {
+      "uuid": "fe3dd180-ec01-4ff3-8207-1d8217a3fb9d",
+      "stellium-uuid": "e3d40ed1-44db-4540-979e-d82334ff34d9",
+      "sequence": "A"
+    },
+    {
+      "uuid": "79afb783-1242-415f-b17c-9d27c621e2e8",
+      "stellium-uuid": "fda3c759-a4f0-4aac-a46c-3ac0ce2dc7b4",
+      "sequence": "A"
+    },
+    {
+      "uuid": "c827c2de-3c66-4d85-adc5-3b006b7b66b0",
+      "stellium-uuid": "737bc04f-5ad3-4711-bcd6-3df948a0f96a",
+      "sequence": "A"
+    },
+    {
+      "uuid": "51de6ea9-e4ae-4bf6-b3ea-5b880847c5e4",
+      "stellium-uuid": "737bc04f-5ad3-4711-bcd6-3df948a0f96a",
+      "sequence": "B"
+    },
+    {
+      "uuid": "2ff9dd30-aefb-420d-b571-27315676beac",
+      "stellium-uuid": "91401b25-0da3-42f1-8bfd-eb66ea4397dc",
+      "sequence": "A"
+    },
+    {
+      "uuid": "a0ace250-6a5e-44f3-8005-6b2613a473e9",
+      "stellium-uuid": "9a15076b-f55f-43f1-9975-1500c64fa6d2",
+      "sequence": "A"
+    },
+    {
+      "uuid": "170513f4-fbac-4d2d-b592-c395c94370d0",
+      "stellium-uuid": "3bb5d678-3aa6-4914-b19f-5c8fc2a4e06e",
+      "sequence": "A"
+    },
+    {
+      "uuid": "bb25e2e9-bb4d-44d6-ad94-0b04a27cd265",
+      "stellium-uuid": "349fb0fa-505e-4445-a3b0-78cdc360c1da",
+      "sequence": "A"
+    },
+    {
+      "uuid": "80256a99-97d2-420b-a9bc-7158a3e5b084",
+      "stellium-uuid": "8a56a34a-6993-4176-8f86-58d5c2f67ed8",
+      "sequence": "A"
+    },
+    {
+      "uuid": "dde42d7c-3dc4-4958-a7d7-ac50f9657215",
+      "stellium-uuid": "129d629e-d446-4d07-976c-1a0375b81b93",
+      "sequence": "A"
+    },
+    {
+      "uuid": "ccc192c6-4725-4aa5-8cf9-051b4a14a4a8",
+      "stellium-uuid": "e00ae72e-feb0-4882-853a-aaa49dea7b8c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "b718f8d1-c92b-4717-aaa7-01d3cd5a59c0",
+      "stellium-uuid": "072a1186-9550-4d3b-8832-aacbc3c2ea39",
+      "sequence": "A"
+    },
+    {
+      "uuid": "3abe31e3-f7eb-4b1b-9ee4-7f56842c81b3",
+      "stellium-uuid": "4178ca9a-9e56-4368-b667-1c0bfe9b5e1d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "4497f19e-732e-4d30-b725-e6168fd88da6",
+      "stellium-uuid": "411c4678-bc64-4e6e-a4de-6933163ad1f1",
+      "sequence": "A"
+    },
+    {
+      "uuid": "441e6a9b-6148-4e7c-aaeb-e8cecba5444f",
+      "stellium-uuid": "db0a4f05-9442-4453-b132-9cc9f9983657",
+      "sequence": "A"
+    },
+    {
+      "uuid": "f2348566-c97a-4e0e-9de1-3f3be7d07d41",
+      "stellium-uuid": "e300a8c6-c5ac-4ca0-8756-7383ecc67b4a",
+      "sequence": "A"
+    },
+    {
+      "uuid": "5d8761c3-9c24-43d3-8fdb-5d413afae079",
+      "stellium-uuid": "984e01ac-6881-4042-b993-398e95b55bf7",
+      "sequence": "A"
+    },
+    {
+      "uuid": "6dfdddf7-454c-4225-9112-fb83658c234a",
+      "stellium-uuid": "f26f56d6-113e-4117-8d04-b9424d5cee79",
+      "sequence": "A"
+    },
+    {
+      "uuid": "8f061671-e53d-429f-896c-87a6438100a9",
+      "stellium-uuid": "3c7e3f32-cf30-4ffd-9ec3-b6f2db104b44",
+      "sequence": "A"
+    },
+    {
+      "uuid": "fd3d8e51-9db2-42ac-8736-6e9ce0f7f6db",
+      "stellium-uuid": "99c7dfe1-2d73-4792-902d-9c428a89e447",
+      "sequence": "A"
+    },
+    {
+      "uuid": "168c9737-fcfb-416c-b317-d208362a374c",
+      "stellium-uuid": "587f9761-416b-48c3-831d-de1e34438295",
+      "sequence": "A"
+    },
+    {
+      "uuid": "1da612d2-8464-45f2-86d2-54f2394d137a",
+      "stellium-uuid": "f074a3ab-0a98-4ce9-b91f-9ef71bfdb61a",
+      "sequence": "A"
+    },
+    {
+      "uuid": "741a7026-2b5d-4456-8d60-95898fff66e3",
+      "stellium-uuid": "62ccf284-d032-4f6b-83c6-8ab7f570e961",
+      "sequence": "A"
+    },
+    {
+      "uuid": "7def52e7-b7cd-4c82-87da-c028d24582da",
+      "stellium-uuid": "aaf566a2-800a-45d6-9a10-63ed01d16f1c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "62ef7bf8-9768-4ad1-8a9e-0cda8bf5d12e",
+      "stellium-uuid": "1644d5b9-b82c-46d7-b14f-46b66a0525f6",
+      "sequence": "A"
+    },
+    {
+      "uuid": "825a4f68-92b1-4e07-99fc-ace8be64a793",
+      "stellium-uuid": "4f25680d-4623-490a-8667-918cbcf6feeb",
+      "sequence": "A"
+    },
+    {
+      "uuid": "0759c3e2-8a5d-4eb6-88e7-6e48553f0e18",
+      "stellium-uuid": "edfb1805-e25f-4246-a5ef-00cf748a90b9",
+      "sequence": "A"
+    },
+    {
+      "uuid": "e17b734b-5a4a-40e4-98ff-ca4b87eebb31",
+      "stellium-uuid": "1fea7ab2-1356-4832-a441-ca04709c5e81",
+      "sequence": "A"
+    },
+    {
+      "uuid": "d321196b-63bb-484f-aade-5ef49a8277b1",
+      "stellium-uuid": "1fea7ab2-1356-4832-a441-ca04709c5e81",
+      "sequence": "B"
+    },
+    {
+      "uuid": "c98586fe-dc07-4ec9-979b-dd43afeba74c",
+      "stellium-uuid": "891cbd82-41c1-4356-81bf-88ef53dea91f",
+      "sequence": "A"
+    },
+    {
+      "uuid": "5a6b001f-86e6-4a18-818e-dfcb99aa55bf",
+      "stellium-uuid": "60ac348f-2706-4e3e-8ead-2770a304e51c",
+      "sequence": "A"
+    },
+    {
+      "uuid": "0cb083f0-7832-439c-be12-7bcfa5570337",
+      "stellium-uuid": "254079d4-8b3d-45e0-87c4-2486c418e521",
+      "sequence": "A"
+    },
+    {
+      "uuid": "a97dc29e-bafc-4d01-b4cd-3ea2fe2faf8c",
+      "stellium-uuid": "1150e46b-0515-4e5b-977e-1c55451dcbc6",
+      "sequence": "A"
+    },
+    {
+      "uuid": "5de7c96e-0c0d-434e-96fa-dc4c1bb6787b",
+      "stellium-uuid": "1150e46b-0515-4e5b-977e-1c55451dcbc6",
+      "sequence": "B"
+    },
+    {
+      "uuid": "0c73dd0d-7dd9-4eb4-804d-011f07f955eb",
+      "stellium-uuid": "27a97e51-0282-4147-866b-2078b0e7670d",
+      "sequence": "A"
+    },
+    {
+      "uuid": "da7cc652-fda8-4280-8262-d106ed884e48",
+      "stellium-uuid": "27a97e51-0282-4147-866b-2078b0e7670d",
+      "sequence": "B"
+    },
+    {
+      "uuid": "b8f74de0-bd8f-43e2-bcf5-66582229a361",
+      "stellium-uuid": "7d60c1f1-92cf-4239-8124-dea93cd795cd",
+      "sequence": "A"
+    },
+    {
+      "uuid": "013ac89d-e01f-4bfd-beb0-51a748e054ef",
+      "stellium-uuid": "3e3369ac-4593-4e39-8f98-50cef86894c8",
+      "sequence": "A"
+    },
+    {
+      "uuid": "a267bcd6-4ec0-41d7-a797-54b151282d69",
+      "stellium-uuid": "73e091e6-eb8d-4114-a85c-f710ececcd15",
+      "sequence": "A"
+    },
+    {
+      "uuid": "d331e657-1bc3-43f5-b323-c81d62814f8d",
+      "stellium-uuid": "59cf8bab-77cc-43c6-aa6c-7db1988fe193",
+      "sequence": "A"
+    }
+  ]
+}

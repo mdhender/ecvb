@@ -2,3 +2,8 @@
 !.gitignore
 !beta/
 !beta/**
+!claude/
+!claude/**
+# sqlite files
+*.db
+*.db-*
