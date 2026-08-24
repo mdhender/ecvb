@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -39,10 +40,13 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 			return fmt.Errorf("a subcommand is required (show)")
 		},
 	}
+	showFlags := ff.NewFlagSet("show")
+	showOutput := showFlags.StringLong("output", "", "write the report to a file instead of standard output")
 	show := &ff.Command{
 		Name:      "show",
-		Usage:     "ecrpt show SUBCOMMAND",
+		Usage:     "ecrpt show [--output PATH] SUBCOMMAND",
 		ShortHelp: "show database data",
+		Flags:     showFlags,
 		Exec: func(context.Context, []string) error {
 			return fmt.Errorf("a show subcommand is required (stellium, system, or turn)")
 		},
@@ -72,7 +76,9 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				return showStellium(ctx, *dbPath, id, stdout)
+				return writeReport(*showOutput, stdout, func(output io.Writer) error {
+					return showStellium(ctx, *dbPath, id, output)
+				})
 			},
 		},
 		{
@@ -91,7 +97,9 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				return showSystem(ctx, *dbPath, id, *showDeposits, stdout)
+				return writeReport(*showOutput, stdout, func(output io.Writer) error {
+					return showSystem(ctx, *dbPath, id, *showDeposits, output)
+				})
 			},
 		},
 		{
@@ -127,12 +135,28 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 					summarizeResources: *turnSummarizeResources,
 					showWorkGroups:     *turnWorkGroups,
 				}
-				return showTurnReport(ctx, *dbPath, *turnGame, email, *turnFaction, options, stdout)
+				return writeReport(*showOutput, stdout, func(output io.Writer) error {
+					return showTurnReport(ctx, *dbPath, *turnGame, email, *turnFaction, options, output)
+				})
 			},
 		},
 	}
 	root.Subcommands = []*ff.Command{show}
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
+}
+
+func writeReport(outputPath string, stdout io.Writer, render func(io.Writer) error) error {
+	if outputPath == "" {
+		return render(stdout)
+	}
+	var report bytes.Buffer
+	if err := render(&report); err != nil {
+		return err
+	}
+	if err := os.WriteFile(outputPath, report.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write report to %s: %w", outputPath, err)
+	}
+	return nil
 }
 
 func showStellium(ctx context.Context, directory string, id int64, output io.Writer) (err error) {

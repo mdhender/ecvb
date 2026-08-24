@@ -152,6 +152,39 @@ func TestECRptShowTurnForAgentFaction(t *testing.T) {
 	}
 }
 
+func TestECRptShowWritesOutputFile(t *testing.T) {
+	directory := createTestDatabase(t)
+	tests := []struct {
+		name    string
+		args    []string
+		content string
+	}{
+		{name: "stellium", args: []string{"stellium", "79"}, content: "STELLIUM"},
+		{name: "system", args: []string{"system", "88"}, content: "SYSTEM"},
+		{name: "turn", args: []string{"turn", "--game", "BETA-001", "--faction", "41"}, content: "TURN REPORT"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			outputPath := filepath.Join(t.TempDir(), "report.txt")
+			var stdout bytes.Buffer
+			args := append([]string{"--db-path", directory, "show", "--output", outputPath}, test.args...)
+			if err := run(context.Background(), args, &stdout); err != nil {
+				t.Fatalf("run: %v", err)
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("standard output = %q; want empty", stdout.String())
+			}
+			report, err := os.ReadFile(outputPath)
+			if err != nil {
+				t.Fatalf("read output: %v", err)
+			}
+			if !strings.Contains(string(report), test.content) {
+				t.Errorf("output file does not contain %q:\n%s", test.content, report)
+			}
+		})
+	}
+}
+
 func TestRunShowTurnValidatesPlayerSelector(t *testing.T) {
 	directory := createTestDatabase(t)
 	tests := []struct {

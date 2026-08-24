@@ -30,6 +30,10 @@ for player in 01 02 03 04 05 06 07 08 09 10; do
     go run ./cmd/ec --db-path games/beta add player --game BETA-001 --email "user${player}@example.com" --kit games/beta/home-planet-seed.json
 done
 
-go run ./cmd/ecrpt --db-path games/beta show stellium 79
-go run ./cmd/ecrpt --db-path games/beta show system 89
-go run ./cmd/ecrpt --db-path games/beta show system --show-deposits 89
+go run ./cmd/ecrpt --db-path games/beta show --output games/beta/reports/t0-stellium-79.txt stellium 79
+go run ./cmd/ecrpt --db-path games/beta show --output games/beta/reports/t0-system-89.txt   system   89
+go run ./cmd/ecrpt --db-path games/beta show --output games/beta/reports/t0-system-89-d.txt system --show-deposits 89
+
+for faction in 1 2 3; do
+    go run ./cmd/ecrpt --db-path games/beta show --output games/beta/reports/t0-f${faction}-turn-report.txt turn --game BETA-001 --faction ${faction}
+done

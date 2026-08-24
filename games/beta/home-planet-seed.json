@@ -12,7 +12,7 @@
         "NAS": 123
       },
       "components": {
-        "STRC-1": 2018
+        "STRC-10": 200
       },
       "operational": {
         "FARM-1": 85,
@@ -34,7 +34,7 @@
         "NAS": 413
       },
       "components": {
-        "STRC-1": 16775,
+        "STRC-10": 200,
         "LFSU-1": 1
       },
       "operational": {
@@ -51,7 +51,7 @@
       "kind": "CORB",
       "tech-level": 1,
       "components": {
-        "STRC-1": 35470,
+        "STRC-10": 3500,
         "SDRV-1": 1,
         "LFSU-2": 1
       },
@@ -73,7 +73,7 @@
         "NAS": 13
       },
       "components": {
-        "STRC-1": 113520,
+        "STRC-10": 2000,
         "HDRV-1": 1,
         "SDRV-1": 1,
         "LFSU-1": 1,
