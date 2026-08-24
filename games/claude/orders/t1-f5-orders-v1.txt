@@ -1,0 +1,4 @@
+game "CLAUDE-01" turn 1
+id faction 5
+
+jump ship 16 to (-15,-2,-7)
