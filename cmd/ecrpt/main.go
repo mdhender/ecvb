@@ -8,11 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/mail"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/mdhender/ecvb/internal/database"
@@ -48,11 +46,15 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 		ShortHelp: "show database data",
 		Flags:     showFlags,
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a show subcommand is required (stellium, system, or turn)")
+			return fmt.Errorf("a show subcommand is required (orders, stellium, system, or turn)")
 		},
 	}
 	systemFlags := ff.NewFlagSet("show system")
 	showDeposits := systemFlags.BoolLong("show-deposits", "show every deposit on each planet")
+	ordersFlags := ff.NewFlagSet("show orders")
+	ordersGame := ordersFlags.StringLong("game", "", "code of the game")
+	ordersEmail := ordersFlags.StringLong("email", "", "email address of the player")
+	ordersFaction := ordersFlags.Int64Long("faction", 0, "id of the player's faction")
 	turnFlags := ff.NewFlagSet("show turn")
 	turnGame := turnFlags.StringLong("game", "", "code of the game")
 	turnEmail := turnFlags.StringLong("email", "", "email address of the player")
@@ -61,6 +63,27 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 	turnSummarizeResources := turnFlags.BoolLong("summarize-resources", "summarize resources across the player's inventory")
 	turnWorkGroups := turnFlags.BoolLong("work-groups", "show the player's work groups")
 	show.Subcommands = []*ff.Command{
+		{
+			Name:      "orders",
+			Usage:     "ecrpt show orders --game CODE (--email EMAIL | --faction ID)",
+			ShortHelp: "show a faction's submitted orders",
+			Flags:     ordersFlags,
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 0 {
+					return fmt.Errorf("unexpected arguments: %v", args)
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				email, err := normalizeFactionSelector(*ordersGame, *ordersEmail, *ordersFaction)
+				if err != nil {
+					return err
+				}
+				return writeReport(*showOutput, stdout, func(output io.Writer) error {
+					return showOrdersReport(ctx, *dbPath, *ordersGame, email, *ordersFaction, output)
+				})
+			},
+		},
 		{
 			Name:      "stellium",
 			Usage:     "ecrpt show stellium <id>",
@@ -114,21 +137,9 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				if *turnGame == "" {
-					return fmt.Errorf("game is required")
-				}
-				email := strings.ToLower(strings.TrimSpace(*turnEmail))
-				if email != "" {
-					address, err := mail.ParseAddress(email)
-					if err != nil || address.Address != email {
-						return fmt.Errorf("invalid email address %q", email)
-					}
-				}
-				if (email == "") == (*turnFaction == 0) {
-					return fmt.Errorf("exactly one of email or faction is required")
-				}
-				if *turnFaction < 0 {
-					return fmt.Errorf("invalid faction id %d", *turnFaction)
+				email, err := normalizeFactionSelector(*turnGame, *turnEmail, *turnFaction)
+				if err != nil {
+					return err
 				}
 				options := turnReportOptions{
 					showDeposits:       *turnShowDeposits,

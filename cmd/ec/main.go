@@ -49,7 +49,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		ShortHelp: "manage an ECVB game",
 		Flags:     flags,
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("a subcommand is required (add, db, game, or load)")
+			return fmt.Errorf("a subcommand is required (add, db, game, load, or orders)")
 		},
 	}
 	db := &ff.Command{
@@ -185,7 +185,53 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			},
 		},
 	}
-	root.Subcommands = []*ff.Command{add, db, game, load}
+	orders := &ff.Command{
+		Name:      "orders",
+		Usage:     "ec orders SUBCOMMAND",
+		ShortHelp: "check or submit player orders",
+		Exec: func(context.Context, []string) error {
+			return fmt.Errorf("an orders subcommand is required (check or submit)")
+		},
+	}
+	orders.Subcommands = []*ff.Command{
+		{
+			Name:      "check",
+			Usage:     "ec orders check FILE",
+			ShortHelp: "check an order file without changing the database",
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one orders file")
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				result, err := processOrderFile(ctx, *dbPath, args[0], false)
+				if err != nil {
+					return err
+				}
+				return writeOrderResult(stdout, "checked", result)
+			},
+		},
+		{
+			Name:      "submit",
+			Usage:     "ec orders submit FILE",
+			ShortHelp: "validate and submit an order file",
+			Exec: func(ctx context.Context, args []string) error {
+				if len(args) != 1 {
+					return fmt.Errorf("expected exactly one orders file")
+				}
+				if *dbPath == "" {
+					return fmt.Errorf("db-path is required")
+				}
+				result, err := processOrderFile(ctx, *dbPath, args[0], true)
+				if err != nil {
+					return err
+				}
+				return writeOrderResult(stdout, "submitted", result)
+			},
+		},
+	}
+	root.Subcommands = []*ff.Command{add, db, game, load, orders}
 
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }

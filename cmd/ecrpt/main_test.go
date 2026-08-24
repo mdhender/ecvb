@@ -119,6 +119,41 @@ func TestECRptShowTurnByEmail(t *testing.T) {
 	}
 }
 
+func TestECRptShowOrdersByEmail(t *testing.T) {
+	directory := createTestDatabase(t)
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{
+		"--db-path", directory, "show", "orders", "--game", "BETA-001", "--email", " PLAYER@EXAMPLE.COM ",
+	}, &output); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	for _, want := range []string{
+		"ORDERS REPORT", "BETA-001  3     41       player@example.com",
+		"SEQUENCE  ENTITY  VERB", "1         501     jump", "2         502     pay",
+		"USK, 70%",
+	} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("output does not contain %q:\n%s", want, output.String())
+		}
+	}
+}
+
+func TestECRptShowOrdersForAgentFaction(t *testing.T) {
+	directory := createTestDatabase(t)
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{
+		"--db-path", directory, "show", "orders", "--game", "BETA-001", "--faction", "42",
+	}, &output); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if want := "BETA-001  3     42       agent:uncontrolled"; !strings.Contains(output.String(), want) {
+		t.Errorf("output does not contain %q:\n%s", want, output.String())
+	}
+	if strings.Contains(output.String(), "501") {
+		t.Errorf("agent report contains another faction's orders:\n%s", output.String())
+	}
+}
+
 func TestECRptShowTurnByFactionWithOptionalSections(t *testing.T) {
 	directory := createTestDatabase(t)
 	var output bytes.Buffer
@@ -159,6 +194,7 @@ func TestECRptShowWritesOutputFile(t *testing.T) {
 		args    []string
 		content string
 	}{
+		{name: "orders", args: []string{"orders", "--game", "BETA-001", "--faction", "41"}, content: "ORDERS REPORT"},
 		{name: "stellium", args: []string{"stellium", "79"}, content: "STELLIUM"},
 		{name: "system", args: []string{"system", "88"}, content: "SYSTEM"},
 		{name: "turn", args: []string{"turn", "--game", "BETA-001", "--faction", "41"}, content: "TURN REPORT"},
@@ -202,6 +238,30 @@ func TestRunShowTurnValidatesPlayerSelector(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			args := append([]string{"--db-path", directory, "show", "turn"}, test.args...)
+			if err := run(context.Background(), args, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("run error = %v; want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestRunShowOrdersValidatesPlayerSelector(t *testing.T) {
+	directory := createTestDatabase(t)
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "missing game", args: []string{"--email", "player@example.com"}, want: "game is required"},
+		{name: "missing selector", args: []string{"--game", "BETA-001"}, want: "exactly one"},
+		{name: "both selectors", args: []string{"--game", "BETA-001", "--email", "player@example.com", "--faction", "41"}, want: "exactly one"},
+		{name: "bad email", args: []string{"--game", "BETA-001", "--email", "not-an-email"}, want: "invalid email"},
+		{name: "missing player", args: []string{"--game", "BETA-001", "--email", "missing@example.com"}, want: "does not exist"},
+		{name: "faction in other game", args: []string{"--game", "OTHER", "--faction", "41"}, want: "does not exist"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			args := append([]string{"--db-path", directory, "show", "orders"}, test.args...)
 			if err := run(context.Background(), args, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("run error = %v; want %q", err, test.want)
 			}

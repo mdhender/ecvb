@@ -1,0 +1,172 @@
+// Copyright (c) 2026 Michael D Henderson. All rights reserved.
+
+package orders
+
+import (
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/mdhender/ecvb/internal/database"
+	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
+)
+
+const validOrders = `game "TEST" turn 3
+id player " PLAYER@EXAMPLE.COM "
+
+move ship 40 to orbit 6
+jump ship 40 to (1,2,3)
+move ship 40 to system b orbit 4
+`
+
+func TestCheckValidatesSequentialOrdersWithoutWriting(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	result, err := Check(context.Background(), conn, strings.NewReader(validOrders))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != (Result{GameCode: "TEST", Turn: 3, FactionID: 1, Orders: 3}) {
+		t.Fatalf("result = %+v", result)
+	}
+	if got := orderCount(t, conn); got != 1 {
+		t.Fatalf("order count after check = %d; want 1", got)
+	}
+}
+
+func TestCheckRejectsImplicitSystemAfterJump(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 3
+id faction 1
+jump ship 40 to (1,2,3)
+move ship 40 to orbit 4
+`
+	_, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err == nil || !strings.Contains(err.Error(), "line 4: ship has no current system") {
+		t.Fatalf("Check error = %v; want missing current system", err)
+	}
+}
+
+func TestCheckReportsInvalidTargets(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 4
+id faction 1
+jump ship 999 to (1,2,3)
+move ship 41 to orbit 6
+jump ship 42 to (1,2,3)
+jump ship 40 to (9,9,9)
+`
+	_, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err == nil {
+		t.Fatal("Check succeeded; want errors")
+	}
+	message := err.Error()
+	for _, want := range []string{
+		"line 1: game \"TEST\" is on turn 3, not turn 4",
+		"line 3: ship 999 does not exist",
+		"line 4: entity 41 is a COPN, not a ship",
+		"line 5: ship 42 does not belong to faction 1",
+		"line 6: game \"TEST\" has no stellium at (9,9,9)",
+	} {
+		if !strings.Contains(message, want) {
+			t.Errorf("error %q does not contain %q", message, want)
+		}
+	}
+}
+
+func TestSubmitAtomicallyReplacesOrders(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	result, err := Submit(context.Background(), conn, strings.NewReader(validOrders))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Orders != 3 {
+		t.Fatalf("submitted orders = %d; want 3", result.Orders)
+	}
+
+	var rows []string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d|%d|%s|%s', sequence, entity_id, verb, parameters)
+		FROM order_entry WHERE faction_id = 1 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rows = append(rows, stmt.ColumnText(0))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"1|40|move|orbit 6",
+		"2|40|jump|(1,2,3)",
+		"3|40|move|system B orbit 4",
+	}
+	if strings.Join(rows, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("orders = %q; want %q", rows, want)
+	}
+
+	invalid := strings.Replace(validOrders, "(1,2,3)", "(9,9,9)", 1)
+	if _, err := Submit(context.Background(), conn, strings.NewReader(invalid)); err == nil {
+		t.Fatal("invalid Submit succeeded")
+	}
+	if got := orderCount(t, conn); got != 3 {
+		t.Fatalf("order count after rejected submit = %d; want 3", got)
+	}
+}
+
+func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
+	t.Helper()
+	conn, err := sqlite.OpenConn(filepath.Join(t.TempDir(), database.Filename), sqlite.OpenReadWrite|sqlite.OpenCreate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := conn.Close(); err != nil {
+			t.Errorf("close database: %v", err)
+		}
+	})
+	if err := sqlitex.ExecuteTransient(conn, "PRAGMA foreign_keys = ON;", nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, migration := range database.Migrations() {
+		if err := sqlitex.ExecuteScript(conn, migration, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO users (id, email, role) VALUES (1, 'player@example.com', 'non-administrator');
+		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 3), (2, 'OTHER', 3);
+		INSERT INTO agent (id, code, description) VALUES (1, 'uncontrolled', 'Uncontrolled');
+		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
+		INSERT INTO faction (id, game_id, agent_id) VALUES (2, 1, 1);
+		INSERT INTO stellium (id, game_id, x, y, z) VALUES
+			(10, 1, 0, 0, 0), (11, 1, 1, 2, 3), (12, 2, 1, 2, 3);
+		INSERT INTO system (id, stellium_id, sequence) VALUES
+			(20, 10, 'A'), (21, 11, 'A'), (22, 11, 'B');
+		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES
+			(30, 20, 4, 'rocky', 10), (31, 20, 6, 'rocky', 10), (32, 22, 4, 'rocky', 10);
+		INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume) VALUES
+			(40, 'SHIP', 1, 10, 20, 30, 64, 1, 100),
+			(41, 'COPN', 1, 10, 20, 30, 0, 1, 100),
+			(42, 'SHIP', 1, 10, 20, 30, 64, 2, 100);
+		INSERT INTO order_entry (game_id, faction_id, sequence, entity_id, verb, parameters)
+		VALUES (1, 1, 1, 40, 'jump', '(0,0,0)');
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	return conn
+}
+
+func orderCount(t *testing.T, conn *sqlite.Conn) int {
+	t.Helper()
+	count := 0
+	if err := sqlitex.ExecuteTransient(conn, "SELECT count(*) FROM order_entry WHERE faction_id = 1;", &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			count = stmt.ColumnInt(0)
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return count
+}

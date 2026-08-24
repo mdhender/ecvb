@@ -29,54 +29,16 @@ func showTurnReport(ctx context.Context, directory, gameCode, email string, fact
 		}
 	}()
 
-	var turn int
-	var controller string
-	found := false
-	query := `
-		SELECT f.id, u.email, g.turn
-		FROM faction AS f
-		JOIN game AS g ON g.id = f.game_id
-		JOIN users AS u ON u.id = f.user_id
-		WHERE g.code = ? AND u.email = ?;`
-	args := []any{gameCode, email}
-	if factionID != 0 {
-		query = `
-			SELECT f.id,
-				CASE
-					WHEN u.id IS NOT NULL THEN u.email
-					ELSE 'agent:' || COALESCE(a.code, a.description)
-				END,
-				g.turn
-			FROM faction AS f
-			JOIN game AS g ON g.id = f.game_id
-			LEFT JOIN users AS u ON u.id = f.user_id
-			LEFT JOIN agent AS a ON a.id = f.agent_id
-			WHERE g.code = ? AND f.id = ?;`
-		args = []any{gameCode, factionID}
+	faction, err := findReportFaction(conn, gameCode, email, factionID)
+	if err != nil {
+		return err
 	}
-	if err := sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
-		Args: args,
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			factionID = stmt.ColumnInt64(0)
-			controller = stmt.ColumnText(1)
-			turn = stmt.ColumnInt(2)
-			found = true
-			return nil
-		},
-	}); err != nil {
-		return fmt.Errorf("find player in game %q: %w", gameCode, err)
-	}
-	if !found {
-		if email != "" {
-			return fmt.Errorf("player %q does not exist in game %q", email, gameCode)
-		}
-		return fmt.Errorf("player faction %d does not exist in game %q", factionID, gameCode)
-	}
+	factionID = faction.id
 
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(w, "TURN REPORT")
 	fmt.Fprintln(w, "GAME\tTURN\tFACTION\tCONTROLLER")
-	fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", gameCode, turn, factionID, controller)
+	fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", gameCode, faction.turn, factionID, faction.controller)
 
 	fmt.Fprintln(w, "\nCONTROLLED PLANETS")
 	fmt.Fprintln(w, "ID\tSTELLIUM\tCOORDINATES\tSYSTEM\tORBIT\tKIND\tHABITABILITY")
@@ -194,20 +156,8 @@ func showTurnReport(ctx context.Context, directory, gameCode, email string, fact
 		}
 	}
 
-	fmt.Fprintln(w, "\nSUBMITTED ORDERS")
-	fmt.Fprintln(w, "SEQUENCE\tENTITY\tVERB\tTARGET\tSUPPORT\tPARAMETERS")
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT sequence, entity_id, verb, target_entity_id, support_entity_id, parameters
-		FROM order_entry
-		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND faction_id = ?
-		ORDER BY sequence;`, &sqlitex.ExecOptions{
-		Args: []any{gameCode, factionID},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%s\t%s\n", stmt.ColumnInt(0), stmt.ColumnInt64(1), stmt.ColumnText(2), nullableInt(stmt, 3), nullableInt(stmt, 4), stmt.ColumnText(5))
-			return nil
-		},
-	}); err != nil {
-		return fmt.Errorf("query submitted orders: %w", err)
+	if err := writeOrders(w, conn, gameCode, factionID, "SUBMITTED ORDERS"); err != nil {
+		return err
 	}
 
 	if err := w.Flush(); err != nil {
