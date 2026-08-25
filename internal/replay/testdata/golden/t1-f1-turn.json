@@ -1,0 +1,470 @@
+{
+  "title": "TURN REPORT",
+  "tables": [
+    {
+      "name": "",
+      "columns": [
+        "GAME",
+        "TURN",
+        "FACTION",
+        "CONTROLLER"
+      ],
+      "rows": [
+        [
+          "GOLD-01",
+          "1",
+          "1",
+          "player@example.com"
+        ]
+      ]
+    },
+    {
+      "name": "CONTROLLED PLANETS",
+      "columns": [
+        "ID",
+        "STELLIUM",
+        "COORDINATES",
+        "SYSTEM",
+        "ORBIT",
+        "KIND",
+        "HABITABILITY"
+      ],
+      "rows": [
+        [
+          "30",
+          "10",
+          "0,0,0",
+          "A",
+          "4",
+          "rocky",
+          "12"
+        ]
+      ]
+    },
+    {
+      "name": "DEPOSITS",
+      "columns": [
+        "PLANET",
+        "SEQUENCE",
+        "RESOURCE",
+        "QUALITY",
+        "INITIAL QUANTITY",
+        "CURRENT QUANTITY"
+      ],
+      "rows": [
+        [
+          "30",
+          "1",
+          "fuel",
+          "20",
+          "5000",
+          "4200"
+        ],
+        [
+          "30",
+          "2",
+          "gold",
+          "35",
+          "900",
+          "900"
+        ]
+      ]
+    },
+    {
+      "name": "ENTITIES",
+      "columns": [
+        "ID",
+        "UNIT",
+        "TECH",
+        "STELLIUM",
+        "SYSTEM",
+        "PLANET",
+        "RING",
+        "MASS",
+        "ENCLOSED VOLUME"
+      ],
+      "rows": [
+        [
+          "100",
+          "SHIP",
+          "1",
+          "11",
+          "-",
+          "-",
+          "-",
+          "2006",
+          "5000"
+        ],
+        [
+          "101",
+          "COPN",
+          "1",
+          "10",
+          "A",
+          "30",
+          "0",
+          "1000",
+          "5000"
+        ],
+        [
+          "102",
+          "SHIP",
+          "1",
+          "10",
+          "A",
+          "30",
+          "64",
+          "500",
+          "5000"
+        ],
+        [
+          "103",
+          "SHIP",
+          "1",
+          "10",
+          "A",
+          "30",
+          "64",
+          "9000",
+          "5000"
+        ],
+        [
+          "104",
+          "SHIP",
+          "1",
+          "10",
+          "A",
+          "30",
+          "64",
+          "271",
+          "5000"
+        ]
+      ]
+    },
+    {
+      "name": "CENSUS",
+      "columns": [
+        "ENTITY",
+        "CLASS",
+        "PEOPLE"
+      ],
+      "rows": [
+        [
+          "100",
+          "SKW",
+          "1000"
+        ],
+        [
+          "101",
+          "NAS",
+          "500"
+        ],
+        [
+          "101",
+          "USK",
+          "4000"
+        ]
+      ]
+    },
+    {
+      "name": "INVENTORY",
+      "columns": [
+        "ENTITY",
+        "SECTION",
+        "UNIT",
+        "TECH",
+        "QUANTITY"
+      ],
+      "rows": [
+        [
+          "100",
+          "cargo",
+          "FUEL",
+          "0",
+          "1736"
+        ],
+        [
+          "100",
+          "component",
+          "HDRV",
+          "3",
+          "2"
+        ],
+        [
+          "100",
+          "component",
+          "SNSR",
+          "2",
+          "2"
+        ],
+        [
+          "101",
+          "component",
+          "SNSR",
+          "1",
+          "1"
+        ],
+        [
+          "102",
+          "cargo",
+          "FUEL",
+          "0",
+          "500"
+        ],
+        [
+          "103",
+          "cargo",
+          "FUEL",
+          "0",
+          "500"
+        ],
+        [
+          "103",
+          "component",
+          "HDRV",
+          "1",
+          "1"
+        ],
+        [
+          "104",
+          "cargo",
+          "FUEL",
+          "0",
+          "1"
+        ],
+        [
+          "104",
+          "component",
+          "HDRV",
+          "3",
+          "1"
+        ]
+      ]
+    },
+    {
+      "name": "RESOURCE SUMMARY",
+      "columns": [
+        "RESOURCE",
+        "QUANTITY"
+      ],
+      "rows": [
+        [
+          "FUEL",
+          "2737"
+        ]
+      ]
+    },
+    {
+      "name": "WORK GROUPS",
+      "columns": [
+        "ENTITY",
+        "UNIT",
+        "SEQUENCE",
+        "DEPOSIT",
+        "TECH",
+        "QUANTITY"
+      ],
+      "rows": []
+    },
+    {
+      "name": "SENSOR SURVEY",
+      "columns": [
+        "ENTITY",
+        "STELLIUM",
+        "COORDINATES",
+        "SYSTEM",
+        "SYSTEMS"
+      ],
+      "rows": [
+        [
+          "100",
+          "11",
+          "1,2,2",
+          "-",
+          "1"
+        ],
+        [
+          "101",
+          "10",
+          "0,0,0",
+          "20",
+          "2"
+        ]
+      ]
+    },
+    {
+      "name": "SENSOR PLANETS",
+      "columns": [
+        "ENTITY",
+        "STELLIUM",
+        "SYSTEM",
+        "ORBIT",
+        "KIND"
+      ],
+      "rows": [
+        [
+          "100",
+          "11",
+          "A",
+          "1",
+          "rocky"
+        ],
+        [
+          "101",
+          "10",
+          "A",
+          "4",
+          "rocky"
+        ],
+        [
+          "101",
+          "10",
+          "A",
+          "6",
+          "rocky"
+        ],
+        [
+          "101",
+          "10",
+          "B",
+          "4",
+          "asteroid"
+        ]
+      ]
+    },
+    {
+      "name": "SYSTEM CONTACTS",
+      "columns": [
+        "ENTITY",
+        "PLANET",
+        "ORBIT",
+        "CONTACT UNIT",
+        "RING",
+        "APPROXIMATE MASS"
+      ],
+      "rows": [
+        [
+          "101",
+          "30",
+          "4",
+          "SHIP",
+          "64",
+          "2"
+        ],
+        [
+          "101",
+          "30",
+          "4",
+          "SHIP",
+          "64",
+          "3"
+        ],
+        [
+          "101",
+          "30",
+          "4",
+          "SHIP",
+          "64",
+          "2"
+        ],
+        [
+          "101",
+          "31",
+          "6",
+          "SHIP",
+          "55",
+          "3"
+        ]
+      ]
+    },
+    {
+      "name": "PROBE CONTACTS",
+      "columns": [
+        "PLANET",
+        "ENTITY",
+        "UNIT",
+        "RING",
+        "MASS"
+      ],
+      "rows": []
+    },
+    {
+      "name": "PROBE DEPOSITS",
+      "columns": [
+        "PLANET",
+        "DEPOSIT",
+        "RESOURCE",
+        "APPROXIMATE QUANTITY"
+      ],
+      "rows": []
+    },
+    {
+      "name": "ORDERS",
+      "columns": [
+        "SEQUENCE",
+        "LINE",
+        "ENTITY",
+        "VERB",
+        "INPUT",
+        "FUEL",
+        "STATUS",
+        "START",
+        "FINAL",
+        "ERROR"
+      ],
+      "rows": [
+        [
+          "2",
+          "5",
+          "100",
+          "move",
+          "system A orbit 1",
+          "8",
+          "succeeded",
+          "11/-/-/-",
+          "11/22/33/67",
+          "-"
+        ],
+        [
+          "3",
+          "6",
+          "100",
+          "move",
+          "orbit 11",
+          "8",
+          "succeeded",
+          "11/22/33/67",
+          "11/-/-/-",
+          "-"
+        ]
+      ]
+    },
+    {
+      "name": "PROBES",
+      "columns": [
+        "SEQUENCE",
+        "LINE",
+        "ENTITY",
+        "INPUT",
+        "STATUS",
+        "SYSTEM",
+        "PLANET",
+        "HABITABILITY",
+        "ERROR"
+      ],
+      "rows": [
+        [
+          "1",
+          "4",
+          "100",
+          "system A orbit 1",
+          "succeeded",
+          "11/22",
+          "33",
+          "9",
+          "-"
+        ]
+      ]
+    }
+  ]
+}

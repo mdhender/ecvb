@@ -115,6 +115,30 @@ text or JSON, so a report is never written twice.
 CLAUDE-01 corpus, seven turns and ten factions, from a fresh database. With
 `--json` two runs produce byte-identical output.
 
+## The regression net
+
+`internal/replay` is the gate a change to the order pipeline has to pass.
+`TestReplay` plays a three-turn scripted game -- submit, resolve, report, open
+the next turn -- against a database built from the migrations, and compares
+every engine log and report against `testdata/golden`. A refactor that
+preserves behavior leaves every golden untouched; one that does not names the
+report and the line. Rewrite the goldens with:
+
+```sh
+go test ./internal/replay -update
+```
+
+Read that diff before committing it: it is the record of what the rules now do.
+
+The scenario in `testdata/scenario.sql` is built so the rules fire. Two kinds
+of failure are covered in two places, because they behave differently. A
+shortfall of `FUEL` is a warning at submission and a failed order at
+resolution, since fuel may still reach the ship; that is in the replay.
+Everything that cannot change between submission and resolution -- a missing
+drive, a ship too heavy for it, a jump out of range, a destination that does
+not exist, a spent probe budget -- rejects the whole file, so it is in
+`TestSubmitRejects`, which also checks that a rejected file stores nothing.
+
 ## Environment files
 
 `internal/dotenv.Load(env)` accepts exactly `development`, `test`, `production`, or

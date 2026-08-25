@@ -1,0 +1,220 @@
+{
+  "title": "TURN REPORT",
+  "tables": [
+    {
+      "name": "",
+      "columns": [
+        "GAME",
+        "TURN",
+        "FACTION",
+        "CONTROLLER"
+      ],
+      "rows": [
+        [
+          "GOLD-01",
+          "2",
+          "2",
+          "agent:uncontrolled"
+        ]
+      ]
+    },
+    {
+      "name": "CONTROLLED PLANETS",
+      "columns": [
+        "ID",
+        "STELLIUM",
+        "COORDINATES",
+        "SYSTEM",
+        "ORBIT",
+        "KIND",
+        "HABITABILITY"
+      ],
+      "rows": []
+    },
+    {
+      "name": "DEPOSITS",
+      "columns": [
+        "PLANET",
+        "SEQUENCE",
+        "RESOURCE",
+        "QUALITY",
+        "INITIAL QUANTITY",
+        "CURRENT QUANTITY"
+      ],
+      "rows": []
+    },
+    {
+      "name": "ENTITIES",
+      "columns": [
+        "ID",
+        "UNIT",
+        "TECH",
+        "STELLIUM",
+        "SYSTEM",
+        "PLANET",
+        "RING",
+        "MASS",
+        "ENCLOSED VOLUME"
+      ],
+      "rows": [
+        [
+          "200",
+          "SHIP",
+          "1",
+          "10",
+          "A",
+          "31",
+          "55",
+          "7400",
+          "5000"
+        ]
+      ]
+    },
+    {
+      "name": "CENSUS",
+      "columns": [
+        "ENTITY",
+        "CLASS",
+        "PEOPLE"
+      ],
+      "rows": []
+    },
+    {
+      "name": "INVENTORY",
+      "columns": [
+        "ENTITY",
+        "SECTION",
+        "UNIT",
+        "TECH",
+        "QUANTITY"
+      ],
+      "rows": [
+        [
+          "200",
+          "cargo",
+          "FUEL",
+          "0",
+          "5000"
+        ],
+        [
+          "200",
+          "component",
+          "HDRV",
+          "3",
+          "2"
+        ]
+      ]
+    },
+    {
+      "name": "RESOURCE SUMMARY",
+      "columns": [
+        "RESOURCE",
+        "QUANTITY"
+      ],
+      "rows": [
+        [
+          "FUEL",
+          "5000"
+        ]
+      ]
+    },
+    {
+      "name": "WORK GROUPS",
+      "columns": [
+        "ENTITY",
+        "UNIT",
+        "SEQUENCE",
+        "DEPOSIT",
+        "TECH",
+        "QUANTITY"
+      ],
+      "rows": []
+    },
+    {
+      "name": "SENSOR SURVEY",
+      "columns": [
+        "ENTITY",
+        "STELLIUM",
+        "COORDINATES",
+        "SYSTEM",
+        "SYSTEMS"
+      ],
+      "rows": []
+    },
+    {
+      "name": "SENSOR PLANETS",
+      "columns": [
+        "ENTITY",
+        "STELLIUM",
+        "SYSTEM",
+        "ORBIT",
+        "KIND"
+      ],
+      "rows": []
+    },
+    {
+      "name": "SYSTEM CONTACTS",
+      "columns": [
+        "ENTITY",
+        "PLANET",
+        "ORBIT",
+        "CONTACT UNIT",
+        "RING",
+        "APPROXIMATE MASS"
+      ],
+      "rows": []
+    },
+    {
+      "name": "PROBE CONTACTS",
+      "columns": [
+        "PLANET",
+        "ENTITY",
+        "UNIT",
+        "RING",
+        "MASS"
+      ],
+      "rows": []
+    },
+    {
+      "name": "PROBE DEPOSITS",
+      "columns": [
+        "PLANET",
+        "DEPOSIT",
+        "RESOURCE",
+        "APPROXIMATE QUANTITY"
+      ],
+      "rows": []
+    },
+    {
+      "name": "ORDERS",
+      "columns": [
+        "SEQUENCE",
+        "LINE",
+        "ENTITY",
+        "VERB",
+        "INPUT",
+        "FUEL",
+        "STATUS",
+        "START",
+        "FINAL",
+        "ERROR"
+      ],
+      "rows": []
+    },
+    {
+      "name": "PROBES",
+      "columns": [
+        "SEQUENCE",
+        "LINE",
+        "ENTITY",
+        "INPUT",
+        "STATUS",
+        "SYSTEM",
+        "PLANET",
+        "HABITABILITY",
+        "ERROR"
+      ],
+      "rows": []
+    }
+  ]
+}

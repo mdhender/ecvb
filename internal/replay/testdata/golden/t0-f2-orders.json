@@ -1,0 +1,53 @@
+{
+  "title": "ORDERS REPORT",
+  "tables": [
+    {
+      "name": "",
+      "columns": [
+        "GAME",
+        "TURN",
+        "FACTION",
+        "CONTROLLER"
+      ],
+      "rows": [
+        [
+          "GOLD-01",
+          "0",
+          "2",
+          "agent:uncontrolled"
+        ]
+      ]
+    },
+    {
+      "name": "ORDERS",
+      "columns": [
+        "SEQUENCE",
+        "LINE",
+        "ENTITY",
+        "VERB",
+        "INPUT",
+        "FUEL",
+        "STATUS",
+        "START",
+        "FINAL",
+        "ERROR"
+      ],
+      "rows": []
+    },
+    {
+      "name": "PROBES",
+      "columns": [
+        "SEQUENCE",
+        "LINE",
+        "ENTITY",
+        "INPUT",
+        "STATUS",
+        "SYSTEM",
+        "PLANET",
+        "HABITABILITY",
+        "ERROR"
+      ],
+      "rows": []
+    }
+  ]
+}

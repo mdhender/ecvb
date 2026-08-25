@@ -1,0 +1,6 @@
+game "GOLD-01" turn 2
+id faction 1
+
+probe ship 100 system A orbit 1
+move ship 100 to orbit 11
+jump ship 100 to (0,0,0)
