@@ -1,4 +1,5 @@
 game "CLAUDE-01" turn 1
 id faction 8
 
-move ship 28 to system A orbit 4
+probe ship 28 system A orbit 4
+jump ship 28 to (9,-10,-13)

@@ -1,0 +1,4 @@
+game "CLAUDE-01" turn 6
+id faction 11
+
+move ship 40 to system A orbit 4

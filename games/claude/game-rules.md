@@ -8,16 +8,9 @@ and adjudicates the result.
 
 1. A faction may move zero or one time per turn.
 2. A faction may jump zero or one time per turn.
-3. The winner is the first faction to place its ship in orbit around another
+3. A faction may probe as often as its assembled sensors allow.
+4. The winner is the first faction to place its ship in orbit around another
    faction's home planet.
-4. Everyone loses if two factions end up in the same stellium in any turn.
-   Check for winners before checking for losers.
-5. One faction may cheat and issue zero, one, or two jumps per turn. The
-   faction is chosen randomly before the game starts.
-6. One faction may cheat and query the database for another faction's home
-   planet. It may look up one faction per turn. The faction is chosen randomly
-   before the game starts.
-7. One faction may not hold both cheats.
 
 The game is a draw after 15 turns.
 
@@ -42,18 +35,6 @@ The winner is evaluated from the end-of-turn entity state. A faction that
 expects to win must not also jump that turn, because the engine resolves every
 move before any jump and the jump would carry the ship back out.
 
-### Losing
-
-Only ships count toward the mutual-loss check. Immobile home colonies and the
-uncontrolled faction's orbital colonies are ignored. Without this restriction
-the game is unwinnable: a win requires jumping into the target stellium on one
-turn and moving onto the planet on the next, and the jump turn itself would end
-the game in a loss.
-
-The check is on the end-of-turn state. Two or more ships from different
-factions in the same stellium after resolution means everyone loses. A stellium
-that a ship only passes through during a double jump does not count.
-
 ### Information
 
 Public knowledge, available to every faction:
@@ -63,19 +44,58 @@ Public knowledge, available to every faction:
   search to those 90.
 - Its own entities, orders, and order outcomes.
 
-A faction learns which planets a stellium holds, and whether any of them is
-controlled, only for a stellium its ship occupies. A double-jumping ship
-observes both stellia it visits during the turn.
+Everything else a faction learns, it learns from its sensors. There is no
+lookup of another faction's home planet; a faction finds a home by travelling
+to its stellium and reading it.
 
-Only the rule-6 cheater may look up a home planet it has not visited, one
-faction per turn.
+### Sensors
 
-### Cheats
+Both readings a faction gets are taken before anything moves, so both describe
+where its entities stood at the **start** of the turn. A ship that jumps into a
+new stellium on turn 3 reports that stellium in its turn 4 report, not its turn
+3 report.
 
-Chosen randomly before turn 0, and recorded here for review:
+The starting kit fits the ship with 3 `SNSR-2` and the open-air home colony
+with 2 `SNSR-1`, so a faction launches six probes from its ship and two from
+its colony each turn. See [Unit Glossary](../../units.md) for the sensor rules
+and [Order File Reference](../../orders.md) for the `probe` order.
 
-- Rule 5, double jump: **faction 8** (user07@example.com).
-- Rule 6, database query: **faction 4** (user03@example.com).
+**Passive readings** cost nothing and are taken every turn by every
+sensor-equipped entity:
+
+- In a stellium, they report the number of systems it holds, and the orbit and
+  kind of every planet in each of them.
+- At a planet, they also report every ship and orbital colony orbiting any
+  planet of that system, with each mass rounded down to its order of magnitude
+  in base 10. A ship of 55,226 MU reads as 4.
+
+A passive reading is therefore enough to find the candidate planets in a
+stellium and to tell that something of a ship's size is sitting in orbit
+somewhere in the system, but not whose it is.
+
+**Probes** are ordered, cost one probe per orbit named, and read one planet
+exactly:
+
+```text
+probe ship SHIP-ID orbit ORBIT
+probe ship SHIP-ID system A orbit 1 2 3
+probe colony COLONY-ID orbit ORBIT
+```
+
+A probe reads a planet of the entity's current system, or of any system of its
+current stellium when it names one. It reports every ship, orbital colony, and
+surface colony at the planet with exact identity and mass, every deposit with
+type and approximate quantity, and the planet's habitability. A home is
+identified by the colony sitting on it.
+
+Probes resolve before anything moves, so a ship cannot arrive in a system and
+probe it on the same turn: it arrives on one turn and probes on the next. A
+probe does not move its ship, and its findings are recorded as of the moment it
+read the planet.
+
+The practical search is therefore: jump into a single-system stellium, read its
+planets passively on arrival, then spend the next turn probing orbit 4 — or the
+whole system — to see whether the colony there is a home.
 
 ## Jump range
 
@@ -90,9 +110,8 @@ crossing the map is a multi-turn journey that fits inside the 15-turn limit.
 Shorter ranges fragment the map: at range 6 only 4 of the 10 homes remain
 mutually reachable, and at range 3 most stellia are isolated.
 
-A faction must therefore plan a route. A faction holding a target travels one
-hop per turn toward it, and the rule-5 cheat is now worth a great deal, since
-two hops per turn both doubles search speed and halves travel time.
+A faction must therefore plan a route, and every hop costs a turn of search as
+well as a turn of travel.
 
 ## File naming
 

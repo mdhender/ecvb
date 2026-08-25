@@ -1,0 +1,5 @@
+game "CLAUDE-01" turn 4
+id faction 3
+
+probe ship 8 system A orbit 4
+jump ship 8 to (2,-9,-1)
