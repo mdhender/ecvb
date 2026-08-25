@@ -74,8 +74,8 @@
         "NAS": 15
       },
       "components": {
-        "STRC-10": 2100,
-        "HDRV-8": 8,
+        "STRC-10": 2421,
+        "HDRV-10": 7,
         "SDRV-1": 1,
         "LFSU-1": 1,
         "SNSR-2": 3
@@ -89,7 +89,7 @@
         "FARM-1": 30,
         "FARM-2": 4,
         "FOOD": 1000,
-        "FUEL": 120,
+        "FUEL": 11716,
         "MINE-1": 2
       }
     }

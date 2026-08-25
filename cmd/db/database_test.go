@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mdhender/ecvb/internal/testdb"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -34,25 +35,11 @@ func TestCreateDatabase(t *testing.T) {
 		t.Errorf("verifyDatabase: %v", err)
 	}
 
-	wantTables := []string{
-		"agent", "deposit", "entity", "entity_population", "faction", "game", "inventory",
-		"jump_order", "move_order", "planet", "probe_contact", "probe_deposit", "probe_order",
-		"sensor_contact", "sensor_survey", "stellium", "system", "users", "work_group",
-		"work_group_units",
-	}
-	var gotTables []string
-	if err := sqlitex.ExecuteTransient(conn, strings.TrimSpace(`
-		SELECT name FROM sqlite_schema
-		WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-		ORDER BY name;
-	`), &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			gotTables = append(gotTables, stmt.ColumnText(0))
-			return nil
-		},
-	}); err != nil {
-		t.Fatalf("list tables: %v", err)
-	}
+	// The guarantee worth asserting is that `db create` produces exactly what
+	// the migrations describe. Comparing against a hand-written list instead
+	// makes every new table fail this test for no reason.
+	gotTables := testdb.Tables(t, conn)
+	wantTables := testdb.Tables(t, testdb.New(t))
 	if strings.Join(gotTables, ",") != strings.Join(wantTables, ",") {
 		t.Errorf("tables = %v; want %v", gotTables, wantTables)
 	}

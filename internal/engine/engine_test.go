@@ -6,11 +6,10 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/mdhender/ecvb/internal/database"
+	"github.com/mdhender/ecvb/internal/testdb"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -147,24 +146,8 @@ func TestOpenNextTurnRetainsLatestResolvedOrdersAndPurgesOlderOrders(t *testing.
 
 func openEngineTestDatabase(t *testing.T) *sqlite.Conn {
 	t.Helper()
-	conn, err := sqlite.OpenConn(filepath.Join(t.TempDir(), database.Filename), sqlite.OpenReadWrite|sqlite.OpenCreate)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := conn.Close(); err != nil {
-			t.Errorf("close database: %v", err)
-		}
-	})
-	if err := sqlitex.ExecuteTransient(conn, "PRAGMA foreign_keys = ON;", nil); err != nil {
-		t.Fatal(err)
-	}
-	for _, migration := range database.Migrations() {
-		if err := sqlitex.ExecuteScript(conn, migration, nil); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := sqlitex.ExecuteScript(conn, `
+	conn := testdb.New(t)
+	testdb.Exec(t, conn, `
 		INSERT INTO users (id, email, role) VALUES (1, 'player@example.com', 'non-administrator');
 		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 3);
 		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
@@ -187,9 +170,7 @@ func openEngineTestDatabase(t *testing.T) *sqlite.Conn {
 		-- 500 of the ship's 3000 MU is the fuel it carries, at 1 MU each, so
 		-- burning fuel takes mass off a ship that was carrying it.
 		UPDATE entity SET mass = 3000 WHERE id = 40;
-	`, nil); err != nil {
-		t.Fatal(err)
-	}
+	`)
 	return conn
 }
 

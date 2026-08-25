@@ -5,13 +5,13 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/mdhender/ecvb/internal/database"
+	"github.com/mdhender/ecvb/internal/testdb"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -272,69 +272,16 @@ func TestRunShowOrdersValidatesPlayerSelector(t *testing.T) {
 func createTestDatabase(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
-	path := filepath.Join(directory, database.Filename)
-	conn, err := sqlite.OpenConn(path, sqlite.OpenReadWrite|sqlite.OpenCreate)
+	// Migrate rather than stub the schema by hand. A hand-written stub drifts
+	// from the migrations silently, so a report query can pass here and fail
+	// against a real database.
+	testdb.NewAt(t, filepath.Join(directory, database.Filename))
+	conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadWrite)
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := fmt.Sprintf(`
-		PRAGMA application_id = %d;
-		PRAGMA user_version = %d;
-		CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL);
-		CREATE TABLE game (id INTEGER PRIMARY KEY, code TEXT NOT NULL, turn INTEGER NOT NULL DEFAULT 0, turn_state TEXT NOT NULL DEFAULT 'open');
-		CREATE TABLE agent (id INTEGER PRIMARY KEY, code TEXT, description TEXT NOT NULL);
-		CREATE TABLE faction (id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL, user_id INTEGER, agent_id INTEGER);
-		CREATE TABLE stellium (id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL);
-		CREATE TABLE system (id INTEGER PRIMARY KEY, stellium_id INTEGER NOT NULL, sequence TEXT NOT NULL);
-		CREATE TABLE planet (id INTEGER PRIMARY KEY, system_id INTEGER NOT NULL, orbit INTEGER NOT NULL, kind TEXT NOT NULL, habitability INTEGER NOT NULL, faction_id INTEGER);
-		CREATE TABLE deposit (id INTEGER PRIMARY KEY, planet_id INTEGER NOT NULL, sequence INTEGER NOT NULL, resource TEXT NOT NULL, quality INTEGER NOT NULL, initial_qty INTEGER NOT NULL, current_qty INTEGER NOT NULL);
-		CREATE TABLE entity (id INTEGER PRIMARY KEY, unit TEXT NOT NULL, tech_level INTEGER NOT NULL, stellium_id INTEGER NOT NULL, system_id INTEGER, planet_id INTEGER, planet_ring INTEGER, faction_id INTEGER NOT NULL, enclosed_volume INTEGER NOT NULL, mass INTEGER NOT NULL);
-		CREATE TABLE inventory (entity_id INTEGER NOT NULL, section TEXT NOT NULL, unit TEXT NOT NULL, tech_level INTEGER NOT NULL, quantity INTEGER NOT NULL);
-		CREATE TABLE entity_population (entity_id INTEGER NOT NULL, class TEXT NOT NULL, quantity INTEGER NOT NULL);
-		CREATE TABLE work_group (id INTEGER PRIMARY KEY, entity_id INTEGER NOT NULL, unit TEXT NOT NULL, sequence INTEGER NOT NULL, deposit_id INTEGER);
-		CREATE TABLE work_group_units (work_group_id INTEGER NOT NULL, tech_level INTEGER NOT NULL, quantity INTEGER NOT NULL);
-		CREATE TABLE sensor_survey (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			entity_id INTEGER NOT NULL, stellium_id INTEGER NOT NULL, system_id INTEGER,
-			systems INTEGER NOT NULL);
-		CREATE TABLE sensor_contact (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			entity_id INTEGER NOT NULL, planet_id INTEGER NOT NULL, contact_id INTEGER NOT NULL,
-			unit TEXT NOT NULL, planet_ring INTEGER NOT NULL, mass INTEGER NOT NULL);
-		CREATE TABLE probe_order (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, entity_id INTEGER NOT NULL,
-			requested_system TEXT, requested_orbit INTEGER NOT NULL,
-			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
-			stellium_id INTEGER, system_id INTEGER, planet_id INTEGER, habitability INTEGER);
-		CREATE TABLE probe_contact (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			planet_id INTEGER NOT NULL, entity_id INTEGER NOT NULL, unit TEXT NOT NULL,
-			planet_ring INTEGER NOT NULL, mass INTEGER NOT NULL);
-		CREATE TABLE probe_deposit (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			planet_id INTEGER NOT NULL, deposit_id INTEGER NOT NULL, resource TEXT NOT NULL,
-			quantity INTEGER NOT NULL);
-		CREATE TABLE jump_order (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,
-			destination_x INTEGER NOT NULL, destination_y INTEGER NOT NULL, destination_z INTEGER NOT NULL,
-			destination_stellium_id INTEGER NOT NULL, fuel_spent INTEGER NOT NULL DEFAULT 0,
-			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
-			start_stellium_id INTEGER, start_system_id INTEGER, start_planet_id INTEGER, start_planet_ring INTEGER,
-			final_stellium_id INTEGER, final_system_id INTEGER, final_planet_id INTEGER, final_planet_ring INTEGER
-		);
-		CREATE TABLE move_order (
-			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
-			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,
-			requested_system TEXT, requested_orbit INTEGER NOT NULL,
-			destination_stellium_id INTEGER NOT NULL, destination_system_id INTEGER, destination_planet_id INTEGER,
-			fuel_spent INTEGER NOT NULL DEFAULT 0,
-			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
-			start_stellium_id INTEGER, start_system_id INTEGER, start_planet_id INTEGER, start_planet_ring INTEGER,
-			final_stellium_id INTEGER, final_system_id INTEGER, final_planet_id INTEGER, final_planet_ring INTEGER
-		);
-		INSERT INTO users (id, email) VALUES (11, 'player@example.com');
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO users (id, email, role) VALUES (11, 'player@example.com', 'non-administrator');
 		INSERT INTO game (id, code, turn) VALUES (1, 'BETA-001', 3), (2, 'OTHER', 0);
 		INSERT INTO agent (id, code, description) VALUES (21, 'uncontrolled', 'Uncontrolled faction');
 		INSERT INTO faction (id, game_id, user_id, agent_id) VALUES (41, 1, 11, NULL), (42, 1, NULL, 21);
@@ -363,8 +310,7 @@ func createTestDatabase(t *testing.T) string {
 			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
 			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
 		) VALUES (1, 3, 41, 1, 4, 501, 1, 79, 88, 871, 4);
-	`, database.ApplicationID, database.SchemaVersion)
-	if err := sqlitex.ExecuteScript(conn, script, nil); err != nil {
+	`, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Close(); err != nil {

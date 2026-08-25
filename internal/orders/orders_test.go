@@ -5,12 +5,11 @@ package orders
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/mdhender/ecvb/internal/database"
+	"github.com/mdhender/ecvb/internal/testdb"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -164,24 +163,8 @@ func TestSpecializedOrderForeignKeysEnforceOwnershipAndDestinationGame(t *testin
 
 func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 	t.Helper()
-	conn, err := sqlite.OpenConn(filepath.Join(t.TempDir(), database.Filename), sqlite.OpenReadWrite|sqlite.OpenCreate)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := conn.Close(); err != nil {
-			t.Errorf("close database: %v", err)
-		}
-	})
-	if err := sqlitex.ExecuteTransient(conn, "PRAGMA foreign_keys = ON;", nil); err != nil {
-		t.Fatal(err)
-	}
-	for _, migration := range database.Migrations() {
-		if err := sqlitex.ExecuteScript(conn, migration, nil); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := sqlitex.ExecuteScript(conn, `
+	conn := testdb.New(t)
+	testdb.Exec(t, conn, `
 		INSERT INTO users (id, email, role) VALUES (1, 'player@example.com', 'non-administrator');
 		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 3), (2, 'OTHER', 3);
 		INSERT INTO agent (id, code, description) VALUES (1, 'uncontrolled', 'Uncontrolled');
@@ -206,9 +189,7 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 			game_id, turn, faction_id, sequence, source_line, ship_id,
 			destination_x, destination_y, destination_z, destination_stellium_id
 		) VALUES (1, 3, 1, 1, 3, 40, 0, 0, 0, 10);
-	`, nil); err != nil {
-		t.Fatal(err)
-	}
+	`)
 	return conn
 }
 
