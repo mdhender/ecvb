@@ -5,17 +5,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"text/tabwriter"
 
+	"github.com/mdhender/ecvb/internal/report"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func showOrdersReport(ctx context.Context, directory, gameCode, email string, factionID int64, turn int, output io.Writer) (err error) {
+func ordersReport(ctx context.Context, directory, gameCode, email string, factionID int64, turn int) (rpt *report.Report, err error) {
 	conn, err := openDatabase(ctx, directory)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		if closeErr := conn.Close(); err == nil && closeErr != nil {
@@ -25,31 +24,26 @@ func showOrdersReport(ctx context.Context, directory, gameCode, email string, fa
 
 	faction, err := findReportFaction(conn, gameCode, email, factionID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if turn == -1 {
 		turn = faction.turn
 	}
 
-	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "ORDERS REPORT")
-	fmt.Fprintln(w, "GAME\tTURN\tFACTION\tCONTROLLER")
-	fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", gameCode, turn, faction.id, faction.controller)
-	if err := writeOrders(w, conn, gameCode, turn, faction.id, "ORDERS"); err != nil {
-		return err
+	rpt = report.New("ORDERS REPORT")
+	rpt.Table("", "GAME", "TURN", "FACTION", "CONTROLLER").
+		Row(gameCode, turn, faction.id, faction.controller)
+	if err := addOrders(rpt, conn, gameCode, turn, faction.id, "ORDERS"); err != nil {
+		return nil, err
 	}
-	if err := writeProbes(w, conn, gameCode, turn, faction.id); err != nil {
-		return err
+	if err := addProbes(rpt, conn, gameCode, turn, faction.id); err != nil {
+		return nil, err
 	}
-	if err := w.Flush(); err != nil {
-		return fmt.Errorf("write orders report: %w", err)
-	}
-	return nil
+	return rpt, nil
 }
 
-func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
-	fmt.Fprintf(w, "\n%s\n", heading)
-	fmt.Fprintln(w, "SEQUENCE\tLINE\tENTITY\tVERB\tINPUT\tFUEL\tSTATUS\tSTART\tFINAL\tERROR")
+func addOrders(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
+	table := rpt.Table(heading, "SEQUENCE", "LINE", "ENTITY", "VERB", "INPUT", "FUEL", "STATUS", "START", "FINAL", "ERROR")
 	// Fuel is the one number that prices a move or a jump: what the order
 	// would burn while it is pending, and what it did burn once it resolves.
 	if err := sqlitex.ExecuteTransient(conn, `
@@ -81,7 +75,7 @@ func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 		ORDER BY sequence, verb;`, &sqlitex.ExecOptions{
 		Args: []any{gameCode, turn, factionID, gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
+			table.Row(
 				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
 				stmt.ColumnText(4), stmt.ColumnInt64(5), stmt.ColumnText(6),
 				orderLocation(stmt, 8), orderLocation(stmt, 12), nullableText(stmt, 7))
@@ -93,11 +87,10 @@ func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 	return nil
 }
 
-// writeProbes reports probe orders. A probe does not move its ship, so it has
-// no start and final location; it names the planet it read instead.
-func writeProbes(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
-	fmt.Fprintln(w, "\nPROBES")
-	fmt.Fprintln(w, "SEQUENCE\tLINE\tENTITY\tINPUT\tSTATUS\tSYSTEM\tPLANET\tHABITABILITY\tERROR")
+// addProbes reports probe orders. A probe does not move its ship, so it has no
+// start and final location; it names the planet it read instead.
+func addProbes(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+	table := rpt.Table("PROBES", "SEQUENCE", "LINE", "ENTITY", "INPUT", "STATUS", "SYSTEM", "PLANET", "HABITABILITY", "ERROR")
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT sequence, source_line, entity_id,
 			CASE WHEN requested_system IS NULL
@@ -120,7 +113,7 @@ func writeProbes(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 			if !stmt.ColumnIsNull(8) {
 				habitability = fmt.Sprintf("%d", stmt.ColumnInt(8))
 			}
-			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			table.Row(
 				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
 				stmt.ColumnText(4), system, planet, habitability, nullableText(stmt, 9))
 			return nil

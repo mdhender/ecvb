@@ -242,13 +242,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	resolveTurnFlags := ff.NewFlagSet("turn resolve")
 	resolveTurnGame := resolveTurnFlags.StringLong("game", "", "code of the game")
 	resolveTurnNumber := resolveTurnFlags.IntLong("turn", -1, "turn number to resolve")
+	resolveNoLogTime := resolveTurnFlags.BoolLong("no-log-timestamps", "omit wall-clock timestamps from the engine log, so the same turn logs the same bytes")
 	openTurnFlags := ff.NewFlagSet("turn open")
 	openTurnGame := openTurnFlags.StringLong("game", "", "code of the game")
 	openResolvedTurn := openTurnFlags.IntLong("turn", -1, "resolved turn after which to open the next turn")
 	turn.Subcommands = []*ff.Command{
 		{
 			Name:      "resolve",
-			Usage:     "ec turn resolve --game CODE --turn NUMBER",
+			Usage:     "ec turn resolve --game CODE --turn NUMBER [--no-log-timestamps]",
 			ShortHelp: "resolve all orders for an open turn",
 			Flags:     resolveTurnFlags,
 			Exec: func(ctx context.Context, args []string) error {
@@ -258,7 +259,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				result, err := resolveGameTurn(ctx, *dbPath, *resolveTurnGame, *resolveTurnNumber, stderr)
+				result, err := resolveGameTurn(ctx, *dbPath, *resolveTurnGame, *resolveTurnNumber, stderr, !*resolveNoLogTime)
 				if err != nil {
 					return err
 				}

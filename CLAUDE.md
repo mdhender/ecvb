@@ -34,7 +34,7 @@ describe the intended shape of code that has not been written.
 | `cmd/db` | Only place allowed to create a database file or apply migrations (`create`, `migrate up`, `seed`). |
 | `cmd/ecgen` | Generates map seed JSON: `stellia` → `systems` → `planets` → `deposits`, each reading the previous file from the target directory. Deterministic from `--stellia-seed`. |
 | `cmd/ec` | Gamemaster mutations: `game create`, `load game`, `add player`, `orders check|submit`, `turn resolve|open`, `db verify`. |
-| `cmd/ecrpt` | Read-only reporting: `show orders|stellium|system|turn`, opens the database `OpenReadOnly`. |
+| `cmd/ecrpt` | Read-only reporting: `show orders|stellium|system|turn`, opens the database `OpenReadOnly`. `show --format json` renders any report as JSON. |
 
 All four take `--db-path DIR` (a *directory*; the file inside it is always
 `database.Filename` = `ecvb.db`). `cmd/ec` and `cmd/ecgen` parse flags with
@@ -99,7 +99,21 @@ on `jump_order`/`move_order` is what enforces the pending/succeeded/failed shape
 order kinds should follow the same table layout.
 
 Resolution writes one structured `slog` record per order to stderr; the runbook
-captures it as `2>reports/tN-engine.log`.
+captures it as `2>reports/tN-engine.log`. `ec turn resolve --no-log-timestamps`
+drops the wall clock from those records, so the same turn logs the same bytes.
+
+## Reproducible output
+
+Two things exist so a turn's result can be compared against a golden file:
+`ecrpt show --format json` renders a report as structured JSON rather than
+column-aligned text, and `ec turn resolve --no-log-timestamps` writes an engine
+log with no wall clock in it. `internal/report` models every report as a title
+plus named tables of header and rows, and renders that one model as either
+text or JSON, so a report is never written twice.
+
+`games/claude/replay.sh [--json] [OUTPUT-DIR]` replays the whole committed
+CLAUDE-01 corpus, seven turns and ten factions, from a fresh database. With
+`--json` two runs produce byte-identical output.
 
 ## Environment files
 

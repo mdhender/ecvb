@@ -5,10 +5,14 @@
 # the reports it produces are the contract that the order-pipeline rework must
 # preserve byte for byte.
 #
-#   games/claude/replay.sh [OUTPUT-DIR]
+#   games/claude/replay.sh [--json] [OUTPUT-DIR]
 #
 # The default output directory is games/claude/reports. Pass a different one to
 # capture a candidate set for diffing against the goldens.
+#
+# --json writes the reports as JSON and drops the wall-clock timestamps from
+# the engine log, so replaying the same game twice writes the same bytes. That
+# is what a golden file needs; the default text output is what a player reads.
 
 set -euo pipefail
 
@@ -20,6 +24,16 @@ set -euo pipefail
     echo "error: missing games/claude folder"
     exit 2
 }
+
+FORMAT=text
+EXT=txt
+LOGFLAGS=()
+if [ "${1:-}" = "--json" ]; then
+    FORMAT=json
+    EXT=json
+    LOGFLAGS=(--no-log-timestamps)
+    shift
+fi
 
 GAME=CLAUDE-01
 DB=games/claude
@@ -69,15 +83,15 @@ for turn in $(seq 0 "${LAST_TURN}"); do
 
     echo " info: turn ${turn}: resolve..."
     "${BIN}/ec" --db-path "${DB}" turn resolve --game "${GAME}" --turn "${turn}" \
-        >/dev/null 2>"${OUT}/t${turn}-engine.log"
+        "${LOGFLAGS[@]}" >/dev/null 2>"${OUT}/t${turn}-engine.log"
 
     echo " info: turn ${turn}: report..."
     for faction in ${FACTIONS}; do
-        "${BIN}/ecrpt" --db-path "${DB}" show \
-            --output "${OUT}/t${turn}-f${faction}-orders-report.txt" \
+        "${BIN}/ecrpt" --db-path "${DB}" show --format "${FORMAT}" \
+            --output "${OUT}/t${turn}-f${faction}-orders-report.${EXT}" \
             orders --game "${GAME}" --turn "${turn}" --faction "${faction}"
-        "${BIN}/ecrpt" --db-path "${DB}" show \
-            --output "${OUT}/t${turn}-f${faction}-resolved-turn-report.txt" \
+        "${BIN}/ecrpt" --db-path "${DB}" show --format "${FORMAT}" \
+            --output "${OUT}/t${turn}-f${faction}-resolved-turn-report.${EXT}" \
             turn --game "${GAME}" --faction "${faction}"
     done
 

@@ -6,12 +6,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 
 	"github.com/mdhender/ecvb/internal/engine"
+	"github.com/mdhender/ecvb/internal/logging"
 )
 
-func resolveGameTurn(ctx context.Context, directory, gameCode string, turn int, logOutput io.Writer) (result engine.Result, err error) {
+func resolveGameTurn(ctx context.Context, directory, gameCode string, turn int, logOutput io.Writer, logTimestamps bool) (result engine.Result, err error) {
 	conn, _, err := openVerifiedDatabase(ctx, directory)
 	if err != nil {
 		return engine.Result{}, err
@@ -21,7 +21,7 @@ func resolveGameTurn(ctx context.Context, directory, gameCode string, turn int, 
 			err = fmt.Errorf("close database: %w", closeErr)
 		}
 	}()
-	logger := slog.New(slog.NewTextHandler(logOutput, nil))
+	logger := logging.NewLogger(logOutput, logTimestamps)
 	return engine.Resolve(ctx, logger, conn, gameCode, turn)
 }
 
