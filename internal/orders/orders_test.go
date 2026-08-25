@@ -514,7 +514,9 @@ func TestCheckRejectsAProbeThatNamesTheWrongKindOfEntity(t *testing.T) {
 	}{
 		{name: "colony named as a ship", input: "probe ship 41 orbit 4", problem: "entity 41 is a COPN, not a ship"},
 		{name: "ship named as a colony", input: "probe colony 40 orbit 4", problem: "entity 40 is a ship, not a colony"},
-		{name: "colony ordered to move", input: "move colony 41 to orbit 6", problem: "expected jump ship"},
+		// Only a probe may name a colony, so MOVE reports its own syntax
+		// rather than every form of every order in the game.
+		{name: "colony ordered to move", input: "move colony 41 to orbit 6", problem: "expected move ship SHIP-ID to orbit ORBIT"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := openOrderTestDatabase(t)

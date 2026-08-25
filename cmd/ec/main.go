@@ -14,6 +14,7 @@ import (
 
 	"github.com/mdhender/ecvb/internal/database"
 	"github.com/mdhender/ecvb/internal/dotenv"
+	orderpkg "github.com/mdhender/ecvb/internal/orders"
 	"github.com/peterbourgon/ff/v4"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -190,10 +191,33 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		Usage:     "ec orders SUBCOMMAND",
 		ShortHelp: "check or submit player orders",
 		Exec: func(context.Context, []string) error {
-			return fmt.Errorf("an orders subcommand is required (check or submit)")
+			return fmt.Errorf("an orders subcommand is required (check, help, or submit)")
 		},
 	}
 	orders.Subcommands = []*ff.Command{
+		{
+			Name:      "help",
+			Usage:     "ec orders help [ORDER]",
+			ShortHelp: "show the syntax of every order, or of one order",
+			Exec: func(ctx context.Context, args []string) error {
+				// Generated from the order registry, so it cannot fall out of
+				// step with what the parser actually accepts.
+				switch len(args) {
+				case 0:
+					_, err := fmt.Fprint(stdout, orderpkg.Help())
+					return err
+				case 1:
+					help, err := orderpkg.HelpFor(args[0])
+					if err != nil {
+						return err
+					}
+					_, err = fmt.Fprint(stdout, help)
+					return err
+				default:
+					return fmt.Errorf("expected at most one order name")
+				}
+			},
+		},
 		{
 			Name:      "check",
 			Usage:     "ec orders check FILE",

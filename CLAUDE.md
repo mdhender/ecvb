@@ -76,6 +76,33 @@ Spatial hierarchy: `game → stellium → system (A–E) → planet (orbit 1–1
 Plural of *stellium* is *stellia*. Distance between stellia is Euclidean, rounded up;
 compare squared distances so no floating point enters the query.
 
+## Adding an order
+
+An order registers one `Spec` in `internal/orders/verbs.go` and nowhere else:
+
+```go
+register(&Spec{
+    Verb:    "move",
+    Summary: "move a ship inside its stellium, to a planet or to the stellium orbit",
+    Syntax:  []string{"move ship SHIP-ID to orbit ORBIT", ...},
+    Parse:   func(line *Line) (Order, error) { ... },
+})
+```
+
+The parser tokenizes a line once and dispatches on its verb, so a line is only
+ever measured against the forms of the order it names, and a mistyped verb is
+told which orders exist. `Parse` consumes from a `*Line` using the shared field
+readers in `token.go` -- `entityID`, `number`, `systemLetter`, `coordinates`,
+`orbitList`, `quoted` -- rather than a regex per surface form.
+
+Errors are of two kinds and are treated differently. A line that never matched
+the shape of its order returns a `syntaxErr` (every `expect` does), and the
+player is shown that verb's `Syntax`. A field that was read and found wrong
+returns a plain error, which is reported as written.
+
+`ec orders help [ORDER]` prints the registry, and a test fails if `orders.md`
+does not document every registered form.
+
 ## Turn lifecycle
 
 `game.turn_state` is `open` or `resolved`.

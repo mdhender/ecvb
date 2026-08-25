@@ -106,3 +106,156 @@ probe ship 4 system a orbit 1 2 3
 		t.Errorf("orbits = %v; want %v", order.Orbits, want)
 	}
 }
+
+func TestParseIgnoresCommentsAndBlankLines(t *testing.T) {
+	input := `game "TEST" turn 3   # the header may carry a comment
+id faction 1
+
+# a whole line of commentary
+move ship 2 to orbit 6   # and a trailing one
+   # indented, still a comment
+
+probe ship 2 orbit 1
+`
+	submission, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if submission.GameCode != "TEST" || submission.Turn != 3 {
+		t.Fatalf("header = %+v", submission)
+	}
+	if len(submission.Orders) != 2 {
+		t.Fatalf("orders = %d; want 2", len(submission.Orders))
+	}
+	// The line numbers are the physical ones, so an error still points at the
+	// line the player has to edit.
+	if got := submission.Orders[0]; got.Verb != "move" || got.Line != 5 {
+		t.Errorf("first order = %+v; want a move on line 5", got)
+	}
+	if got := submission.Orders[1]; got.Verb != "probe" || got.Line != 8 {
+		t.Errorf("second order = %+v; want a probe on line 8", got)
+	}
+}
+
+// A `#` inside quotes is part of the value, not the start of a comment.
+func TestParseKeepsAHashInsideQuotes(t *testing.T) {
+	submission, err := Parse(strings.NewReader("game \"BETA#1\" turn 0\nid faction 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if submission.GameCode != "BETA#1" {
+		t.Errorf("game code = %q; want BETA#1", submission.GameCode)
+	}
+}
+
+func TestParseReportsTheOrderThatFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "unknown verb names the orders that exist",
+			input: "attak ship 2",
+			want:  `unknown order "attak"; expected jump, move, or probe`,
+		},
+		{
+			name:  "a move that does not parse reports only move's forms",
+			input: "move ship 2 to planet 6",
+			want:  "expected move ship SHIP-ID to orbit ORBIT, or move ship SHIP-ID to system SYSTEM orbit ORBIT",
+		},
+		{
+			name:  "a jump that does not parse reports only jump's form",
+			input: "jump ship 2 towards (1,2,3)",
+			want:  "expected jump ship SHIP-ID to (X,Y,Z)",
+		},
+		{
+			name:  "a field that was read and found wrong says so itself",
+			input: "move ship 0 to orbit 6",
+			want:  "invalid ship id: must be positive",
+		},
+		{
+			name:  "a system outside A through E",
+			input: "move ship 2 to system Z orbit 4",
+			want:  `invalid system "Z"; systems are A through E`,
+		},
+		{
+			name:  "trailing words are a mistake, not ignored",
+			input: "move ship 2 to orbit 6 please",
+			want:  "expected move ship SHIP-ID to orbit ORBIT",
+		},
+		{
+			name:  "a probe must name a ship or a colony",
+			input: "probe fleet 2 orbit 1",
+			want:  "expected probe ship SHIP-ID orbit ORBIT",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\n" + tc.input + "\n"))
+			if err == nil {
+				t.Fatal("Parse succeeded; want an error")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error = %v; want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// Coordinates read the same however they are spaced.
+func TestParseAcceptsAnySpacingInCoordinates(t *testing.T) {
+	for _, form := range []string{"(6,-9,8)", "( 6 , -9 , 8 )", "(6, -9,8)"} {
+		submission, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\njump ship 2 to " + form + "\n"))
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", form, err)
+		}
+		if got := submission.Orders[0]; got.X != 6 || got.Y != -9 || got.Z != 8 {
+			t.Errorf("Parse(%q) = (%d,%d,%d); want (6,-9,8)", form, got.X, got.Y, got.Z)
+		}
+	}
+}
+
+// Every registered order must describe itself, because the syntax it lists is
+// what a player sees when their line does not parse.
+func TestEveryOrderDescribesItself(t *testing.T) {
+	specs := Specs()
+	if len(specs) == 0 {
+		t.Fatal("no orders are registered")
+	}
+	for _, spec := range specs {
+		if spec.Summary == "" {
+			t.Errorf("order %q has no summary", spec.Verb)
+		}
+		if len(spec.Syntax) == 0 {
+			t.Errorf("order %q lists no syntax", spec.Verb)
+		}
+		for _, form := range spec.Syntax {
+			if !strings.HasPrefix(form, spec.Verb+" ") {
+				t.Errorf("order %q lists syntax %q, which does not start with the verb", spec.Verb, form)
+			}
+		}
+		if spec.Parse == nil {
+			t.Errorf("order %q has no parser", spec.Verb)
+		}
+	}
+}
+
+func TestHelpListsEveryOrder(t *testing.T) {
+	help := Help()
+	for _, spec := range Specs() {
+		if !strings.Contains(help, strings.ToUpper(spec.Verb)) {
+			t.Errorf("help does not mention %q", spec.Verb)
+		}
+		for _, form := range spec.Syntax {
+			if !strings.Contains(help, form) {
+				t.Errorf("help does not show %q", form)
+			}
+		}
+	}
+	if _, err := HelpFor("nosuchorder"); err == nil {
+		t.Error("HelpFor an unknown order succeeded; want an error")
+	}
+	if got, err := HelpFor("MOVE"); err != nil || !strings.Contains(got, "move ship SHIP-ID to orbit ORBIT") {
+		t.Errorf("HelpFor(MOVE) = %q, %v; want move's syntax", got, err)
+	}
+}

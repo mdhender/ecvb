@@ -7,20 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"regexp"
-	"strconv"
 	"strings"
-)
-
-var (
-	gamePattern        = regexp.MustCompile(`(?i)^game[ \t]+"([^"]+)"[ \t]+turn[ \t]+([0-9]+)[ \t]*$`)
-	playerPattern      = regexp.MustCompile(`(?i)^id[ \t]+player[ \t]+"([^"]+)"[ \t]*$`)
-	factionPattern     = regexp.MustCompile(`(?i)^id[ \t]+faction[ \t]+([0-9]+)[ \t]*$`)
-	jumpPattern        = regexp.MustCompile(`(?i)^jump[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+\([ \t]*(-?[0-9]+)[ \t]*,[ \t]*(-?[0-9]+)[ \t]*,[ \t]*(-?[0-9]+)[ \t]*\)[ \t]*$`)
-	movePattern        = regexp.MustCompile(`(?i)^move[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+orbit[ \t]+([0-9]+)[ \t]*$`)
-	moveSystemPattern  = regexp.MustCompile(`(?i)^move[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+system[ \t]+([A-E])[ \t]+orbit[ \t]+([0-9]+)[ \t]*$`)
-	probeSystemPattern = regexp.MustCompile(`(?i)^probe[ \t]+(ship|colony)[ \t]+([0-9]+)[ \t]+system[ \t]+([A-E])[ \t]+orbit[ \t]+([0-9]+(?:[ \t]+[0-9]+)*)[ \t]*$`)
-	probePattern       = regexp.MustCompile(`(?i)^probe[ \t]+(ship|colony)[ \t]+([0-9]+)[ \t]+orbit[ \t]+([0-9]+(?:[ \t]+[0-9]+)*)[ \t]*$`)
 )
 
 // StelliumOrbit is the orbit a MOVE order names to send a ship back to the
@@ -76,51 +63,38 @@ func (p problems) Error() string {
 }
 
 // Parse parses an order file without consulting the database.
+//
+// The first two physical lines are the header: the game and turn, then the
+// submitting player or faction. Everything after them is an order, one per
+// line. Blank lines are allowed, and a `#` outside quotes begins a comment.
+//
+// Parse reports every problem it finds rather than stopping at the first, so a
+// player fixing a file sees the whole list.
 func Parse(r io.Reader) (Submission, error) {
 	var submission Submission
 	var found problems
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 4096), 1024*1024)
-	line := 0
+	number := 0
 	for scanner.Scan() {
-		line++
-		text := strings.TrimSuffix(scanner.Text(), "\r")
-		switch line {
+		number++
+		line := newLine(number, scanner.Text())
+		switch number {
 		case 1:
-			matches := gamePattern.FindStringSubmatch(text)
-			if matches == nil {
-				found = append(found, problem{line, `expected game "CODE" turn NUMBER`})
-				continue
+			if err := parseGameLine(line, &submission); err != nil {
+				found = append(found, problem{number, err.Error()})
 			}
-			submission.GameCode = matches[1]
-			turn, err := strconv.Atoi(matches[2])
-			if err != nil {
-				found = append(found, problem{line, "turn is too large"})
-				continue
-			}
-			submission.Turn = turn
 		case 2:
-			if matches := playerPattern.FindStringSubmatch(text); matches != nil {
-				submission.Identity.PlayerEmail = matches[1]
-				continue
+			if err := parseIdentityLine(line, &submission); err != nil {
+				found = append(found, problem{number, err.Error()})
 			}
-			if matches := factionPattern.FindStringSubmatch(text); matches != nil {
-				id, err := positiveInt64(matches[1])
-				if err != nil {
-					found = append(found, problem{line, "invalid faction id: " + err.Error()})
-					continue
-				}
-				submission.Identity.FactionID = id
-				continue
-			}
-			found = append(found, problem{line, `expected id player "EMAIL" or id faction NUMBER`})
 		default:
-			if strings.TrimSpace(text) == "" {
+			if line.empty() {
 				continue
 			}
-			order, err := parseOrder(line, text)
+			order, err := parseOrder(line)
 			if err != nil {
-				found = append(found, problem{line, err.Error()})
+				found = append(found, problem{number, err.Error()})
 				continue
 			}
 			submission.Orders = append(submission.Orders, order)
@@ -129,10 +103,10 @@ func Parse(r io.Reader) (Submission, error) {
 	if err := scanner.Err(); err != nil {
 		return Submission{}, fmt.Errorf("read orders: %w", err)
 	}
-	if line < 1 {
+	if number < 1 {
 		found = append(found, problem{1, `expected game "CODE" turn NUMBER`})
 	}
-	if line < 2 {
+	if number < 2 {
 		found = append(found, problem{2, `expected id player "EMAIL" or id faction NUMBER`})
 	}
 	if len(found) != 0 {
@@ -141,89 +115,86 @@ func Parse(r io.Reader) (Submission, error) {
 	return submission, nil
 }
 
-func parseOrder(line int, text string) (Order, error) {
-	if matches := jumpPattern.FindStringSubmatch(text); matches != nil {
-		shipID, err := positiveInt64(matches[1])
-		if err != nil {
-			return Order{}, fmt.Errorf("invalid ship id: %w", err)
-		}
-		coordinates := [3]int{}
-		for i := range coordinates {
-			coordinates[i], err = strconv.Atoi(matches[i+2])
-			if err != nil {
-				return Order{}, fmt.Errorf("coordinate is too large")
-			}
-		}
-		return Order{Line: line, Verb: "jump", Actor: "ship", ShipID: shipID, X: coordinates[0], Y: coordinates[1], Z: coordinates[2]}, nil
+func parseGameLine(line *Line, submission *Submission) error {
+	badHeader := fmt.Errorf(`expected game "CODE" turn NUMBER`)
+	if err := line.expect("game"); err != nil {
+		return badHeader
 	}
-	if matches := moveSystemPattern.FindStringSubmatch(text); matches != nil {
-		shipID, err := positiveInt64(matches[1])
-		if err != nil {
-			return Order{}, fmt.Errorf("invalid ship id: %w", err)
-		}
-		orbit, err := strconv.Atoi(matches[3])
-		if err != nil {
-			return Order{}, fmt.Errorf("orbit is too large")
-		}
-		return Order{Line: line, Verb: "move", Actor: "ship", ShipID: shipID, System: strings.ToUpper(matches[2]), Orbit: orbit}, nil
-	}
-	if matches := movePattern.FindStringSubmatch(text); matches != nil {
-		shipID, err := positiveInt64(matches[1])
-		if err != nil {
-			return Order{}, fmt.Errorf("invalid ship id: %w", err)
-		}
-		orbit, err := strconv.Atoi(matches[2])
-		if err != nil {
-			return Order{}, fmt.Errorf("orbit is too large")
-		}
-		return Order{Line: line, Verb: "move", Actor: "ship", ShipID: shipID, Orbit: orbit}, nil
-	}
-	if matches := probeSystemPattern.FindStringSubmatch(text); matches != nil {
-		actor := strings.ToLower(matches[1])
-		entityID, err := positiveInt64(matches[2])
-		if err != nil {
-			return Order{}, fmt.Errorf("invalid %s id: %w", actor, err)
-		}
-		orbits, err := parseOrbits(matches[4])
-		if err != nil {
-			return Order{}, err
-		}
-		return Order{Line: line, Verb: "probe", Actor: actor, ShipID: entityID, System: strings.ToUpper(matches[3]), Orbits: orbits}, nil
-	}
-	if matches := probePattern.FindStringSubmatch(text); matches != nil {
-		actor := strings.ToLower(matches[1])
-		entityID, err := positiveInt64(matches[2])
-		if err != nil {
-			return Order{}, fmt.Errorf("invalid %s id: %w", actor, err)
-		}
-		orbits, err := parseOrbits(matches[3])
-		if err != nil {
-			return Order{}, err
-		}
-		return Order{Line: line, Verb: "probe", Actor: actor, ShipID: entityID, Orbits: orbits}, nil
-	}
-	return Order{}, fmt.Errorf("expected jump ship ID to (X,Y,Z), move ship ID to orbit N, move ship ID to system S orbit N, probe ship ID orbit N ..., or probe colony ID system S orbit N ...")
-}
-
-func parseOrbits(text string) ([]int, error) {
-	var orbits []int
-	for field := range strings.FieldsSeq(text) {
-		orbit, err := strconv.Atoi(field)
-		if err != nil {
-			return nil, fmt.Errorf("orbit is too large")
-		}
-		orbits = append(orbits, orbit)
-	}
-	return orbits, nil
-}
-
-func positiveInt64(text string) (int64, error) {
-	n, err := strconv.ParseInt(text, 10, 64)
+	code, err := line.quoted("game code")
 	if err != nil {
-		return 0, fmt.Errorf("number is too large")
+		return badHeader
 	}
-	if n < 1 {
-		return 0, fmt.Errorf("must be positive")
+	if err := line.expect("turn"); err != nil {
+		return badHeader
 	}
-	return n, nil
+	turn, err := line.number("turn")
+	if err != nil {
+		return err
+	}
+	if turn < 0 {
+		return fmt.Errorf("turn must be nonnegative")
+	}
+	if err := line.end(); err != nil {
+		return err
+	}
+	submission.GameCode, submission.Turn = code, turn
+	return nil
+}
+
+func parseIdentityLine(line *Line, submission *Submission) error {
+	badHeader := fmt.Errorf(`expected id player "EMAIL" or id faction NUMBER`)
+	if err := line.expect("id"); err != nil {
+		return badHeader
+	}
+	kind, ok := line.keyword("player", "faction")
+	if !ok {
+		return badHeader
+	}
+	if kind == "player" {
+		email, err := line.quoted("email address")
+		if err != nil {
+			return badHeader
+		}
+		if err := line.end(); err != nil {
+			return err
+		}
+		submission.Identity.PlayerEmail = email
+		return nil
+	}
+	id, err := line.entityID("faction")
+	if err != nil {
+		return err
+	}
+	if err := line.end(); err != nil {
+		return err
+	}
+	submission.Identity.FactionID = id
+	return nil
+}
+
+// parseOrder dispatches on the verb, so a line is only ever measured against
+// the forms of the order it names.
+func parseOrder(line *Line) (Order, error) {
+	verb, ok := line.next()
+	if !ok || verb.quoted {
+		return Order{}, fmt.Errorf("expected an order; %s", verbList())
+	}
+	spec, ok := Lookup(verb.text)
+	if !ok {
+		return Order{}, fmt.Errorf("unknown order %q; expected %s", verb.text, verbList())
+	}
+	order, err := spec.Parse(line)
+	if err != nil {
+		// A field that was read but wrong says so itself. A form that never
+		// matched reports this verb's syntax instead.
+		if isSyntaxError(err) {
+			return Order{}, spec.syntaxError()
+		}
+		return Order{}, err
+	}
+	if err := line.end(); err != nil {
+		return Order{}, spec.syntaxError()
+	}
+	order.Line = line.Number
+	return order, nil
 }

@@ -39,9 +39,19 @@ id faction 1
 Player email addresses are trimmed and converted to lowercase before lookup.
 The identified player or faction must belong to the game.
 
-Blank lines are permitted after the identity line. Comments are not supported.
+Blank lines are permitted after the identity line. A `#` outside quotes begins
+a comment that runs to the end of the line, so a comment may stand on its own
+line or follow an order:
+
+```text
+# scout the neighbouring system
+probe ship 2 system B orbit 4    # before anything moves
+```
+
 Keywords and system letters are case-insensitive. Game codes are matched
-exactly against the database. IDs are positive integers.
+exactly against the database. IDs are positive integers. A line that does not
+match any form of the order it names is rejected, and the error lists that
+order's forms; `ec orders help` prints them all.
 
 An order file containing only the two header lines represents an empty order
 set.
@@ -72,6 +82,11 @@ previous one left it. Both `orders check` and the engine apply these limits, so 
 jump the check rejects is a jump the engine would have failed.
 
 ## MOVE
+
+```text
+move ship SHIP-ID to orbit ORBIT
+move ship SHIP-ID to system SYSTEM orbit ORBIT
+```
 
 Move to a planet in the ship's current system:
 
@@ -175,8 +190,10 @@ transfer orders are not implemented.
 ## PROBE
 
 ```text
-probe ship SHIP-ID orbit ORBIT
-probe colony COLONY-ID orbit ORBIT
+probe ship SHIP-ID orbit ORBIT ...
+probe colony COLONY-ID orbit ORBIT ...
+probe ship SHIP-ID system SYSTEM orbit ORBIT ...
+probe colony COLONY-ID system SYSTEM orbit ORBIT ...
 ```
 
 A probe is the one order a colony may give. `MOVE` and `JUMP` are ship orders.
