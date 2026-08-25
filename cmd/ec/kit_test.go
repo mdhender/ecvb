@@ -31,7 +31,7 @@ func TestReadHomePlanetKit(t *testing.T) {
 		"COPN": {mass: 5934, enclosedVolume: 20000, controlled: true, inventoryEntries: 6},
 		"CSFC": {mass: 6644, enclosedVolume: 20000, controlled: true, inventoryEntries: 7},
 		"CORB": {mass: 71612, enclosedVolume: 350000, controlled: false, inventoryEntries: 6},
-		"SHIP": {mass: 50256, enclosedVolume: 200000, controlled: true, inventoryEntries: 13},
+		"SHIP": {mass: 50299, enclosedVolume: 200000, controlled: true, inventoryEntries: 13},
 	}
 	for _, entity := range kit.entities {
 		properties, ok := want[entity.kind]

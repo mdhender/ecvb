@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -38,6 +39,12 @@ type entity struct {
 	unit      string
 	factionID int64
 	location  location
+	mass      int64
+	drive     jumpdrive.Drive
+}
+
+type point struct {
+	x, y, z int
 }
 
 type outcome struct {
@@ -131,6 +138,10 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 	if err != nil {
 		return Result{}, nil, err
 	}
+	stellia, err := loadStellia(conn, gameID)
+	if err != nil {
+		return Result{}, nil, err
+	}
 	moves, err := loadMoveOrders(conn, gameID, turn)
 	if err != nil {
 		return Result{}, nil, err
@@ -150,7 +161,7 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 		countOutcome(&result, item)
 	}
 	for _, order := range jumps {
-		item, err := executeJump(conn, gameID, turn, entities, order)
+		item, err := executeJump(conn, gameID, turn, entities, stellia, order)
 		if err != nil {
 			return Result{}, nil, err
 		}
@@ -239,7 +250,7 @@ func requireGameTurn(conn *sqlite.Conn, code string, turn int, state string) (in
 func loadEntities(conn *sqlite.Conn, gameID int64) (map[int64]*entity, error) {
 	entities := make(map[int64]*entity)
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring
+		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring, e.mass
 		FROM entity AS e
 		JOIN faction AS f ON f.id = e.faction_id
 		WHERE f.game_id = ?;`, &sqlitex.ExecOptions{
@@ -247,14 +258,38 @@ func loadEntities(conn *sqlite.Conn, gameID int64) (map[int64]*entity, error) {
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			entities[stmt.ColumnInt64(0)] = &entity{
 				unit: stmt.ColumnText(1), factionID: stmt.ColumnInt64(2),
-				location: readLocation(stmt, 3),
+				location: readLocation(stmt, 3), mass: stmt.ColumnInt64(7),
 			}
 			return nil
 		},
 	}); err != nil {
 		return nil, fmt.Errorf("load entities: %w", err)
 	}
+	drives, err := jumpdrive.LoadAll(conn, gameID)
+	if err != nil {
+		return nil, err
+	}
+	for id, drive := range drives {
+		if item, ok := entities[id]; ok {
+			item.drive = drive
+		}
+	}
 	return entities, nil
+}
+
+func loadStellia(conn *sqlite.Conn, gameID int64) (map[int64]point, error) {
+	stellia := make(map[int64]point)
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT id, x, y, z FROM stellium WHERE game_id = ?;`, &sqlitex.ExecOptions{
+		Args: []any{gameID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			stellia[stmt.ColumnInt64(0)] = point{x: stmt.ColumnInt(1), y: stmt.ColumnInt(2), z: stmt.ColumnInt(3)}
+			return nil
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("load stellia: %w", err)
+	}
+	return stellia, nil
 }
 
 func loadMoveOrders(conn *sqlite.Conn, gameID int64, turn int) ([]moveOrder, error) {
@@ -337,7 +372,7 @@ func executeMove(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*
 	return item, nil
 }
 
-func executeJump(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*entity, order jumpOrder) (outcome, error) {
+func executeJump(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*entity, stellia map[int64]point, order jumpOrder) (outcome, error) {
 	item := outcome{
 		orderType: "jump", factionID: order.factionID, sequence: order.sequence,
 		line: order.line, shipID: order.shipID, request: fmt.Sprintf("(%d,%d,%d)", order.x, order.y, order.z),
@@ -353,6 +388,8 @@ func executeJump(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*
 		item.status, item.message, item.final = "failed", fmt.Sprintf("ship %d does not belong to faction %d", order.shipID, order.factionID), item.start
 	} else if ship.unit != "SHIP" {
 		item.status, item.message, item.final = "failed", fmt.Sprintf("entity %d is a %s, not a ship", order.shipID, ship.unit), item.start
+	} else if message := checkDrive(ship, stellia[ship.location.stelliumID], order); message != "" {
+		item.status, item.message, item.final = "failed", message, item.start
 	}
 	if item.status == "succeeded" {
 		ship.location = item.final
@@ -364,6 +401,23 @@ func executeJump(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*
 		return outcome{}, err
 	}
 	return item, nil
+}
+
+// checkDrive returns the reason a ship cannot make a jump, or an empty string
+// when the jump is within its drive's range and capacity.
+func checkDrive(ship *entity, start point, order jumpOrder) string {
+	if !ship.drive.Installed() {
+		return fmt.Sprintf("ship %d has no assembled %s and cannot jump", order.shipID, jumpdrive.Unit)
+	}
+	if !ship.drive.CanPropel(ship.mass) {
+		return fmt.Sprintf("ship %d masses %d MU and its jump drive propels %d MU",
+			order.shipID, ship.mass, ship.drive.Capacity)
+	}
+	if !ship.drive.Reaches(jumpdrive.SquaredDistance(start.x, start.y, start.z, order.x, order.y, order.z)) {
+		return fmt.Sprintf("jump of %d units exceeds ship %d jump range of %d units",
+			jumpdrive.Distance(start.x, start.y, start.z, order.x, order.y, order.z), order.shipID, ship.drive.Range)
+	}
+	return ""
 }
 
 func updateEntityLocation(conn *sqlite.Conn, entityID int64, loc location) error {

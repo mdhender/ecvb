@@ -59,8 +59,17 @@ jump ship 2 to (6,-9,8)
 ```
 
 The ship must belong to the submitting faction. The coordinates must identify a
-stellium in the named game. When executed, the ship moves to that stellium and
-orbits the stellium rather than a planet.
+stellium in the named game; a jump cannot end in deep space. When executed, the
+ship moves to that stellium and orbits the stellium rather than a planet.
+
+The ship's jump drive limits the jump. The distance to the destination, which is
+the Euclidean distance rounded up, must be within the range of the ship's
+assembled `HDRV` units, and the ship's mass must be within their capacity. See
+[Unit Glossary](units.md) for the drive rules.
+
+A ship with more than one jump order in a turn measures each jump from where the
+previous one left it. Both `orders check` and the engine apply these limits, so a
+jump the check rejects is a jump the engine would have failed.
 
 ## MOVE
 

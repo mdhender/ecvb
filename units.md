@@ -6,7 +6,8 @@ Population and resources do not have technology levels.
 The loader currently uses provisional mass and volume values for testing:
 
 - A technology-level unit has a mass of \(2t\) MU and cargo volume of \(2t\)
-  VU, where \(t\) is its technology level.
+  VU, where \(t\) is its technology level. `HDRV` is the exception: its mass is
+  defined below, though its volumes are still provisional.
 - A unit without a technology level has a mass of 6 MU and cargo volume of 6
   VU.
 - Operational inventory consumes twice its cargo volume. Component inventory
@@ -63,7 +64,23 @@ kit.
 
 ## `HDRV`
 
-A technology-level component unit used by ships in the starting kit.
+**Jump drive.** A technology-level component unit used by ships. Only units
+assembled in component inventory propel a ship; `HDRV` held in any other
+section is freight.
+
+A unit at technology level \(t\) has a mass of \(45t\) MU, jumps \(t\) units
+of distance, and propels \(1045t\) MU through a jump.
+
+A ship's drive is the sum of its assembled units. The **lowest** technology
+level installed sets the range of the whole drive, because every unit has to
+make the same jump. Capacity is the sum over the units of their own technology
+levels, so a mixed drive still carries the mass its high-technology units can
+propel. A ship carrying 10 `HDRV-1` and 3 `HDRV-2` jumps 1 unit and propels
+\(10 \times 1045 \times 1 + 3 \times 1045 \times 2\) MU.
+
+A jump fails when the ship has no assembled drive, when its mass exceeds the
+drive's capacity, or when the distance exceeds the drive's range. A jump always
+ends at a stellium; there is no deep space to stop in.
 
 ## `LFSU`
 

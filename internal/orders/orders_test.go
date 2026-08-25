@@ -183,7 +183,7 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
 		INSERT INTO faction (id, game_id, agent_id) VALUES (2, 1, 1);
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES
-			(10, 1, 0, 0, 0), (11, 1, 1, 2, 3), (12, 2, 1, 2, 3);
+			(10, 1, 0, 0, 0), (11, 1, 1, 2, 3), (12, 2, 1, 2, 3), (13, 1, 2, 4, 6);
 		INSERT INTO system (id, stellium_id, sequence) VALUES
 			(20, 10, 'A'), (21, 11, 'A'), (22, 11, 'B'), (23, 10, 'B');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES
@@ -193,6 +193,8 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 			(40, 'SHIP', 1, 10, 20, 30, 64, 1, 100),
 			(41, 'COPN', 1, 10, 20, 30, 0, 1, 100),
 			(42, 'SHIP', 1, 10, 20, 30, 64, 2, 100);
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
+			(40, 'component', 'HDRV', 4, 1), (42, 'component', 'HDRV', 4, 1);
 		INSERT INTO jump_order (
 			game_id, turn, faction_id, sequence, source_line, ship_id,
 			destination_x, destination_y, destination_z, destination_stellium_id
@@ -217,4 +219,89 @@ func orderCount(t *testing.T, conn *sqlite.Conn) int {
 		t.Fatal(err)
 	}
 	return count
+}
+
+func TestCheckRejectsJumpsTheDriveCannotMake(t *testing.T) {
+	// Stellium 11 is (1,2,3) from stellium 10, a distance of 4.
+	input := `game "TEST" turn 3
+id faction 1
+
+jump ship 40 to (1,2,3)
+`
+	for _, tc := range []struct {
+		name    string
+		setup   string
+		problem string
+	}{
+		{
+			name:    "out of range",
+			setup:   `UPDATE inventory SET tech_level = 3 WHERE entity_id = 40 AND unit = 'HDRV';`,
+			problem: "jump of 4 units exceeds ship 40 jump range of 3 units",
+		},
+		{
+			name:    "too massive",
+			setup:   `UPDATE entity SET mass = 4181 WHERE id = 40;`,
+			problem: "ship 40 masses 4181 MU and its jump drive propels 4180 MU",
+		},
+		{
+			name:    "no drive",
+			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'HDRV';`,
+			problem: "ship 40 has no assembled HDRV and cannot jump",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := openOrderTestDatabase(t)
+			if err := sqlitex.ExecuteScript(conn, tc.setup, nil); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Check(context.Background(), conn, strings.NewReader(input))
+			if err == nil {
+				t.Fatal("Check succeeded; want a problem")
+			}
+			if !strings.Contains(err.Error(), tc.problem) {
+				t.Errorf("error = %v; want it to report %q", err, tc.problem)
+			}
+			if !strings.Contains(err.Error(), "line 4") {
+				t.Errorf("error = %v; want it to name the source line", err)
+			}
+		})
+	}
+}
+
+func TestCheckMeasuresASecondJumpFromTheFirstDestination(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Ship 40 starts at the origin with a range of 4. Stellium 13 at (2,4,6)
+	// is 4 units from stellium 11 at (1,2,3) but 8 units from the origin, so
+	// the second jump is only legal when it is measured from the first jump's
+	// destination.
+	input := `game "TEST" turn 3
+id faction 1
+
+jump ship 40 to (1,2,3)
+jump ship 40 to (2,4,6)
+`
+	result, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if result.Orders != 2 {
+		t.Errorf("orders = %d; want 2", result.Orders)
+	}
+}
+
+func TestCheckRejectsASecondJumpBeyondRangeOfTheFirstDestination(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Reversing the order puts stellium 13 first, 8 units from the origin.
+	input := `game "TEST" turn 3
+id faction 1
+
+jump ship 40 to (2,4,6)
+`
+	_, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err == nil {
+		t.Fatal("Check succeeded; want the jump rejected")
+	}
+	if want := "line 4: jump of 8 units exceeds ship 40 jump range of 4 units"; !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %v; want %q", err, want)
+	}
 }

@@ -177,8 +177,92 @@ func openEngineTestDatabase(t *testing.T) *sqlite.Conn {
 		) VALUES
 			(40, 'SHIP', 1, 10, 20, 30, 64, 1, 100),
 			(41, 'COPN', 1, 10, 20, 30, 0, 1, 100);
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+			VALUES (40, 'component', 'HDRV', 4, 1);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
 	return conn
+}
+
+func TestResolveFailsJumpsBeyondDriveRangeAndCapacity(t *testing.T) {
+	// Stellium 11 is (1,2,3) from stellium 10, a distance of 4.
+	for _, tc := range []struct {
+		name    string
+		setup   string
+		message string
+	}{
+		{
+			name:    "out of range",
+			setup:   `UPDATE inventory SET tech_level = 3 WHERE entity_id = 40 AND unit = 'HDRV';`,
+			message: "jump of 4 units exceeds ship 40 jump range of 3 units",
+		},
+		{
+			name:    "too massive",
+			setup:   `UPDATE entity SET mass = 4181 WHERE id = 40;`,
+			message: "ship 40 masses 4181 MU and its jump drive propels 4180 MU",
+		},
+		{
+			name:    "no drive",
+			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'HDRV';`,
+			message: "ship 40 has no assembled HDRV and cannot jump",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := openEngineTestDatabase(t)
+			if err := sqlitex.ExecuteScript(conn, tc.setup+`
+				INSERT INTO jump_order (
+					game_id, turn, faction_id, sequence, source_line, ship_id,
+					destination_x, destination_y, destination_z, destination_stellium_id
+				) VALUES (1, 3, 1, 1, 4, 40, 1, 2, 3, 11);
+			`, nil); err != nil {
+				t.Fatal(err)
+			}
+			result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Failed != 1 || result.Succeeded != 0 {
+				t.Fatalf("result = %+v; want the jump to fail", result)
+			}
+			var status, message string
+			var stelliumID int64
+			if err := sqlitex.ExecuteTransient(conn, `
+				SELECT j.status, j.error_message, e.stellium_id
+				FROM jump_order AS j JOIN entity AS e ON e.id = j.ship_id
+				WHERE j.ship_id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+				status, message, stelliumID = stmt.ColumnText(0), stmt.ColumnText(1), stmt.ColumnInt64(2)
+				return nil
+			}}); err != nil {
+				t.Fatal(err)
+			}
+			if status != "failed" || message != tc.message {
+				t.Errorf("outcome = (%s, %q); want (failed, %q)", status, message, tc.message)
+			}
+			if stelliumID != 10 {
+				t.Errorf("ship stellium = %d; want it to stay at 10", stelliumID)
+			}
+		})
+	}
+}
+
+func TestResolveAllowsJumpExactlyAtDriveLimits(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// Range 4 reaches the distance of 4, and the drive propels exactly the mass.
+	if err := sqlitex.ExecuteScript(conn, `
+		UPDATE entity SET mass = 4180 WHERE id = 40;
+		INSERT INTO jump_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id,
+			destination_x, destination_y, destination_z, destination_stellium_id
+		) VALUES (1, 3, 1, 1, 4, 40, 1, 2, 3, 11);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 1 || result.Failed != 0 {
+		t.Fatalf("result = %+v; want the jump to succeed", result)
+	}
 }

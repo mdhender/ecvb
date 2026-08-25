@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -44,8 +45,11 @@ type storedJump struct {
 
 type shipLocation struct {
 	stelliumID int64
+	x, y, z    int
 	systemID   int64
 	planetID   int64
+	mass       int64
+	drive      jumpdrive.Drive
 }
 
 type validatedSubmission struct {
@@ -206,7 +210,8 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("system %s has no planet in orbit %d", system, order.Orbit)})
 			continue
 		}
-		locations[order.ShipID] = shipLocation{stelliumID: location.stelliumID, systemID: systemID, planetID: planetID}
+		location.systemID, location.planetID = systemID, planetID
+		locations[order.ShipID] = location
 		resolutionSequence++
 		moves = append(moves, storedMove{
 			sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
@@ -242,7 +247,13 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("game %q has no stellium at (%d,%d,%d)", submission.GameCode, order.X, order.Y, order.Z)})
 			continue
 		}
-		locations[order.ShipID] = shipLocation{stelliumID: destinationID}
+		if message := jumpProblem(location, order); message != "" {
+			foundProblems = append(foundProblems, problem{order.Line, message})
+			continue
+		}
+		location.stelliumID, location.x, location.y, location.z = destinationID, order.X, order.Y, order.Z
+		location.systemID, location.planetID = 0, 0
+		locations[order.ShipID] = location
 		resolutionSequence++
 		jumps = append(jumps, storedJump{
 			sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
@@ -258,6 +269,24 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		moves:  moves,
 		jumps:  jumps,
 	}, nil
+}
+
+// jumpProblem returns the reason a ship cannot make a jump, or an empty string
+// when the jump is within its drive's range and capacity. The engine applies the
+// same rules when it resolves the turn.
+func jumpProblem(location shipLocation, order Order) string {
+	if !location.drive.Installed() {
+		return fmt.Sprintf("ship %d has no assembled %s and cannot jump", order.ShipID, jumpdrive.Unit)
+	}
+	if !location.drive.CanPropel(location.mass) {
+		return fmt.Sprintf("ship %d masses %d MU and its jump drive propels %d MU",
+			order.ShipID, location.mass, location.drive.Capacity)
+	}
+	if !location.drive.Reaches(jumpdrive.SquaredDistance(location.x, location.y, location.z, order.X, order.Y, order.Z)) {
+		return fmt.Sprintf("jump of %d units exceeds ship %d jump range of %d units",
+			jumpdrive.Distance(location.x, location.y, location.z, order.X, order.Y, order.Z), order.ShipID, location.drive.Range)
+	}
+	return ""
 }
 
 func findGame(conn *sqlite.Conn, code string) (id int64, turn int, state string, found bool, err error) {
@@ -329,7 +358,8 @@ func findShip(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLoca
 	var ownerID, factionGameID, stelliumGameID int64
 	found := false
 	err := sqlitex.ExecuteTransient(conn, `
-		SELECT e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, f.game_id, st.game_id
+		SELECT e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, f.game_id, st.game_id,
+		       st.x, st.y, st.z, e.mass
 		FROM entity AS e
 		JOIN faction AS f ON f.id = e.faction_id
 		JOIN stellium AS st ON st.id = e.stellium_id
@@ -346,6 +376,8 @@ func findShip(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLoca
 				location.planetID = stmt.ColumnInt64(4)
 			}
 			factionGameID, stelliumGameID = stmt.ColumnInt64(5), stmt.ColumnInt64(6)
+			location.x, location.y, location.z = stmt.ColumnInt(7), stmt.ColumnInt(8), stmt.ColumnInt(9)
+			location.mass = stmt.ColumnInt64(10)
 			found = true
 			return nil
 		},
@@ -364,6 +396,9 @@ func findShip(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLoca
 	}
 	if factionGameID != gameID || stelliumGameID != gameID {
 		return shipLocation{}, problems{{order.Line, fmt.Sprintf("ship %d does not belong to this game", order.ShipID)}}, nil
+	}
+	if location.drive, err = jumpdrive.Load(conn, order.ShipID); err != nil {
+		return shipLocation{}, nil, err
 	}
 	return location, nil, nil
 }

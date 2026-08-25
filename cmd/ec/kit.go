@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -201,7 +202,7 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 				return preparedEntity{}, fmt.Errorf("%s entity %q has duplicate normalized inventory unit %q", kind, id, tag)
 			}
 			seenInventory[key] = true
-			metrics := metricsForTechLevel(techLevel, hasTechLevel)
+			metrics := metricsForUnit(unit, techLevel, hasTechLevel)
 			if err := addQuantity(&entity.mass, quantity, metrics.mass); err != nil {
 				return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q mass: %w", kind, id, section.jsonName, tag, err)
 			}
@@ -263,17 +264,22 @@ func parseUnitTag(tag string) (unit string, techLevel int, hasTechLevel bool, er
 	return unit, techLevel, hasTechLevel, nil
 }
 
-func metricsForTechLevel(techLevel int, hasTechLevel bool) unitMetrics {
+func metricsForUnit(unit string, techLevel int, hasTechLevel bool) unitMetrics {
 	base := int64(6)
 	if hasTechLevel {
 		base = int64(2 * techLevel)
 	}
-	return unitMetrics{
+	metrics := unitMetrics{
 		mass:              base,
 		cargoVolume:       base,
 		operationalVolume: 2 * base,
 		componentVolume:   4 * base,
 	}
+	// A jump drive has a defined mass. Its volumes remain provisional.
+	if unit == jumpdrive.Unit && hasTechLevel {
+		metrics.mass = jumpdrive.UnitMass(techLevel)
+	}
+	return metrics
 }
 
 func isDepotResource(unit string) bool {
