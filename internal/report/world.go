@@ -1,29 +1,18 @@
 // Copyright (c) 2026 Michael D Henderson. All rights reserved.
 
-package main
+package report
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	"github.com/mdhender/ecvb/internal/report"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func stelliumReport(ctx context.Context, directory string, id int64) (rpt *report.Report, err error) {
-	conn, err := openDatabase(ctx, directory)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := conn.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close database: %w", closeErr)
-		}
-	}()
-
-	rpt = report.New("STELLIUM")
+// Stellium reports a stellium and the systems and planets it holds.
+func Stellium(conn *sqlite.Conn, id int64) (*Report, error) {
+	rpt := New("STELLIUM")
 	header := rpt.Table("", "ID", "GAME", "X", "Y", "Z")
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT s.id, g.code, s.x, s.y, s.z
@@ -93,18 +82,9 @@ type depositSummary struct {
 	quantity int64
 }
 
-func systemReport(ctx context.Context, directory string, id int64, showDeposits bool) (rpt *report.Report, err error) {
-	conn, err := openDatabase(ctx, directory)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := conn.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close database: %w", closeErr)
-		}
-	}()
-
-	rpt = report.New("SYSTEM")
+// System reports a system and its planets.
+func System(conn *sqlite.Conn, id int64, showDeposits bool) (*Report, error) {
+	rpt := New("SYSTEM")
 	header := rpt.Table("", "ID", "STELLIUM", "SEQUENCE")
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT sy.id, sy.stellium_id, sy.sequence

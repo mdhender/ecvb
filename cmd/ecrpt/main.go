@@ -83,8 +83,8 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if *ordersTurn < -1 {
 					return fmt.Errorf("turn must be nonnegative")
 				}
-				return writeReport(*showOutput, *showFormat, stdout, func() (*report.Report, error) {
-					return ordersReport(ctx, *dbPath, *ordersGame, email, *ordersFaction, *ordersTurn)
+				return writeReport(ctx, *dbPath, *showOutput, *showFormat, stdout, func(conn *sqlite.Conn) (*report.Report, error) {
+					return report.Orders(conn, *ordersGame, email, *ordersFaction, *ordersTurn)
 				})
 			},
 		},
@@ -103,8 +103,8 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				return writeReport(*showOutput, *showFormat, stdout, func() (*report.Report, error) {
-					return stelliumReport(ctx, *dbPath, id)
+				return writeReport(ctx, *dbPath, *showOutput, *showFormat, stdout, func(conn *sqlite.Conn) (*report.Report, error) {
+					return report.Stellium(conn, id)
 				})
 			},
 		},
@@ -124,8 +124,8 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if *dbPath == "" {
 					return fmt.Errorf("db-path is required")
 				}
-				return writeReport(*showOutput, *showFormat, stdout, func() (*report.Report, error) {
-					return systemReport(ctx, *dbPath, id, *showDeposits)
+				return writeReport(ctx, *dbPath, *showOutput, *showFormat, stdout, func(conn *sqlite.Conn) (*report.Report, error) {
+					return report.System(conn, id, *showDeposits)
 				})
 			},
 		},
@@ -145,13 +145,13 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 				if err != nil {
 					return err
 				}
-				options := turnReportOptions{
-					showDeposits:       *turnShowDeposits,
-					summarizeResources: *turnSummarizeResources,
-					showWorkGroups:     *turnWorkGroups,
+				options := report.TurnOptions{
+					ShowDeposits:       *turnShowDeposits,
+					SummarizeResources: *turnSummarizeResources,
+					ShowWorkGroups:     *turnWorkGroups,
 				}
-				return writeReport(*showOutput, *showFormat, stdout, func() (*report.Report, error) {
-					return turnReport(ctx, *dbPath, *turnGame, email, *turnFaction, options)
+				return writeReport(ctx, *dbPath, *showOutput, *showFormat, stdout, func(conn *sqlite.Conn) (*report.Report, error) {
+					return report.Turn(conn, *turnGame, email, *turnFaction, options)
 				})
 			},
 		},
@@ -160,15 +160,25 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }
 
-// writeReport renders a report in the requested format, to standard output or
-// to a file. The report is built before anything is written, so a query that
-// fails leaves no half-written file behind.
-func writeReport(outputPath, format string, stdout io.Writer, build func() (*report.Report, error)) error {
+// writeReport opens the database, builds a report from it, and renders it in
+// the requested format to standard output or to a file. The report is built
+// before anything is written, so a query that fails leaves no half-written
+// file behind.
+func writeReport(ctx context.Context, directory, outputPath, format string, stdout io.Writer, build func(*sqlite.Conn) (*report.Report, error)) (err error) {
 	chosen, err := report.ParseFormat(format)
 	if err != nil {
 		return err
 	}
-	rpt, err := build()
+	conn, err := openDatabase(ctx, directory)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := conn.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close database: %w", closeErr)
+		}
+	}()
+	rpt, err := build(conn)
 	if err != nil {
 		return err
 	}

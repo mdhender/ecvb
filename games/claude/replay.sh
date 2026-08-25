@@ -27,11 +27,13 @@ set -euo pipefail
 
 FORMAT=text
 EXT=txt
-LOGFLAGS=()
+# A single optional flag, held as a scalar rather than an array: bash 3.2 ships
+# with macOS, and there an empty array expansion trips `set -u`.
+LOGFLAG=
 if [ "${1:-}" = "--json" ]; then
     FORMAT=json
     EXT=json
-    LOGFLAGS=(--no-log-timestamps)
+    LOGFLAG=--no-log-timestamps
     shift
 fi
 
@@ -83,7 +85,7 @@ for turn in $(seq 0 "${LAST_TURN}"); do
 
     echo " info: turn ${turn}: resolve..."
     "${BIN}/ec" --db-path "${DB}" turn resolve --game "${GAME}" --turn "${turn}" \
-        "${LOGFLAGS[@]}" >/dev/null 2>"${OUT}/t${turn}-engine.log"
+        ${LOGFLAG} >/dev/null 2>"${OUT}/t${turn}-engine.log"
 
     echo " info: turn ${turn}: report..."
     for faction in ${FACTIONS}; do

@@ -1,28 +1,17 @@
 // Copyright (c) 2026 Michael D Henderson. All rights reserved.
 
-package main
+package report
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/mdhender/ecvb/internal/report"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func ordersReport(ctx context.Context, directory, gameCode, email string, factionID int64, turn int) (rpt *report.Report, err error) {
-	conn, err := openDatabase(ctx, directory)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := conn.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close database: %w", closeErr)
-		}
-	}()
-
-	faction, err := findReportFaction(conn, gameCode, email, factionID)
+// Orders reports the orders a faction has submitted for a turn.
+func Orders(conn *sqlite.Conn, gameCode, email string, factionID int64, turn int) (*Report, error) {
+	faction, err := findFaction(conn, gameCode, email, factionID)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +19,7 @@ func ordersReport(ctx context.Context, directory, gameCode, email string, factio
 		turn = faction.turn
 	}
 
-	rpt = report.New("ORDERS REPORT")
+	rpt := New("ORDERS REPORT")
 	rpt.Table("", "GAME", "TURN", "FACTION", "CONTROLLER").
 		Row(gameCode, turn, faction.id, faction.controller)
 	if err := addOrders(rpt, conn, gameCode, turn, faction.id, "ORDERS"); err != nil {
@@ -42,7 +31,7 @@ func ordersReport(ctx context.Context, directory, gameCode, email string, factio
 	return rpt, nil
 }
 
-func addOrders(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
+func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
 	table := rpt.Table(heading, "SEQUENCE", "LINE", "ENTITY", "VERB", "INPUT", "FUEL", "STATUS", "START", "FINAL", "ERROR")
 	// Fuel is the one number that prices a move or a jump: what the order
 	// would burn while it is pending, and what it did burn once it resolves.
@@ -89,7 +78,7 @@ func addOrders(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int,
 
 // addProbes reports probe orders. A probe does not move its ship, so it has no
 // start and final location; it names the planet it read instead.
-func addProbes(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+func addProbes(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
 	table := rpt.Table("PROBES", "SEQUENCE", "LINE", "ENTITY", "INPUT", "STATUS", "SYSTEM", "PLANET", "HABITABILITY", "ERROR")
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT sequence, source_line, entity_id,

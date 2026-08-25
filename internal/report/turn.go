@@ -1,41 +1,31 @@
 // Copyright (c) 2026 Michael D Henderson. All rights reserved.
 
-package main
+package report
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/mdhender/ecvb/internal/report"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-type turnReportOptions struct {
-	showDeposits       bool
-	summarizeResources bool
-	showWorkGroups     bool
+// TurnOptions selects the report's optional sections.
+type TurnOptions struct {
+	ShowDeposits       bool
+	SummarizeResources bool
+	ShowWorkGroups     bool
 }
 
-func turnReport(ctx context.Context, directory, gameCode, email string, factionID int64, options turnReportOptions) (rpt *report.Report, err error) {
-	conn, err := openDatabase(ctx, directory)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := conn.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close database: %w", closeErr)
-		}
-	}()
-
-	faction, err := findReportFaction(conn, gameCode, email, factionID)
+// Turn reports a faction's whole position at the current turn.
+func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options TurnOptions) (*Report, error) {
+	faction, err := findFaction(conn, gameCode, email, factionID)
 	if err != nil {
 		return nil, err
 	}
 	factionID = faction.id
 
-	rpt = report.New("TURN REPORT")
+	rpt := New("TURN REPORT")
 	rpt.Table("", "GAME", "TURN", "FACTION", "CONTROLLER").
 		Row(gameCode, faction.turn, factionID, faction.controller)
 
@@ -59,7 +49,7 @@ func turnReport(ctx context.Context, directory, gameCode, email string, factionI
 		return nil, fmt.Errorf("query controlled planets: %w", err)
 	}
 
-	if options.showDeposits {
+	if options.ShowDeposits {
 		deposits := rpt.Table("DEPOSITS", "PLANET", "SEQUENCE", "RESOURCE", "QUALITY", "INITIAL QUANTITY", "CURRENT QUANTITY")
 		if err := sqlitex.ExecuteTransient(conn, `
 			SELECT d.planet_id, d.sequence, d.resource, d.quality, d.initial_qty, d.current_qty
@@ -119,7 +109,7 @@ func turnReport(ctx context.Context, directory, gameCode, email string, factionI
 		return nil, fmt.Errorf("query inventory: %w", err)
 	}
 
-	if options.summarizeResources {
+	if options.SummarizeResources {
 		resources := rpt.Table("RESOURCE SUMMARY", "RESOURCE", "QUANTITY")
 		if err := sqlitex.ExecuteTransient(conn, `
 			SELECT i.unit, SUM(i.quantity)
@@ -134,7 +124,7 @@ func turnReport(ctx context.Context, directory, gameCode, email string, factionI
 		}
 	}
 
-	if options.showWorkGroups {
+	if options.ShowWorkGroups {
 		groups := rpt.Table("WORK GROUPS", "ENTITY", "UNIT", "SEQUENCE", "DEPOSIT", "TECH", "QUANTITY")
 		if err := sqlitex.ExecuteTransient(conn, `
 			SELECT wg.entity_id, wg.unit, wg.sequence, wg.deposit_id, wgu.tech_level, wgu.quantity
@@ -167,7 +157,7 @@ func turnReport(ctx context.Context, directory, gameCode, email string, factionI
 // addSensorReport reports the passive sensor reading taken at the start of the
 // turn, before anything moved. A ship that jumped this turn reads its new
 // stellium in the next turn's report, not this one.
-func addSensorReport(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+func addSensorReport(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
 	args := []any{gameCode, turn, factionID}
 
 	survey := rpt.Table("SENSOR SURVEY", "ENTITY", "STELLIUM", "COORDINATES", "SYSTEM", "SYSTEMS")
@@ -228,7 +218,7 @@ func addSensorReport(rpt *report.Report, conn *sqlite.Conn, gameCode string, tur
 
 // addProbeFindings reports what this turn's probes read. A probe reads exact
 // masses and identities, unlike a passive sensor reading.
-func addProbeFindings(rpt *report.Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+func addProbeFindings(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
 	contacts := rpt.Table("PROBE CONTACTS", "PLANET", "ENTITY", "UNIT", "RING", "MASS")
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT planet_id, entity_id, unit, planet_ring, mass
