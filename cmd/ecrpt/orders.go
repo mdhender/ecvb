@@ -38,6 +38,9 @@ func showOrdersReport(ctx context.Context, directory, gameCode, email string, fa
 	if err := writeOrders(w, conn, gameCode, turn, faction.id, "ORDERS"); err != nil {
 		return err
 	}
+	if err := writeProbes(w, conn, gameCode, turn, faction.id); err != nil {
+		return err
+	}
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("write orders report: %w", err)
 	}
@@ -81,6 +84,44 @@ func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 		},
 	}); err != nil {
 		return fmt.Errorf("query submitted orders: %w", err)
+	}
+	return nil
+}
+
+// writeProbes reports probe orders. A probe does not move its ship, so it has
+// no start and final location; it names the planet it read instead.
+func writeProbes(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+	fmt.Fprintln(w, "\nPROBES")
+	fmt.Fprintln(w, "SEQUENCE\tLINE\tENTITY\tINPUT\tSTATUS\tSYSTEM\tPLANET\tHABITABILITY\tERROR")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT sequence, source_line, entity_id,
+			CASE WHEN requested_system IS NULL
+				THEN printf('orbit %d', requested_orbit)
+				ELSE printf('system %s orbit %d', requested_system, requested_orbit)
+			END AS input,
+			status, stellium_id, system_id, planet_id, habitability, error_message
+		FROM probe_order
+		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
+		ORDER BY sequence;`, &sqlitex.ExecOptions{
+		Args: []any{gameCode, turn, factionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			system, planet, habitability := "-", "-", "-"
+			if !stmt.ColumnIsNull(6) {
+				system = fmt.Sprintf("%d/%d", stmt.ColumnInt64(5), stmt.ColumnInt64(6))
+			}
+			if !stmt.ColumnIsNull(7) {
+				planet = fmt.Sprintf("%d", stmt.ColumnInt64(7))
+			}
+			if !stmt.ColumnIsNull(8) {
+				habitability = fmt.Sprintf("%d", stmt.ColumnInt(8))
+			}
+			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
+				stmt.ColumnText(4), system, planet, habitability, nullableText(stmt, 9))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query probe orders: %w", err)
 	}
 	return nil
 }

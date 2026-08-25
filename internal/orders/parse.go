@@ -13,12 +13,14 @@ import (
 )
 
 var (
-	gamePattern       = regexp.MustCompile(`(?i)^game[ \t]+"([^"]+)"[ \t]+turn[ \t]+([0-9]+)[ \t]*$`)
-	playerPattern     = regexp.MustCompile(`(?i)^id[ \t]+player[ \t]+"([^"]+)"[ \t]*$`)
-	factionPattern    = regexp.MustCompile(`(?i)^id[ \t]+faction[ \t]+([0-9]+)[ \t]*$`)
-	jumpPattern       = regexp.MustCompile(`(?i)^jump[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+\([ \t]*(-?[0-9]+)[ \t]*,[ \t]*(-?[0-9]+)[ \t]*,[ \t]*(-?[0-9]+)[ \t]*\)[ \t]*$`)
-	movePattern       = regexp.MustCompile(`(?i)^move[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+orbit[ \t]+([0-9]+)[ \t]*$`)
-	moveSystemPattern = regexp.MustCompile(`(?i)^move[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+system[ \t]+([A-E])[ \t]+orbit[ \t]+([0-9]+)[ \t]*$`)
+	gamePattern        = regexp.MustCompile(`(?i)^game[ \t]+"([^"]+)"[ \t]+turn[ \t]+([0-9]+)[ \t]*$`)
+	playerPattern      = regexp.MustCompile(`(?i)^id[ \t]+player[ \t]+"([^"]+)"[ \t]*$`)
+	factionPattern     = regexp.MustCompile(`(?i)^id[ \t]+faction[ \t]+([0-9]+)[ \t]*$`)
+	jumpPattern        = regexp.MustCompile(`(?i)^jump[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+\([ \t]*(-?[0-9]+)[ \t]*,[ \t]*(-?[0-9]+)[ \t]*,[ \t]*(-?[0-9]+)[ \t]*\)[ \t]*$`)
+	movePattern        = regexp.MustCompile(`(?i)^move[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+orbit[ \t]+([0-9]+)[ \t]*$`)
+	moveSystemPattern  = regexp.MustCompile(`(?i)^move[ \t]+ship[ \t]+([0-9]+)[ \t]+to[ \t]+system[ \t]+([A-E])[ \t]+orbit[ \t]+([0-9]+)[ \t]*$`)
+	probeSystemPattern = regexp.MustCompile(`(?i)^probe[ \t]+(ship|colony)[ \t]+([0-9]+)[ \t]+system[ \t]+([A-E])[ \t]+orbit[ \t]+([0-9]+(?:[ \t]+[0-9]+)*)[ \t]*$`)
+	probePattern       = regexp.MustCompile(`(?i)^probe[ \t]+(ship|colony)[ \t]+([0-9]+)[ \t]+orbit[ \t]+([0-9]+(?:[ \t]+[0-9]+)*)[ \t]*$`)
 )
 
 // Identity identifies the faction submitting an order file.
@@ -27,16 +29,22 @@ type Identity struct {
 	FactionID   int64
 }
 
-// Order is one parsed ship order.
+// Order is one parsed order.
 type Order struct {
-	Line   int
-	Verb   string
+	Line int
+	Verb string
+	// Actor is the kind of entity the order names, either "ship" or "colony".
+	// Only a probe may name a colony.
+	Actor  string
 	ShipID int64
 	X      int
 	Y      int
 	Z      int
 	System string
 	Orbit  int
+	// Orbits holds every orbit named by a probe order. One probe order probes
+	// one or more orbits and spends one probe on each.
+	Orbits []int
 }
 
 // Submission is the parsed contents of an order file.
@@ -141,7 +149,7 @@ func parseOrder(line int, text string) (Order, error) {
 				return Order{}, fmt.Errorf("coordinate is too large")
 			}
 		}
-		return Order{Line: line, Verb: "jump", ShipID: shipID, X: coordinates[0], Y: coordinates[1], Z: coordinates[2]}, nil
+		return Order{Line: line, Verb: "jump", Actor: "ship", ShipID: shipID, X: coordinates[0], Y: coordinates[1], Z: coordinates[2]}, nil
 	}
 	if matches := moveSystemPattern.FindStringSubmatch(text); matches != nil {
 		shipID, err := positiveInt64(matches[1])
@@ -152,7 +160,7 @@ func parseOrder(line int, text string) (Order, error) {
 		if err != nil {
 			return Order{}, fmt.Errorf("orbit is too large")
 		}
-		return Order{Line: line, Verb: "move", ShipID: shipID, System: strings.ToUpper(matches[2]), Orbit: orbit}, nil
+		return Order{Line: line, Verb: "move", Actor: "ship", ShipID: shipID, System: strings.ToUpper(matches[2]), Orbit: orbit}, nil
 	}
 	if matches := movePattern.FindStringSubmatch(text); matches != nil {
 		shipID, err := positiveInt64(matches[1])
@@ -163,9 +171,45 @@ func parseOrder(line int, text string) (Order, error) {
 		if err != nil {
 			return Order{}, fmt.Errorf("orbit is too large")
 		}
-		return Order{Line: line, Verb: "move", ShipID: shipID, Orbit: orbit}, nil
+		return Order{Line: line, Verb: "move", Actor: "ship", ShipID: shipID, Orbit: orbit}, nil
 	}
-	return Order{}, fmt.Errorf("expected jump ship ID to (X,Y,Z), move ship ID to orbit N, or move ship ID to system S orbit N")
+	if matches := probeSystemPattern.FindStringSubmatch(text); matches != nil {
+		actor := strings.ToLower(matches[1])
+		entityID, err := positiveInt64(matches[2])
+		if err != nil {
+			return Order{}, fmt.Errorf("invalid %s id: %w", actor, err)
+		}
+		orbits, err := parseOrbits(matches[4])
+		if err != nil {
+			return Order{}, err
+		}
+		return Order{Line: line, Verb: "probe", Actor: actor, ShipID: entityID, System: strings.ToUpper(matches[3]), Orbits: orbits}, nil
+	}
+	if matches := probePattern.FindStringSubmatch(text); matches != nil {
+		actor := strings.ToLower(matches[1])
+		entityID, err := positiveInt64(matches[2])
+		if err != nil {
+			return Order{}, fmt.Errorf("invalid %s id: %w", actor, err)
+		}
+		orbits, err := parseOrbits(matches[3])
+		if err != nil {
+			return Order{}, err
+		}
+		return Order{Line: line, Verb: "probe", Actor: actor, ShipID: entityID, Orbits: orbits}, nil
+	}
+	return Order{}, fmt.Errorf("expected jump ship ID to (X,Y,Z), move ship ID to orbit N, move ship ID to system S orbit N, probe ship ID orbit N ..., or probe colony ID system S orbit N ...")
+}
+
+func parseOrbits(text string) ([]int, error) {
+	var orbits []int
+	for field := range strings.FieldsSeq(text) {
+		orbit, err := strconv.Atoi(field)
+		if err != nil {
+			return nil, fmt.Errorf("orbit is too large")
+		}
+		orbits = append(orbits, orbit)
+	}
+	return orbits, nil
 }
 
 func positiveInt64(text string) (int64, error) {

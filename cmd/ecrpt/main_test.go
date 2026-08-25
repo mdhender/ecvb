@@ -293,6 +293,28 @@ func createTestDatabase(t *testing.T) string {
 		CREATE TABLE entity_population (entity_id INTEGER NOT NULL, class TEXT NOT NULL, quantity INTEGER NOT NULL);
 		CREATE TABLE work_group (id INTEGER PRIMARY KEY, entity_id INTEGER NOT NULL, unit TEXT NOT NULL, sequence INTEGER NOT NULL, deposit_id INTEGER);
 		CREATE TABLE work_group_units (work_group_id INTEGER NOT NULL, tech_level INTEGER NOT NULL, quantity INTEGER NOT NULL);
+		CREATE TABLE sensor_survey (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			entity_id INTEGER NOT NULL, stellium_id INTEGER NOT NULL, system_id INTEGER,
+			systems INTEGER NOT NULL);
+		CREATE TABLE sensor_contact (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			entity_id INTEGER NOT NULL, planet_id INTEGER NOT NULL, contact_id INTEGER NOT NULL,
+			unit TEXT NOT NULL, planet_ring INTEGER NOT NULL, mass INTEGER NOT NULL);
+		CREATE TABLE probe_order (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, entity_id INTEGER NOT NULL,
+			requested_system TEXT, requested_orbit INTEGER NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
+			stellium_id INTEGER, system_id INTEGER, planet_id INTEGER, habitability INTEGER);
+		CREATE TABLE probe_contact (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			planet_id INTEGER NOT NULL, entity_id INTEGER NOT NULL, unit TEXT NOT NULL,
+			planet_ring INTEGER NOT NULL, mass INTEGER NOT NULL);
+		CREATE TABLE probe_deposit (
+			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
+			planet_id INTEGER NOT NULL, deposit_id INTEGER NOT NULL, resource TEXT NOT NULL,
+			quantity INTEGER NOT NULL);
 		CREATE TABLE jump_order (
 			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
 			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,

@@ -295,6 +295,99 @@ CREATE INDEX jump_order_ship_id_idx ON jump_order(ship_id);
 CREATE INDEX move_order_game_turn_idx ON move_order(game_id, turn);
 CREATE INDEX move_order_ship_id_idx ON move_order(ship_id);
 `,
+	`
+CREATE TABLE probe_order (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    source_line INTEGER NOT NULL CHECK (source_line > 0),
+    entity_id INTEGER NOT NULL,
+    requested_system TEXT CHECK (requested_system IS NULL OR requested_system IN ('A', 'B', 'C', 'D', 'E')),
+    requested_orbit INTEGER NOT NULL CHECK (requested_orbit BETWEEN 1 AND 10),
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'succeeded', 'failed')),
+    error_message TEXT,
+    stellium_id INTEGER,
+    system_id INTEGER,
+    planet_id INTEGER,
+    habitability INTEGER CHECK (habitability IS NULL OR habitability BETWEEN 0 AND 25),
+    PRIMARY KEY (game_id, turn, faction_id, sequence),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
+    FOREIGN KEY (entity_id, faction_id) REFERENCES entity(id, faction_id),
+    FOREIGN KEY (stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (system_id, stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (planet_id, system_id) REFERENCES planet(id, system_id),
+    CHECK (
+        (status = 'pending' AND error_message IS NULL
+            AND stellium_id IS NULL AND system_id IS NULL
+            AND planet_id IS NULL AND habitability IS NULL)
+        OR
+        (status = 'succeeded' AND error_message IS NULL
+            AND stellium_id IS NOT NULL AND system_id IS NOT NULL
+            AND planet_id IS NOT NULL AND habitability IS NOT NULL)
+        OR
+        (status = 'failed' AND error_message IS NOT NULL AND error_message <> ''
+            AND planet_id IS NULL AND habitability IS NULL)
+    )
+);
+
+CREATE TABLE probe_contact (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    planet_id INTEGER NOT NULL REFERENCES planet(id),
+    entity_id INTEGER NOT NULL REFERENCES entity(id),
+    unit TEXT NOT NULL CHECK (unit IN ('SHIP', 'COPN', 'CSFC', 'CORB')),
+    planet_ring INTEGER NOT NULL CHECK (planet_ring BETWEEN 0 AND 99),
+    mass INTEGER NOT NULL CHECK (mass >= 0),
+    PRIMARY KEY (game_id, turn, faction_id, planet_id, entity_id),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id)
+);
+
+CREATE TABLE probe_deposit (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    planet_id INTEGER NOT NULL REFERENCES planet(id),
+    deposit_id INTEGER NOT NULL REFERENCES deposit(id),
+    resource TEXT NOT NULL CHECK (resource IN ('fuel', 'gold', 'metals', 'minerals')),
+    quantity INTEGER NOT NULL CHECK (quantity >= 0),
+    PRIMARY KEY (game_id, turn, faction_id, planet_id, deposit_id),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id)
+);
+
+CREATE TABLE sensor_survey (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    entity_id INTEGER NOT NULL REFERENCES entity(id),
+    stellium_id INTEGER NOT NULL,
+    system_id INTEGER,
+    systems INTEGER NOT NULL CHECK (systems >= 0),
+    PRIMARY KEY (game_id, turn, faction_id, entity_id),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
+    FOREIGN KEY (stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (system_id, stellium_id) REFERENCES system(id, stellium_id)
+);
+
+CREATE TABLE sensor_contact (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    entity_id INTEGER NOT NULL REFERENCES entity(id),
+    planet_id INTEGER NOT NULL REFERENCES planet(id),
+    contact_id INTEGER NOT NULL REFERENCES entity(id),
+    unit TEXT NOT NULL CHECK (unit IN ('SHIP', 'CORB')),
+    planet_ring INTEGER NOT NULL CHECK (planet_ring BETWEEN 0 AND 99),
+    mass INTEGER NOT NULL CHECK (mass >= 0),
+    PRIMARY KEY (game_id, turn, faction_id, entity_id, contact_id),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id)
+);
+
+CREATE INDEX probe_order_game_turn_idx ON probe_order(game_id, turn);
+CREATE INDEX probe_order_entity_id_idx ON probe_order(entity_id);
+`,
 }
 
 // SchemaVersion is the latest database schema version.

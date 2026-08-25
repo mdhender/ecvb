@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/mdhender/ecvb/internal/jumpdrive"
+	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -275,9 +276,13 @@ func metricsForUnit(unit string, techLevel int, hasTechLevel bool) unitMetrics {
 		operationalVolume: 2 * base,
 		componentVolume:   4 * base,
 	}
-	// A jump drive has a defined mass. Its volumes remain provisional.
-	if unit == jumpdrive.Unit && hasTechLevel {
+	// A jump drive and a sensor have defined masses. Their volumes remain
+	// provisional.
+	switch {
+	case unit == jumpdrive.Unit && hasTechLevel:
 		metrics.mass = jumpdrive.UnitMass(techLevel)
+	case unit == sensors.Unit && hasTechLevel:
+		metrics.mass = sensors.UnitMass(techLevel)
 	}
 	return metrics
 }

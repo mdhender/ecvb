@@ -1,8 +1,8 @@
 # Order File Reference
 
 An order file identifies one game turn and one submitting faction, followed by
-zero or more orders. The engine resolves every `MOVE` order before any `JUMP`
-order. File sequence controls orders for the same ship only when those orders
+zero or more orders. The engine resolves every `PROBE` order, then reads passive
+sensors, then resolves every `MOVE` order, then every `JUMP` order. File sequence controls orders for the same ship only when those orders
 resolve in the same phase, segment, and step.
 
 ## File names
@@ -103,6 +103,60 @@ move ship 2 to system B orbit 4
 The named system must exist in the ship's current stellium and must contain a
 planet in the requested orbit. Both forms place the ship in ring 99 at the
 destination planet.
+
+## PROBE
+
+```text
+probe ship SHIP-ID orbit ORBIT
+probe colony COLONY-ID orbit ORBIT
+```
+
+A probe is the one order a colony may give. `MOVE` and `JUMP` are ship orders.
+
+Example:
+
+```text
+probe ship 2 orbit 6
+```
+
+One order may name several orbits, and spends one probe on each:
+
+```text
+probe ship 2 orbit 1 2 3 4 5 8 9 10
+```
+
+A probe may also name a system of the ship's current stellium:
+
+```text
+probe ship 4 system A orbit 1
+probe ship 4 system A orbit 1 2 3
+```
+
+A probe that names no system reads the system the entity is in, which is why a
+ship orbiting the stellium rather than a planet has to name one. A probe that
+names a system reads any system of the entity's current stellium, so a ship in
+system C of a three-system stellium can probe all three.
+
+The entity must carry assembled `SNSR` units and have probes left this turn. A
+colony is always at a planet, so it always has a current system. Each
+named orbit must hold a planet of the probed system. See
+[Unit Glossary](units.md) for how many probes a sensor array launches.
+
+Probes resolve before anything moves, so a probe reads the system the ship is
+in at the **start** of the turn. A ship cannot move into a system and probe it
+in the same turn; it arrives on one turn and probes on the next. A probe reads
+its planet before a move or jump carries the ship away.
+
+Each probe reports, for the planet it reads:
+
+- Every ship orbiting the planet, with its identity and exact mass.
+- Every orbital colony, with its identity and exact mass.
+- Every surface colony, with its identity and exact mass.
+- Every natural resource deposit, with its type and approximate quantity.
+- The habitability of the planet.
+
+A probe does not move its ship, and its findings are recorded as of the moment
+it read the planet.
 
 ## Checking and submitting
 

@@ -8,6 +8,7 @@ import (
 	"io"
 	"text/tabwriter"
 
+	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -156,12 +157,125 @@ func showTurnReport(ctx context.Context, directory, gameCode, email string, fact
 		}
 	}
 
+	if err := writeSensorReport(w, conn, gameCode, faction.turn, factionID); err != nil {
+		return err
+	}
+	if err := writeProbeFindings(w, conn, gameCode, faction.turn, factionID); err != nil {
+		return err
+	}
+
 	if err := writeOrders(w, conn, gameCode, faction.turn, factionID, "ORDERS"); err != nil {
+		return err
+	}
+	if err := writeProbes(w, conn, gameCode, faction.turn, factionID); err != nil {
 		return err
 	}
 
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("write turn report: %w", err)
+	}
+	return nil
+}
+
+// writeSensorReport reports the passive sensor reading taken at the start of
+// the turn, before anything moved. A ship that jumped this turn reads its new
+// stellium in the next turn's report, not this one.
+func writeSensorReport(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+	args := []any{gameCode, turn, factionID}
+	fmt.Fprintln(w, "\nSENSOR SURVEY")
+	fmt.Fprintln(w, "ENTITY\tSTELLIUM\tCOORDINATES\tSYSTEM\tSYSTEMS")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT s.entity_id, s.stellium_id, st.x, st.y, st.z, s.system_id, s.systems
+		FROM sensor_survey AS s
+		JOIN stellium AS st ON st.id = s.stellium_id
+		WHERE s.game_id = (SELECT id FROM game WHERE code = ?) AND s.turn = ? AND s.faction_id = ?
+		ORDER BY s.entity_id;`, &sqlitex.ExecOptions{
+		Args: args,
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			fmt.Fprintf(w, "%d\t%d\t%d,%d,%d\t%s\t%d\n",
+				stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnInt(2), stmt.ColumnInt(3), stmt.ColumnInt(4),
+				nullableInt(stmt, 5), stmt.ColumnInt(6))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query sensor survey: %w", err)
+	}
+
+	fmt.Fprintln(w, "\nSENSOR PLANETS")
+	fmt.Fprintln(w, "ENTITY\tSTELLIUM\tSYSTEM\tORBIT\tKIND")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT s.entity_id, s.stellium_id, sy.sequence, p.orbit, p.kind
+		FROM sensor_survey AS s
+		JOIN system AS sy ON sy.stellium_id = s.stellium_id
+		JOIN planet AS p ON p.system_id = sy.id
+		WHERE s.game_id = (SELECT id FROM game WHERE code = ?) AND s.turn = ? AND s.faction_id = ?
+		ORDER BY s.entity_id, sy.sequence, p.orbit;`, &sqlitex.ExecOptions{
+		Args: args,
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			fmt.Fprintf(w, "%d\t%d\t%s\t%d\t%s\n",
+				stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnText(2), stmt.ColumnInt(3), stmt.ColumnText(4))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query sensor planets: %w", err)
+	}
+
+	fmt.Fprintln(w, "\nSYSTEM CONTACTS")
+	fmt.Fprintln(w, "ENTITY\tPLANET\tORBIT\tCONTACT UNIT\tRING\tAPPROXIMATE MASS")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT c.entity_id, c.planet_id, p.orbit, c.unit, c.planet_ring, c.mass
+		FROM sensor_contact AS c
+		JOIN planet AS p ON p.id = c.planet_id
+		WHERE c.game_id = (SELECT id FROM game WHERE code = ?) AND c.turn = ? AND c.faction_id = ?
+		ORDER BY c.entity_id, p.orbit, c.unit, c.contact_id;`, &sqlitex.ExecOptions{
+		Args: args,
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%d\t%d\n",
+				stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnInt(2), stmt.ColumnText(3),
+				stmt.ColumnInt(4), sensors.ApproximateMass(stmt.ColumnInt64(5)))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query system contacts: %w", err)
+	}
+	return nil
+}
+
+// writeProbeFindings reports what this turn's probes read. A probe reads exact
+// masses and identities, unlike a passive sensor reading.
+func writeProbeFindings(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
+	fmt.Fprintln(w, "\nPROBE CONTACTS")
+	fmt.Fprintln(w, "PLANET\tENTITY\tUNIT\tRING\tMASS")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT planet_id, entity_id, unit, planet_ring, mass
+		FROM probe_contact
+		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
+		ORDER BY planet_id, planet_ring, entity_id;`, &sqlitex.ExecOptions{
+		Args: []any{gameCode, turn, factionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			fmt.Fprintf(w, "%d\t%d\t%s\t%d\t%d\n",
+				stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnText(2), stmt.ColumnInt(3), stmt.ColumnInt64(4))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query probe contacts: %w", err)
+	}
+
+	fmt.Fprintln(w, "\nPROBE DEPOSITS")
+	fmt.Fprintln(w, "PLANET\tDEPOSIT\tRESOURCE\tAPPROXIMATE QUANTITY")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT planet_id, deposit_id, resource, quantity
+		FROM probe_deposit
+		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
+		ORDER BY planet_id, deposit_id;`, &sqlitex.ExecOptions{
+		Args: []any{gameCode, turn, factionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			fmt.Fprintf(w, "%d\t%d\t%s\t%d\n",
+				stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnText(2), sensors.ApproximateMass(stmt.ColumnInt64(3)))
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("query probe deposits: %w", err)
 	}
 	return nil
 }

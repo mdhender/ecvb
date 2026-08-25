@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mdhender/ecvb/internal/jumpdrive"
+	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -50,12 +51,22 @@ type shipLocation struct {
 	planetID   int64
 	mass       int64
 	drive      jumpdrive.Drive
+	sensors    sensors.Array
+}
+
+type storedProbe struct {
+	sequence        int
+	line            int
+	shipID          int64
+	requestedSystem string
+	orbit           int
 }
 
 type validatedSubmission struct {
 	result Result
 	gameID int64
 	moves  []storedMove
+	probes []storedProbe
 	jumps  []storedJump
 }
 
@@ -101,6 +112,24 @@ func Submit(ctx context.Context, conn *sqlite.Conn, r io.Reader) (result Result,
 		Args: []any{validated.gameID, validated.result.Turn, validated.result.FactionID},
 	}); err != nil {
 		return Result{}, fmt.Errorf("delete previous jump orders: %w", err)
+	}
+	for _, table := range []string{"probe_contact", "probe_deposit", "probe_order"} {
+		if err := sqlitex.ExecuteTransient(conn, fmt.Sprintf("DELETE FROM %s WHERE game_id = ? AND turn = ? AND faction_id = ?;", table), &sqlitex.ExecOptions{
+			Args: []any{validated.gameID, validated.result.Turn, validated.result.FactionID},
+		}); err != nil {
+			return Result{}, fmt.Errorf("delete previous probe orders: %w", err)
+		}
+	}
+	for _, order := range validated.probes {
+		if err := sqlitex.ExecuteTransient(conn, `
+			INSERT INTO probe_order (
+				game_id, turn, faction_id, sequence, source_line, entity_id, requested_system, requested_orbit
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
+			Args: []any{validated.gameID, submission.Turn, validated.result.FactionID,
+				order.sequence, order.line, order.shipID, nullableString(order.requestedSystem), order.orbit},
+		}); err != nil {
+			return Result{}, fmt.Errorf("insert probe order from line %d: %w", order.line, err)
+		}
 	}
 	for _, order := range validated.moves {
 		if err := sqlitex.ExecuteTransient(conn, `
@@ -160,8 +189,77 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 
 	locations := make(map[int64]shipLocation)
 	moves := make([]storedMove, 0, len(submission.Orders))
+	probes := make([]storedProbe, 0, len(submission.Orders))
 	jumps := make([]storedJump, 0, len(submission.Orders))
 	resolutionSequence := 0
+	spent := make(map[int64]int64)
+	for _, order := range submission.Orders {
+		if order.Verb != "probe" {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return validatedSubmission{}, err
+		}
+		location, ok := locations[order.ShipID]
+		if !ok {
+			var orderProblems problems
+			location, orderProblems, err = findEntity(conn, gameID, factionID, order)
+			if err != nil {
+				return validatedSubmission{}, err
+			}
+			if len(orderProblems) != 0 {
+				foundProblems = append(foundProblems, orderProblems...)
+				continue
+			}
+			locations[order.ShipID] = location
+		}
+		if !location.sensors.Installed() {
+			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("%s %d has no assembled %s and cannot probe", order.Actor, order.ShipID, sensors.Unit)})
+			continue
+		}
+		// A probe that names a system reads any system of the ship's stellium.
+		// A probe that does not reads the system the ship is in, which is why
+		// a ship orbiting the stellium has to name one.
+		systemID := location.systemID
+		if order.System != "" {
+			var exists bool
+			systemID, exists, err = findSystem(conn, location.stelliumID, order.System)
+			if err != nil {
+				return validatedSubmission{}, err
+			}
+			if !exists {
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("current stellium has no system %s", order.System)})
+				continue
+			}
+		} else if systemID == 0 {
+			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("%s %d is orbiting the stellium; name a system to probe", order.Actor, order.ShipID)})
+			continue
+		}
+		for _, orbit := range order.Orbits {
+			if spent[order.ShipID] == location.sensors.Probes {
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("%s %d has only %d probes this turn", order.Actor, order.ShipID, location.sensors.Probes)})
+				break
+			}
+			if orbit < 1 || orbit > 10 {
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("orbit %d is not between 1 and 10", orbit)})
+				continue
+			}
+			if _, exists, err := findPlanet(conn, systemID, orbit); err != nil {
+				return validatedSubmission{}, err
+			} else if !exists {
+				system := order.System
+				if system == "" {
+					system = "current"
+				}
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("system %s has no planet in orbit %d", system, orbit)})
+				continue
+			}
+			spent[order.ShipID]++
+			resolutionSequence++
+			probes = append(probes, storedProbe{sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
+				requestedSystem: order.System, orbit: orbit})
+		}
+	}
 	for _, order := range submission.Orders {
 		if order.Verb != "move" {
 			continue
@@ -172,7 +270,7 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		location, ok := locations[order.ShipID]
 		if !ok {
 			var orderProblems problems
-			location, orderProblems, err = findShip(conn, gameID, factionID, order)
+			location, orderProblems, err = findEntity(conn, gameID, factionID, order)
 			if err != nil {
 				return validatedSubmission{}, err
 			}
@@ -229,7 +327,7 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		location, ok := locations[order.ShipID]
 		if !ok {
 			var orderProblems problems
-			location, orderProblems, err = findShip(conn, gameID, factionID, order)
+			location, orderProblems, err = findEntity(conn, gameID, factionID, order)
 			if err != nil {
 				return validatedSubmission{}, err
 			}
@@ -264,9 +362,10 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		return validatedSubmission{}, foundProblems
 	}
 	return validatedSubmission{
-		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID, Orders: len(moves) + len(jumps)},
+		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID, Orders: len(moves) + len(probes) + len(jumps)},
 		gameID: gameID,
 		moves:  moves,
+		probes: probes,
 		jumps:  jumps,
 	}, nil
 }
@@ -352,7 +451,9 @@ func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, 
 	return identity.FactionID, nil, nil
 }
 
-func findShip(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLocation, problems, error) {
+// findEntity locates the entity an order names and checks that its unit
+// matches the keyword used. Only a probe may name a colony.
+func findEntity(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLocation, problems, error) {
 	var location shipLocation
 	var unit string
 	var ownerID, factionGameID, stelliumGameID int64
@@ -386,18 +487,25 @@ func findShip(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLoca
 		return shipLocation{}, nil, fmt.Errorf("find ship %d: %w", order.ShipID, err)
 	}
 	if !found {
-		return shipLocation{}, problems{{order.Line, fmt.Sprintf("ship %d does not exist", order.ShipID)}}, nil
+		return shipLocation{}, problems{{order.Line, fmt.Sprintf("%s %d does not exist", order.Actor, order.ShipID)}}, nil
 	}
-	if unit != "SHIP" {
+	if order.Actor == "colony" {
+		if unit == "SHIP" {
+			return shipLocation{}, problems{{order.Line, fmt.Sprintf("entity %d is a ship, not a colony", order.ShipID)}}, nil
+		}
+	} else if unit != "SHIP" {
 		return shipLocation{}, problems{{order.Line, fmt.Sprintf("entity %d is a %s, not a ship", order.ShipID, unit)}}, nil
 	}
 	if ownerID != factionID {
-		return shipLocation{}, problems{{order.Line, fmt.Sprintf("ship %d does not belong to faction %d", order.ShipID, factionID)}}, nil
+		return shipLocation{}, problems{{order.Line, fmt.Sprintf("%s %d does not belong to faction %d", order.Actor, order.ShipID, factionID)}}, nil
 	}
 	if factionGameID != gameID || stelliumGameID != gameID {
-		return shipLocation{}, problems{{order.Line, fmt.Sprintf("ship %d does not belong to this game", order.ShipID)}}, nil
+		return shipLocation{}, problems{{order.Line, fmt.Sprintf("%s %d does not belong to this game", order.Actor, order.ShipID)}}, nil
 	}
 	if location.drive, err = jumpdrive.Load(conn, order.ShipID); err != nil {
+		return shipLocation{}, nil, err
+	}
+	if location.sensors, err = sensors.Load(conn, order.ShipID); err != nil {
 		return shipLocation{}, nil, err
 	}
 	return location, nil, nil

@@ -125,7 +125,31 @@ farms, mines, and factories or to crew ships and colonies.
 
 ## `SNSR`
 
-A technology-level component unit used by ships in the starting kit.
+**Sensor.** A technology-level component unit. Only units assembled in
+component inventory sense anything; `SNSR` held in any other section is
+freight.
+
+A unit at technology level \(t\) has a mass of \(40t\) MU and launches \(t\)
+probes per turn. An entity's probes are the sum over its units, so 5 `SNSR-1`
+and 3 `SNSR-2` launch \(5 \times 1 + 3 \times 2 = 11\) probes in a turn.
+
+Passive sensors are read after probes and before anything moves, so they report
+from where the entity stands at the **start** of the turn. A ship that jumps
+into a new stellium on turn 3 reports that stellium in its turn 4 report, not
+its turn 3 report. Passive sensors report:
+
+- In a stellium, they report the number of systems, and the orbit and kind of
+  every planet in each of them.
+- At a planet, they also report every `SHIP` and `CORB` orbiting any planet of
+  that system, with the approximate mass of each.
+
+**Approximate mass** is a mass reported as its order of magnitude in base 10,
+rounded down. A ship of 1999 MU reads as 3. A passive reading carries only that
+much precision; a probe reads exact masses and identities.
+
+A probe is ordered with the `probe` verb by a ship or a colony, and reads one
+planet, either in the entity's current system or in any system of its current
+stellium. See [Order File Reference](orders.md).
 
 ## `SOL`
 

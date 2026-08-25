@@ -214,8 +214,9 @@ unit-specific rule.
 
 ## Orders
 
-Orders are stored in intent-specific tables. Both `jump_order` and `move_order`
-identify the game, turn, faction, source line, sequence, and ship. Their status
+Orders are stored in intent-specific tables. Each of `jump_order`,
+`move_order`, and `probe_order` identifies the game, turn, faction, source line,
+sequence, and ship. Their status
 is one of `pending`, `succeeded`, or `failed`.
 
 Resolved rows record the ship's complete location immediately before and after
@@ -228,19 +229,50 @@ A jump order stores the requested X, Y, and Z coordinates and the resolved
 destination stellium ID. A successful jump clears the ship's system, planet,
 and ring.
 
+### `probe_order`
+
+A probe order names the entity that probes, which may be a ship or a colony,
+rather than a ship as `move_order` and `jump_order` do. It stores the requested
+orbit, the optional requested system, and, once resolved, the stellium and
+system the ship read from, the planet it read, and that planet's habitability.
+One row records one probed orbit, so an order naming several orbits stores
+several rows.
+
+### `sensor_survey` and `sensor_contact`
+
+Passive sensor readings are snapshotted when they are taken, which is after
+probes and before anything moves. `sensor_survey` records, for each
+sensor-equipped entity, the stellium and system it read from and how many
+systems that stellium holds; the planets themselves are derived from the map,
+which does not change. `sensor_contact` records each ship and orbital colony the
+entity read, with its exact mass. Reports render those masses as approximate
+masses.
+
+An entity that moves or jumps during the turn keeps the reading it took before
+it left, so a stellium entered this turn is first reported next turn.
+
+### `probe_contact` and `probe_deposit`
+
+A probe's findings are snapshotted when it resolves, because the ship may jump
+away later in the same turn and the entities it saw may move. `probe_contact`
+records every entity at the probed planet with its unit, ring, and exact mass.
+`probe_deposit` records every deposit with its resource and quantity. Reports
+render deposit quantities as approximate quantities.
+
 ### `move_order`
 
 A move order stores the optional requested system letter, requested orbit, and
 the resolved destination stellium, system, and planet IDs. A successful move
 places the ship in ring 99.
 
-Submission atomically replaces both kinds of pending order for the faction and
-current turn. Semantic validation follows engine resolution order: all moves
-are validated before all jumps. The stored sequence records that resolution
+Submission atomically replaces every kind of pending order for the faction and
+current turn. Semantic validation follows engine resolution order: all probes
+are validated, then all moves, then all jumps. The stored sequence records that resolution
 order; the source line records the order's position in the submitted file.
 
-Resolving a turn is atomic. The engine executes all moves, then all jumps,
-updates entities and order outcomes, and changes the game from `open` to
+Resolving a turn is atomic. The engine executes all probes, reads passive
+sensors, then executes all moves and all jumps, updates entities and order
+outcomes, and changes the game from `open` to
 `resolved`. The turn number does not change until the gamemaster opens the next
 turn. Opening the next turn retains the most recently resolved order rows and
 purges older rows.

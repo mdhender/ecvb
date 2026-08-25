@@ -4,7 +4,9 @@ package orders
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -194,7 +196,8 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 			(41, 'COPN', 1, 10, 20, 30, 0, 1, 100),
 			(42, 'SHIP', 1, 10, 20, 30, 64, 2, 100);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
-			(40, 'component', 'HDRV', 4, 1), (42, 'component', 'HDRV', 4, 1);
+			(40, 'component', 'HDRV', 4, 1), (42, 'component', 'HDRV', 4, 1),
+			(40, 'component', 'SNSR', 2, 1), (41, 'component', 'SNSR', 1, 1);
 		INSERT INTO jump_order (
 			game_id, turn, faction_id, sequence, source_line, ship_id,
 			destination_x, destination_y, destination_z, destination_stellium_id
@@ -303,5 +306,241 @@ jump ship 40 to (2,4,6)
 	}
 	if want := "line 4: jump of 8 units exceeds ship 40 jump range of 4 units"; !strings.Contains(err.Error(), want) {
 		t.Errorf("error = %v; want %q", err, want)
+	}
+}
+
+func TestCheckAcceptsProbesWithinTheSensorBudget(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Ship 40 carries one SNSR-2, so it launches two probes. System 20 has
+	// planets in orbits 4 and 6.
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 orbit 4 6
+`
+	result, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if result.Orders != 2 {
+		t.Errorf("orders = %d; want one order per probed orbit", result.Orders)
+	}
+}
+
+func TestCheckRejectsProbesTheSensorsCannotSupport(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		setup   string
+		input   string
+		problem string
+	}{
+		{
+			name:    "over budget",
+			input:   "probe ship 40 orbit 4 6 4",
+			problem: "ship 40 has only 2 probes this turn",
+		},
+		{
+			name:    "empty orbit",
+			input:   "probe ship 40 orbit 5",
+			problem: "system current has no planet in orbit 5",
+		},
+		{
+			name:    "no sensors",
+			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'SNSR';`,
+			input:   "probe ship 40 orbit 4",
+			problem: "ship 40 has no assembled SNSR and cannot probe",
+		},
+		{
+			name:    "no system",
+			setup:   `UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;`,
+			input:   "probe ship 40 orbit 4",
+			problem: "ship 40 is orbiting the stellium; name a system to probe",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := openOrderTestDatabase(t)
+			if tc.setup != "" {
+				if err := sqlitex.ExecuteScript(conn, tc.setup, nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			input := "game \"TEST\" turn 3\nid faction 1\n\n" + tc.input + "\n"
+			_, err := Check(context.Background(), conn, strings.NewReader(input))
+			if err == nil {
+				t.Fatal("Check succeeded; want a problem")
+			}
+			if !strings.Contains(err.Error(), tc.problem) {
+				t.Errorf("error = %v; want it to report %q", err, tc.problem)
+			}
+		})
+	}
+}
+
+func TestCheckProbesTheSystemTheShipStartsIn(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Ship 40 starts in system 20, which has planets in orbits 4 and 6.
+	// Moving to system B puts it in system 23, which has no orbit 6. Probes
+	// resolve before moves, so the probe reads system 20 and succeeds.
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 orbit 6
+move ship 40 to system b orbit 4
+`
+	result, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if result.Orders != 2 {
+		t.Errorf("orders = %d; want 2", result.Orders)
+	}
+}
+
+func TestCheckOrdersProbesAheadOfMovesAndJumps(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// File order is move, jump, probe. Resolution order is probe, move, jump,
+	// and the stored sequence has to record the resolution order.
+	input := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to orbit 6
+jump ship 40 to (1,2,3)
+probe ship 40 orbit 4
+`
+	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, query := range []string{
+		"SELECT 'probe', sequence FROM probe_order WHERE faction_id = 1 AND turn = 3",
+		"SELECT 'move', sequence FROM move_order WHERE faction_id = 1 AND turn = 3",
+		"SELECT 'jump', sequence FROM jump_order WHERE faction_id = 1 AND turn = 3",
+	} {
+		if err := sqlitex.ExecuteTransient(conn, query+";", &sqlitex.ExecOptions{
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				order = append(order, fmt.Sprintf("%s=%d", stmt.ColumnText(0), stmt.ColumnInt(1)))
+				return nil
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if want := []string{"probe=1", "move=2", "jump=3"}; !slices.Equal(order, want) {
+		t.Errorf("sequences = %v; want %v", order, want)
+	}
+}
+
+func TestSubmitStoresOneProbeOrderForEachOrbit(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 orbit 4 6
+`
+	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	var orbits []int
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT requested_orbit FROM probe_order
+		WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			orbits = append(orbits, stmt.ColumnInt(0))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []int{4, 6}; !slices.Equal(orbits, want) {
+		t.Errorf("stored orbits = %v; want %v", orbits, want)
+	}
+}
+
+func TestCheckProbesANamedSystemOfTheCurrentStellium(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Ship 40 is in system 20 (A) of stellium 10, which also holds system 23
+	// (B). Naming B probes a system the ship is not in.
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 system B orbit 4
+`
+	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+}
+
+func TestCheckProbesANamedSystemFromStelliumOrbit(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// A ship orbiting the stellium has no current system, so a bare probe
+	// fails. Naming a system of that stellium works.
+	if err := sqlitex.ExecuteScript(conn,
+		`UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;`, nil); err != nil {
+		t.Fatal(err)
+	}
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 system A orbit 4
+`
+	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+}
+
+func TestCheckRejectsAProbeOfASystemTheStelliumDoesNotHold(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 system C orbit 4
+`
+	_, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err == nil {
+		t.Fatal("Check succeeded; want a problem")
+	}
+	if want := "current stellium has no system C"; !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %v; want %q", err, want)
+	}
+}
+
+func TestCheckAcceptsAColonyProbe(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Entity 41 is a COPN at planet 30 in system 20, with one SNSR-1.
+	input := `game "TEST" turn 3
+id faction 1
+
+probe colony 41 orbit 4
+`
+	result, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if result.Orders != 1 {
+		t.Errorf("orders = %d; want 1", result.Orders)
+	}
+}
+
+func TestCheckRejectsAProbeThatNamesTheWrongKindOfEntity(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		input   string
+		problem string
+	}{
+		{name: "colony named as a ship", input: "probe ship 41 orbit 4", problem: "entity 41 is a COPN, not a ship"},
+		{name: "ship named as a colony", input: "probe colony 40 orbit 4", problem: "entity 40 is a ship, not a colony"},
+		{name: "colony ordered to move", input: "move colony 41 to orbit 6", problem: "expected jump ship"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := openOrderTestDatabase(t)
+			input := "game \"TEST\" turn 3\nid faction 1\n\n" + tc.input + "\n"
+			_, err := Check(context.Background(), conn, strings.NewReader(input))
+			if err == nil {
+				t.Fatal("Check succeeded; want a problem")
+			}
+			if !strings.Contains(err.Error(), tc.problem) {
+				t.Errorf("error = %v; want it to report %q", err, tc.problem)
+			}
+		})
 	}
 }
