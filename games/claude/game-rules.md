@@ -77,6 +77,23 @@ Chosen randomly before turn 0, and recorded here for review:
 - Rule 5, double jump: **faction 8** (user07@example.com).
 - Rule 6, database query: **faction 4** (user03@example.com).
 
+## Jump range
+
+Jumps are limited by the ship's assembled HDRV units, so a faction can no longer
+cross the map in one turn. See [Unit Glossary](../../units.md) for the drive
+rules. The starting kit gives every ship 8 HDRV-8: a range of 8 units of
+distance and a capacity of 66,880 MU against a ship mass of 55,226 MU.
+
+Range 8 was chosen against this map. It leaves all ten homes in one connected
+component, with 4.6 hops between a pair of homes on average and 8 at worst, so
+crossing the map is a multi-turn journey that fits inside the 15-turn limit.
+Shorter ranges fragment the map: at range 6 only 4 of the 10 homes remain
+mutually reachable, and at range 3 most stellia are isolated.
+
+A faction must therefore plan a route. A faction holding a target travels one
+hop per turn toward it, and the rule-5 cheat is now worth a great deal, since
+two hops per turn both doubles search speed and halves travel time.
+
 ## File naming
 
 Orders are `orders/t{TURN}-f{FACTION}-orders-v1.txt`. Reports are
