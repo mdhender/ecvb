@@ -179,10 +179,14 @@ func openEngineTestDatabase(t *testing.T) *sqlite.Conn {
 			(41, 'COPN', 1, 10, 20, 30, 0, 1, 100);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(40, 'component', 'HDRV', 4, 1), (40, 'component', 'SNSR', 2, 1),
+			(40, 'cargo', 'FUEL', 0, 500),
 			(41, 'component', 'SNSR', 1, 1);
 		INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, current_qty)
 			VALUES (50, 30, 1, 'gold', 40, 9000, 8000);
 		UPDATE entity SET mass = 1234 WHERE id = 41;
+		-- 500 of the ship's 3000 MU is the fuel it carries, at 1 MU each, so
+		-- burning fuel takes mass off a ship that was carrying it.
+		UPDATE entity SET mass = 3000 WHERE id = 40;
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -526,5 +530,330 @@ func TestResolveProbesFromAColony(t *testing.T) {
 	}
 	if want := "entity 41 has only 1 probes this turn"; message != want {
 		t.Errorf("message = %q; want %q", message, want)
+	}
+}
+
+func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// Ship 40 starts at planet 30 in system A. It crosses to planet 31 of the
+	// same system, then leaves the planets for the stellium orbit.
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO move_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+			destination_stellium_id, destination_system_id, destination_planet_id
+		) VALUES
+			(1, 3, 1, 1, 4, 40, 6, 10, 20, 31),
+			(1, 3, 1, 2, 5, 40, 11, 10, NULL, NULL);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 2 || result.Failed != 0 {
+		t.Fatalf("result = %+v; want both moves to succeed", result)
+	}
+
+	var rows []string
+	var arrivalRing int
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d|%s|%d|%s', sequence, status, fuel_spent,
+			coalesce(final_system_id, '-')), final_planet_ring
+		FROM move_order WHERE ship_id = 40 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rows = append(rows, stmt.ColumnText(0))
+			if !stmt.ColumnIsNull(1) {
+				arrivalRing = stmt.ColumnInt(1)
+			}
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"1|succeeded|4|20", "2|succeeded|4|-"}
+	if strings.Join(rows, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("move orders = %q; want %q", rows, want)
+	}
+	// The ring the ship settles into is drawn, not fixed.
+	if arrivalRing < MinShipRing || arrivalRing > MaxShipRing {
+		t.Errorf("arrival ring = %d; want it between %d and %d", arrivalRing, MinShipRing, MaxShipRing)
+	}
+
+	var location string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d|%s|%s|%s', stellium_id, coalesce(system_id, '-'),
+			coalesce(planet_id, '-'), coalesce(planet_ring, '-'))
+		FROM entity WHERE id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+		location = stmt.ColumnText(0)
+		return nil
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if location != "10|-|-|-" {
+		t.Errorf("ship location = %q; want it orbiting stellium 10", location)
+	}
+}
+
+func TestResolveFailsMovesTheDriveCannotMake(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		setup   string
+		message string
+	}{
+		{
+			name:    "too massive",
+			setup:   `UPDATE entity SET mass = 4181 WHERE id = 40;`,
+			message: "ship 40 masses 4181 MU and its drive propels 4180 MU",
+		},
+		{
+			name:    "no drive",
+			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'HDRV';`,
+			message: "ship 40 has no assembled HDRV and cannot move",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := openEngineTestDatabase(t)
+			if err := sqlitex.ExecuteScript(conn, tc.setup+`
+				INSERT INTO move_order (
+					game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+					destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+				) VALUES (1, 3, 1, 1, 4, 40, 6, 10, 20, 31, 4);
+			`, nil); err != nil {
+				t.Fatal(err)
+			}
+			result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Failed != 1 || result.Succeeded != 0 {
+				t.Fatalf("result = %+v; want the move to fail", result)
+			}
+			// A move that never happened burns no fuel and leaves the ship at
+			// the planet it started from.
+			var row string
+			if err := sqlitex.ExecuteTransient(conn, `
+				SELECT printf('%s|%s|%d|%d', m.status, m.error_message, m.fuel_spent, e.planet_id)
+				FROM move_order AS m JOIN entity AS e ON e.id = m.ship_id
+				WHERE m.ship_id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+				row = stmt.ColumnText(0)
+				return nil
+			}}); err != nil {
+				t.Fatal(err)
+			}
+			if want := "failed|" + tc.message + "|0|30"; row != want {
+				t.Errorf("move order = %q; want %q", row, want)
+			}
+		})
+	}
+}
+
+func TestResolveBurnsFuelAndFailsAnOrderTheShipCannotPayFor(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// Ship 40 has one HDRV-4 and 500 FUEL. Two moves burn 1 * 0.1 * 40 each,
+	// and the 4-unit jump burns 1 * 4 * 40, leaving 332.
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO move_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		) VALUES
+			(1, 3, 1, 1, 4, 40, 6, 10, 20, 31, 4),
+			(1, 3, 1, 2, 5, 40, 11, 10, NULL, NULL, 4);
+		INSERT INTO jump_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id,
+			destination_x, destination_y, destination_z, destination_stellium_id, fuel_spent
+		) VALUES (1, 3, 1, 3, 6, 40, 1, 2, 3, 11, 160);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 3 || result.Failed != 0 {
+		t.Fatalf("result = %+v; want every order to succeed", result)
+	}
+	if got := shipFuel(t, conn, 40); got != 332 {
+		t.Errorf("fuel left = %d; want 332", got)
+	}
+	// The ship started at 3000 MU and burned 168 units of fuel at 1 MU each.
+	if got := shipMass(t, conn, 40); got != 3000-168 {
+		t.Errorf("mass = %d; want %d", got, 3000-168)
+	}
+}
+
+func TestResolveFailsAMoveTheShipCannotFuel(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// One HDRV-4 burns 4 FUEL crossing a system. Three units is not enough.
+	if err := sqlitex.ExecuteScript(conn, `
+		UPDATE inventory SET quantity = 3 WHERE entity_id = 40 AND unit = 'FUEL';
+		INSERT INTO move_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		) VALUES (1, 3, 1, 1, 4, 40, 6, 10, 20, 31, 4);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Failed != 1 || result.Succeeded != 0 {
+		t.Fatalf("result = %+v; want the move to fail", result)
+	}
+	// A failed order burns nothing, leaves the fuel alone, and leaves the ship
+	// where it started.
+	var row string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%s|%s|%d|%d', m.status, m.error_message, m.fuel_spent, e.planet_id)
+		FROM move_order AS m JOIN entity AS e ON e.id = m.ship_id
+		WHERE m.ship_id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+		row = stmt.ColumnText(0)
+		return nil
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "failed|ship 40 needs 4 FUEL to move and holds 3|0|30"; row != want {
+		t.Errorf("move order = %q; want %q", row, want)
+	}
+	if got := shipFuel(t, conn, 40); got != 3 {
+		t.Errorf("fuel left = %d; want the 3 units untouched", got)
+	}
+}
+
+func shipFuel(t *testing.T, conn *sqlite.Conn, entityID int64) int64 {
+	t.Helper()
+	var quantity int64
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT coalesce(sum(quantity), 0) FROM inventory WHERE entity_id = ? AND unit = 'FUEL';`,
+		&sqlitex.ExecOptions{Args: []any{entityID}, ResultFunc: func(stmt *sqlite.Stmt) error {
+			quantity = stmt.ColumnInt64(0)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	return quantity
+}
+
+func shipMass(t *testing.T, conn *sqlite.Conn, entityID int64) int64 {
+	t.Helper()
+	var value int64
+	if err := sqlitex.ExecuteTransient(conn, "SELECT mass FROM entity WHERE id = ?;",
+		&sqlitex.ExecOptions{Args: []any{entityID}, ResultFunc: func(stmt *sqlite.Stmt) error {
+			value = stmt.ColumnInt64(0)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func TestRingsAreDrawnFromTheGameSeedAndRepeat(t *testing.T) {
+	game := seed{high: 19, low: 12}
+	// The same game, turn, faction, and order always reach the same ring, so
+	// re-resolving a turn puts the ship back where it was.
+	first := game.ringFor(3, 1, 2)
+	if again := game.ringFor(3, 1, 2); again != first {
+		t.Errorf("ring = %d then %d; want the draw to repeat", first, again)
+	}
+	// Every draw lands in a ring a ship may occupy, and consecutive orders do
+	// not share a stream: 400 draws spread across the range rather than
+	// clustering, which a poorly mixed seed would produce.
+	seen := make(map[int]bool)
+	for sequence := 1; sequence <= 400; sequence++ {
+		ring := game.ringFor(3, 1, sequence)
+		if ring < MinShipRing || ring > MaxShipRing {
+			t.Fatalf("ring = %d; want it between %d and %d", ring, MinShipRing, MaxShipRing)
+		}
+		seen[ring] = true
+	}
+	if len(seen) < 50 {
+		t.Errorf("400 draws covered %d rings; want them spread across the range", len(seen))
+	}
+}
+
+func TestResolveChargesAMoveToTheSamePlanetAndRerollsTheRing(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// Ship 40 is at planet 30 in ring 64. Ordering it to the orbit it is
+	// already in is not free: it breaks orbit and settles again.
+	if err := sqlitex.ExecuteScript(conn, `
+		UPDATE entity SET planet_ring = 64 WHERE id = 40;
+		INSERT INTO move_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		) VALUES (1, 3, 1, 1, 4, 40, 4, 10, 20, 30, 4);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 1 {
+		t.Fatalf("result = %+v; want the move to succeed", result)
+	}
+	var planetID int64
+	var ring int
+	if err := sqlitex.ExecuteTransient(conn, "SELECT planet_id, planet_ring FROM entity WHERE id = 40;",
+		&sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+			planetID, ring = stmt.ColumnInt64(0), stmt.ColumnInt(1)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	if planetID != 30 {
+		t.Errorf("planet = %d; want the ship still at planet 30", planetID)
+	}
+	if ring == 64 || ring < MinShipRing || ring > MaxShipRing {
+		t.Errorf("ring = %d; want a fresh draw between %d and %d", ring, MinShipRing, MaxShipRing)
+	}
+	// The hop cost 4 FUEL, the same as crossing to any other planet of the
+	// system, and took its mass with it.
+	if got := shipFuel(t, conn, 40); got != 496 {
+		t.Errorf("fuel left = %d; want 496", got)
+	}
+	if got := shipMass(t, conn, 40); got != 3000-4 {
+		t.Errorf("mass = %d; want %d", got, 3000-4)
+	}
+}
+
+func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// Ship 40 is sent to the stellium orbit and then ordered there again. The
+	// second move has nowhere to go: no fuel, no change.
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO move_order (
+			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
+			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		) VALUES
+			(1, 3, 1, 1, 4, 40, 11, 10, NULL, NULL, 4),
+			(1, 3, 1, 2, 5, 40, 11, 10, NULL, NULL, 0);
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Resolve(context.Background(), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 2 {
+		t.Fatalf("result = %+v; want both moves to succeed", result)
+	}
+	var rows []string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d|%s|%d', sequence, status, fuel_spent)
+		FROM move_order WHERE ship_id = 40 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rows = append(rows, stmt.ColumnText(0))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"1|succeeded|4", "2|succeeded|0"}; strings.Join(rows, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("move orders = %q; want %q", rows, want)
+	}
+	// Only the first move was paid for.
+	if got := shipFuel(t, conn, 40); got != 496 {
+		t.Errorf("fuel left = %d; want 496", got)
 	}
 }

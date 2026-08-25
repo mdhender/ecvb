@@ -2,5 +2,6 @@ game "BETA-001" turn 0
 id faction 1
 
 move ship 2 to orbit 6
+move ship 2 to orbit 11
 jump ship 2 to (-1,1,6)
 move ship 2 to system A orbit 4

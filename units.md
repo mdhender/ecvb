@@ -9,9 +9,11 @@ The loader currently uses provisional mass and volume values for testing:
   VU, where \(t\) is its technology level. `HDRV` is the exception: its mass is
   defined below, though its volumes are still provisional.
 - A unit without a technology level has a mass of 6 MU and cargo volume of 6
-  VU.
+  VU. The four bulk resources are the exception: `FUEL`, `GOLD`, `METL`, and
+  `MNRL` each have a mass of 1 MU and a volume of 1 VU in every section.
 - Operational inventory consumes twice its cargo volume. Component inventory
-  consumes twice its operational volume.
+  consumes twice its operational volume. The bulk resources take 1 VU wherever
+  they are held, so neither multiplier applies to them.
 - Each population unit has a mass of 2 MU. Its cargo, operational, and component
   volumes are independent values, currently 2 VU each.
 - One population unit represents 100 persons in census reports.
@@ -54,13 +56,15 @@ kit.
 
 ## `FUEL`
 
-**Fuel resource.** A unit without a technology level. Fuel cargo on `COPN` and
-`CORB` entities contributes mass but consumes no enclosed space.
+**Fuel resource.** A unit without a technology level, massing 1 MU and taking
+1 VU in every section. Fuel cargo on `COPN` and `CORB` entities contributes
+mass but consumes no enclosed space.
 
 ## `GOLD`
 
-**Gold resource.** A unit without a technology level. Gold cargo on `COPN` and
-`CORB` entities contributes mass but consumes no enclosed space.
+**Gold resource.** A unit without a technology level, massing 1 MU and taking
+1 VU in every section. Gold cargo on `COPN` and `CORB` entities contributes
+mass but consumes no enclosed space.
 
 ## `HDRV`
 
@@ -82,6 +86,42 @@ A jump fails when the ship has no assembled drive, when its mass exceeds the
 drive's capacity, or when the distance exceeds the drive's range. A jump always
 ends at a stellium; there is no deep space to stop in.
 
+The same units move a ship inside a stellium. A move fails when the ship has no
+assembled drive or when its mass exceeds the drive's capacity, but never for
+range: the shortest-ranged drive reaches anywhere in a stellium. See
+[Order File Reference](orders.md) for the move forms.
+
+### Fuel
+
+A drive burns 40 `FUEL` per assembled unit per light year jumped. Every
+assembled unit draws: a ship cannot idle part of its drive to save fuel, so a
+large drive is expensive to run even on a short hop. A ship with 21 assembled
+units jumping 3 light years burns \(21 \times 3 \times 40 = 2520\) `FUEL`.
+
+Distance inside a stellium is never measured. A move is one of three kinds,
+each with a fixed cost per assembled unit:
+
+| Kind | Fuel per unit | The fraction of a light year it stands for |
+| --- | --- | --- |
+| A hop: the stellium orbit to a planet, or two planets of one system | 4 | 0.1 |
+| Crossing systems: planets of different systems of one stellium | 8 | 0.2 |
+| Going nowhere | 0 | 0.0 |
+
+Naming the kinds rather than measuring tenths keeps the arithmetic in whole
+numbers everywhere: the fractions never reach the engine, the schema, or a
+report. A ship with 21 assembled units hopping burns \(21 \times 4 = 84\)
+`FUEL`.
+
+Fuel is burned, not assembled, so it counts from any section. It is drawn
+**operational** first, then **unassembled**, and **cargo** last, so a hold of
+spare fuel survives until the working supply is gone. Burned fuel leaves the
+ship: its mass falls by 6 MU per unit, and a later order in the same turn
+measures the drive against the lighter ship.
+
+A move or jump fails when the ship cannot pay. `orders check` and `orders
+submit` only warn, because fuel may still reach the ship before the turn
+resolves; the engine decides.
+
 ## `LFSU`
 
 A technology-level component unit used by colonies and ships in the starting
@@ -89,8 +129,9 @@ kit.
 
 ## `METL`
 
-**Metal resource.** A unit without a technology level. Metal cargo on `COPN`
-and `CORB` entities contributes mass but consumes no enclosed space.
+**Metal resource.** A unit without a technology level, massing 1 MU and taking
+1 VU in every section. Metal cargo on `COPN` and `CORB` entities contributes
+mass but consumes no enclosed space.
 
 ## `MINE`
 
@@ -99,8 +140,9 @@ works a resource deposit.
 
 ## `MNRL`
 
-**Mineral resource.** A unit without a technology level. Mineral cargo on
-`COPN` and `CORB` entities contributes mass but consumes no enclosed space.
+**Mineral resource.** A unit without a technology level, massing 1 MU and taking
+1 VU in every section. Mineral cargo on `COPN` and `CORB` entities contributes
+mass but consumes no enclosed space.
 
 ## `NAS`
 

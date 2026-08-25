@@ -319,7 +319,8 @@ func createTestDatabase(t *testing.T) string {
 			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
 			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,
 			destination_x INTEGER NOT NULL, destination_y INTEGER NOT NULL, destination_z INTEGER NOT NULL,
-			destination_stellium_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
+			destination_stellium_id INTEGER NOT NULL, fuel_spent INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
 			start_stellium_id INTEGER, start_system_id INTEGER, start_planet_id INTEGER, start_planet_ring INTEGER,
 			final_stellium_id INTEGER, final_system_id INTEGER, final_planet_id INTEGER, final_planet_ring INTEGER
 		);
@@ -327,7 +328,8 @@ func createTestDatabase(t *testing.T) string {
 			game_id INTEGER NOT NULL, turn INTEGER NOT NULL, faction_id INTEGER NOT NULL,
 			sequence INTEGER NOT NULL, source_line INTEGER NOT NULL, ship_id INTEGER NOT NULL,
 			requested_system TEXT, requested_orbit INTEGER NOT NULL,
-			destination_stellium_id INTEGER NOT NULL, destination_system_id INTEGER NOT NULL, destination_planet_id INTEGER NOT NULL,
+			destination_stellium_id INTEGER NOT NULL, destination_system_id INTEGER, destination_planet_id INTEGER,
+			fuel_spent INTEGER NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
 			start_stellium_id INTEGER, start_system_id INTEGER, start_planet_id INTEGER, start_planet_ring INTEGER,
 			final_stellium_id INTEGER, final_system_id INTEGER, final_planet_id INTEGER, final_planet_ring INTEGER
@@ -359,8 +361,8 @@ func createTestDatabase(t *testing.T) string {
 		) VALUES (1, 3, 41, 2, 3, 501, 9, 13, -5, 79);
 		INSERT INTO move_order (
 			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id
-		) VALUES (1, 3, 41, 1, 4, 501, 1, 79, 88, 871);
+			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		) VALUES (1, 3, 41, 1, 4, 501, 1, 79, 88, 871, 4);
 	`, database.ApplicationID, database.SchemaVersion)
 	if err := sqlitex.ExecuteScript(conn, script, nil); err != nil {
 		t.Fatal(err)

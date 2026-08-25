@@ -28,10 +28,13 @@ func TestReadHomePlanetKit(t *testing.T) {
 		controlled       bool
 		inventoryEntries int
 	}{
-		"COPN": {mass: 5934, enclosedVolume: 20000, controlled: true, inventoryEntries: 6},
-		"CSFC": {mass: 6644, enclosedVolume: 20000, controlled: true, inventoryEntries: 7},
-		"CORB": {mass: 71612, enclosedVolume: 350000, controlled: false, inventoryEntries: 6},
-		"SHIP": {mass: 50337, enclosedVolume: 200000, controlled: true, inventoryEntries: 13},
+		"COPN": {mass: 5499, enclosedVolume: 20000, controlled: true, inventoryEntries: 6},
+		"CSFC": {mass: 5594, enclosedVolume: 20000, controlled: true, inventoryEntries: 7},
+		"CORB": {mass: 71607, enclosedVolume: 350000, controlled: false, inventoryEntries: 6},
+		// The ship carries 20 HDRV-3 and the 3500 FUEL they burn. Bulk
+		// resources mass 1 MU each, so a full tank is cheap to carry and the
+		// drive can stay at the range the map asks for.
+		"SHIP": {mass: 55892, enclosedVolume: 200000, controlled: true, inventoryEntries: 13},
 	}
 	for _, entity := range kit.entities {
 		properties, ok := want[entity.kind]
@@ -236,5 +239,22 @@ func writeTestKit(t *testing.T, directory string) {
 	}`
 	if err := os.WriteFile(filepath.Join(directory, "home-planet-seed.json"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBulkResourcesMassAndOccupyOneUnit(t *testing.T) {
+	// The four raw resources are measured, not manufactured: 1 MU and 1 VU
+	// each, in every section, with none of the multipliers that installing a
+	// manufactured unit costs.
+	for _, unit := range []string{"FUEL", "GOLD", "METL", "MNRL"} {
+		got := metricsForUnit(unit, 0, false)
+		if want := (unitMetrics{mass: 1, cargoVolume: 1, operationalVolume: 1, componentVolume: 1}); got != want {
+			t.Errorf("%s metrics = %+v; want %+v", unit, got, want)
+		}
+	}
+	// Another unit without a technology level keeps the general rule.
+	got := metricsForUnit("CNGD", 0, false)
+	if want := (unitMetrics{mass: 6, cargoVolume: 6, operationalVolume: 12, componentVolume: 24}); got != want {
+		t.Errorf("CNGD metrics = %+v; want %+v", got, want)
 	}
 }

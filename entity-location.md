@@ -60,7 +60,12 @@ A ship has two forms of movement:
   destination stellium level: `system_id`, `planet_id`, and `planet_ring` are
   null.
 - **In-stellium movement** moves the ship to a planet in its current stellium.
-  The destination system, planet, and a ring from 1 through 99 are set together.
+  The destination system, planet, and a ring are set together; a ship arriving
+  under its own power draws a ring from 2 through 99, leaving ring 1 to orbital
+  colonies. A move to orbit 11, the fictional stellium orbit, instead clears all
+  three and returns the ship to the stellium level without leaving the stellium.
+  A ship ordered to the planet it is already at stays there but draws a new
+  ring; a ship already in the stellium orbit and ordered there is not touched.
 
 A ship must move to a specific planet before interacting with a location that
 requires planetary presence.

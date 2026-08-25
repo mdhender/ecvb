@@ -23,6 +23,11 @@ var (
 	probePattern       = regexp.MustCompile(`(?i)^probe[ \t]+(ship|colony)[ \t]+([0-9]+)[ \t]+orbit[ \t]+([0-9]+(?:[ \t]+[0-9]+)*)[ \t]*$`)
 )
 
+// StelliumOrbit is the orbit a MOVE order names to send a ship back to the
+// stellium orbit. No planet occupies it: it is a fiction that gives MOVE a way
+// to say "leave the planets", and it is never a probe target.
+const StelliumOrbit = 11
+
 // Identity identifies the faction submitting an order file.
 type Identity struct {
 	PlayerEmail string

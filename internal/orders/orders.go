@@ -3,12 +3,15 @@
 package orders
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
 	"net/mail"
+	"slices"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/fuel"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
@@ -21,6 +24,16 @@ type Result struct {
 	Turn      int
 	FactionID int64
 	Orders    int
+	Warnings  []Warning
+}
+
+// Warning is a condition that does not stop a submission but that the player
+// should see. Fuel is the only source today: an order is accepted even when
+// the ship cannot pay for it, because fuel may still reach the ship before the
+// turn resolves. An order still short of fuel at resolution fails.
+type Warning struct {
+	Line    int
+	Message string
 }
 
 type storedMove struct {
@@ -30,8 +43,11 @@ type storedMove struct {
 	requestedSystem       string
 	requestedOrbit        int
 	destinationStelliumID int64
-	destinationSystemID   int64
-	destinationPlanetID   int64
+	// A destination system and planet of zero is the stellium orbit, which
+	// orbit 11 names.
+	destinationSystemID int64
+	destinationPlanetID int64
+	fuelSpent           int64
 }
 
 type storedJump struct {
@@ -42,6 +58,7 @@ type storedJump struct {
 	y                     int
 	z                     int
 	destinationStelliumID int64
+	fuelSpent             int64
 }
 
 type shipLocation struct {
@@ -50,6 +67,7 @@ type shipLocation struct {
 	systemID   int64
 	planetID   int64
 	mass       int64
+	fuel       int64
 	drive      jumpdrive.Drive
 	sensors    sensors.Array
 }
@@ -68,6 +86,24 @@ type validatedSubmission struct {
 	moves  []storedMove
 	probes []storedProbe
 	jumps  []storedJump
+}
+
+// spendProjectedFuel charges an order's fuel against what the ship is
+// projected to hold, and returns a warning when it comes up short. The order
+// is still accepted: fuel may reach the ship before the turn resolves. A ship
+// that runs dry projects to zero rather than to a negative balance, so every
+// later order warns too.
+func spendProjectedFuel(location *shipLocation, line int, shipID int64, verb string, cost int64) (Warning, bool) {
+	if cost <= location.fuel {
+		location.fuel -= cost
+		location.mass -= cost * fuel.UnitMass
+		return Warning{}, false
+	}
+	held := location.fuel
+	location.fuel, location.mass = 0, location.mass-held*fuel.UnitMass
+	return Warning{Line: line, Message: fmt.Sprintf(
+		"ship %d needs %d %s to %s and will hold %d; the order fails unless fuel reaches the ship first",
+		shipID, cost, fuel.Unit, verb, held)}, true
 }
 
 // Check parses and validates an order file without changing the database.
@@ -136,11 +172,12 @@ func Submit(ctx context.Context, conn *sqlite.Conn, r io.Reader) (result Result,
 			INSERT INTO move_order (
 				game_id, turn, faction_id, sequence, source_line, ship_id,
 				requested_system, requested_orbit,
-				destination_stellium_id, destination_system_id, destination_planet_id
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
+				destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
 			Args: []any{validated.gameID, submission.Turn, validated.result.FactionID,
 				order.sequence, order.line, order.shipID, nullableString(order.requestedSystem), order.requestedOrbit,
-				order.destinationStelliumID, order.destinationSystemID, order.destinationPlanetID},
+				order.destinationStelliumID, nullableID(order.destinationSystemID), nullableID(order.destinationPlanetID),
+				order.fuelSpent},
 		}); err != nil {
 			return Result{}, fmt.Errorf("insert move order from line %d: %w", order.line, err)
 		}
@@ -149,10 +186,11 @@ func Submit(ctx context.Context, conn *sqlite.Conn, r io.Reader) (result Result,
 		if err := sqlitex.ExecuteTransient(conn, `
 			INSERT INTO jump_order (
 				game_id, turn, faction_id, sequence, source_line, ship_id,
-				destination_x, destination_y, destination_z, destination_stellium_id
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
+				destination_x, destination_y, destination_z, destination_stellium_id, fuel_spent
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
 			Args: []any{validated.gameID, submission.Turn, validated.result.FactionID,
-				order.sequence, order.line, order.shipID, order.x, order.y, order.z, order.destinationStelliumID},
+				order.sequence, order.line, order.shipID, order.x, order.y, order.z, order.destinationStelliumID,
+				order.fuelSpent},
 		}); err != nil {
 			return Result{}, fmt.Errorf("insert jump order from line %d: %w", order.line, err)
 		}
@@ -192,6 +230,7 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	probes := make([]storedProbe, 0, len(submission.Orders))
 	jumps := make([]storedJump, 0, len(submission.Orders))
 	resolutionSequence := 0
+	var warnings []Warning
 	spent := make(map[int64]int64)
 	for _, order := range submission.Orders {
 		if order.Verb != "probe" {
@@ -281,32 +320,51 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 			locations[order.ShipID] = location
 		}
 
-		systemID := location.systemID
-		if order.System != "" {
+		// Orbit 11 is the stellium orbit rather than a planet, so it resolves
+		// to no system and no planet and cannot be qualified by a letter.
+		systemID, planetID := int64(0), int64(0)
+		if order.Orbit == StelliumOrbit {
+			if order.System != "" {
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("orbit %d is the stellium orbit and belongs to no system", StelliumOrbit)})
+				continue
+			}
+		} else {
+			systemID = location.systemID
+			if order.System != "" {
+				var exists bool
+				systemID, exists, err = findSystem(conn, location.stelliumID, order.System)
+				if err != nil {
+					return validatedSubmission{}, err
+				}
+				if !exists {
+					foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("current stellium has no system %s", order.System)})
+					continue
+				}
+			} else if systemID == 0 {
+				foundProblems = append(foundProblems, problem{order.Line, "ship has no current system; specify a destination system"})
+				continue
+			}
 			var exists bool
-			systemID, exists, err = findSystem(conn, location.stelliumID, order.System)
+			planetID, exists, err = findPlanet(conn, systemID, order.Orbit)
 			if err != nil {
 				return validatedSubmission{}, err
 			}
 			if !exists {
-				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("current stellium has no system %s", order.System)})
+				system := order.System
+				if system == "" {
+					system = "current"
+				}
+				foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("system %s has no planet in orbit %d", system, order.Orbit)})
 				continue
 			}
-		} else if systemID == 0 {
-			foundProblems = append(foundProblems, problem{order.Line, "ship has no current system; specify a destination system"})
+		}
+		if message := moveProblem(location, order); message != "" {
+			foundProblems = append(foundProblems, problem{order.Line, message})
 			continue
 		}
-		planetID, exists, err := findPlanet(conn, systemID, order.Orbit)
-		if err != nil {
-			return validatedSubmission{}, err
-		}
-		if !exists {
-			system := order.System
-			if system == "" {
-				system = "current"
-			}
-			foundProblems = append(foundProblems, problem{order.Line, fmt.Sprintf("system %s has no planet in orbit %d", system, order.Orbit)})
-			continue
+		cost := location.drive.FuelForMove(jumpdrive.KindOfMove(location.systemID, systemID))
+		if warning, short := spendProjectedFuel(&location, order.Line, order.ShipID, "move", cost); short {
+			warnings = append(warnings, warning)
 		}
 		location.systemID, location.planetID = systemID, planetID
 		locations[order.ShipID] = location
@@ -315,6 +373,7 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 			sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
 			requestedSystem: order.System, requestedOrbit: order.Orbit,
 			destinationStelliumID: location.stelliumID, destinationSystemID: systemID, destinationPlanetID: planetID,
+			fuelSpent: cost,
 		})
 	}
 	for _, order := range submission.Orders {
@@ -349,6 +408,10 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 			foundProblems = append(foundProblems, problem{order.Line, message})
 			continue
 		}
+		cost := location.drive.FuelForJump(jumpdrive.Distance(location.x, location.y, location.z, order.X, order.Y, order.Z))
+		if warning, short := spendProjectedFuel(&location, order.Line, order.ShipID, "jump", cost); short {
+			warnings = append(warnings, warning)
+		}
 		location.stelliumID, location.x, location.y, location.z = destinationID, order.X, order.Y, order.Z
 		location.systemID, location.planetID = 0, 0
 		locations[order.ShipID] = location
@@ -356,18 +419,36 @@ func validate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		jumps = append(jumps, storedJump{
 			sequence: resolutionSequence, line: order.Line, shipID: order.ShipID,
 			x: order.X, y: order.Y, z: order.Z, destinationStelliumID: destinationID,
+			fuelSpent: cost,
 		})
 	}
 	if len(foundProblems) != 0 {
 		return validatedSubmission{}, foundProblems
 	}
+	slices.SortStableFunc(warnings, func(a, b Warning) int { return cmp.Compare(a.Line, b.Line) })
 	return validatedSubmission{
-		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID, Orders: len(moves) + len(probes) + len(jumps)},
+		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID,
+			Orders: len(moves) + len(probes) + len(jumps), Warnings: warnings},
 		gameID: gameID,
 		moves:  moves,
 		probes: probes,
 		jumps:  jumps,
 	}, nil
+}
+
+// moveProblem returns the reason a ship cannot move inside its stellium, or an
+// empty string when it can. Every move inside a stellium is well within the
+// range of any drive, so only the drive's presence and the mass it propels
+// matter. The engine applies the same rules when it resolves the turn.
+func moveProblem(location shipLocation, order Order) string {
+	if !location.drive.Installed() {
+		return fmt.Sprintf("ship %d has no assembled %s and cannot move", order.ShipID, jumpdrive.Unit)
+	}
+	if !location.drive.CanPropel(location.mass) {
+		return fmt.Sprintf("ship %d masses %d MU and its drive propels %d MU",
+			order.ShipID, location.mass, location.drive.Capacity)
+	}
+	return ""
 }
 
 // jumpProblem returns the reason a ship cannot make a jump, or an empty string
@@ -407,6 +488,13 @@ func nullableString(value string) any {
 		return nil
 	}
 	return value
+}
+
+func nullableID(id int64) any {
+	if id == 0 {
+		return nil
+	}
+	return id
 }
 
 func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, problems, error) {
@@ -506,6 +594,9 @@ func findEntity(conn *sqlite.Conn, gameID, factionID int64, order Order) (shipLo
 		return shipLocation{}, nil, err
 	}
 	if location.sensors, err = sensors.Load(conn, order.ShipID); err != nil {
+		return shipLocation{}, nil, err
+	}
+	if location.fuel, err = fuel.Available(conn, order.ShipID); err != nil {
 		return shipLocation{}, nil, err
 	}
 	return location, nil, nil

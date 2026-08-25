@@ -198,8 +198,9 @@ func TestRunResolveAndOpenTurn(t *testing.T) {
 		INSERT INTO entity (
 			id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume
 		) VALUES (40, 'SHIP', 1, 10, 20, 30, 64, 1, 100);
-		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
-			VALUES (40, 'component', 'HDRV', 4, 1);
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
+			(40, 'component', 'HDRV', 4, 1), (40, 'cargo', 'FUEL', 0, 500);
+		UPDATE entity SET mass = 4000 WHERE id = 40;
 		INSERT INTO jump_order (
 			game_id, turn, faction_id, sequence, source_line, ship_id,
 			destination_x, destination_y, destination_z, destination_stellium_id

@@ -29,8 +29,11 @@ func TestCheckValidatesSequentialOrdersWithoutWriting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result != (Result{GameCode: "TEST", Turn: 3, FactionID: 1, Orders: 3}) {
+	if result.GameCode != "TEST" || result.Turn != 3 || result.FactionID != 1 || result.Orders != 3 {
 		t.Fatalf("result = %+v", result)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("warnings = %+v; want none", result.Warnings)
 	}
 	if got := orderCount(t, conn); got != 1 {
 		t.Fatalf("order count after check = %d; want 1", got)
@@ -197,7 +200,8 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 			(42, 'SHIP', 1, 10, 20, 30, 64, 2, 100);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(40, 'component', 'HDRV', 4, 1), (42, 'component', 'HDRV', 4, 1),
-			(40, 'component', 'SNSR', 2, 1), (41, 'component', 'SNSR', 1, 1);
+			(40, 'component', 'SNSR', 2, 1), (41, 'component', 'SNSR', 1, 1),
+			(40, 'cargo', 'FUEL', 0, 500), (42, 'cargo', 'FUEL', 0, 500);
 		INSERT INTO jump_order (
 			game_id, turn, faction_id, sequence, source_line, ship_id,
 			destination_x, destination_y, destination_z, destination_stellium_id
@@ -542,5 +546,186 @@ func TestCheckRejectsAProbeThatNamesTheWrongKindOfEntity(t *testing.T) {
 				t.Errorf("error = %v; want it to report %q", err, tc.problem)
 			}
 		})
+	}
+}
+
+func TestSubmitStoresMoveFuelAndTheStelliumOrbit(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// Ship 40 starts at planet 30 in system A of stellium 10. Orbit 6 is
+	// another planet of system A, system B orbit 4 is planet 33 of the same
+	// stellium, and orbit 11 is the stellium orbit.
+	input := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to orbit 6
+move ship 40 to system B orbit 4
+move ship 40 to orbit 11
+`
+	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	var rows []string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d|%d|%d|%s|%s|%d', sequence, requested_orbit,
+			fuel_spent, coalesce(destination_system_id, '-'), coalesce(destination_planet_id, '-'),
+			destination_stellium_id)
+		FROM move_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rows = append(rows, stmt.ColumnText(0))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"1|6|4|20|31|10", // one hop: planet to planet inside system A
+		"2|4|8|23|33|10", // two hops: planet to planet across systems
+		"3|11|4|-|-|10",  // one hop: planet to the stellium orbit
+	}
+	if strings.Join(rows, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("move orders = %q; want %q", rows, want)
+	}
+}
+
+func TestCheckRejectsMovesTheDriveCannotMake(t *testing.T) {
+	input := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to orbit 6
+`
+	for _, tc := range []struct {
+		name    string
+		setup   string
+		problem string
+	}{
+		{
+			name:    "too massive",
+			setup:   `UPDATE entity SET mass = 4181 WHERE id = 40;`,
+			problem: "ship 40 masses 4181 MU and its drive propels 4180 MU",
+		},
+		{
+			name:    "no drive",
+			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'HDRV';`,
+			problem: "ship 40 has no assembled HDRV and cannot move",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := openOrderTestDatabase(t)
+			if err := sqlitex.ExecuteScript(conn, tc.setup, nil); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Check(context.Background(), conn, strings.NewReader(input))
+			if err == nil {
+				t.Fatal("Check succeeded; want a problem")
+			}
+			if !strings.Contains(err.Error(), tc.problem) {
+				t.Errorf("error = %v; want it to report %q", err, tc.problem)
+			}
+			if !strings.Contains(err.Error(), "line 4") {
+				t.Errorf("error = %v; want it to name the source line", err)
+			}
+		})
+	}
+}
+
+func TestCheckMovesFromTheStelliumOrbitAndRejectsQualifyingIt(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	// A ship in the stellium orbit has no current system, so it has to name
+	// one; the stellium orbit itself belongs to no system, so naming one for
+	// orbit 11 is an error.
+	input := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to orbit 11
+move ship 40 to orbit 4
+`
+	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err == nil ||
+		!strings.Contains(err.Error(), "line 5: ship has no current system") {
+		t.Fatalf("Check error = %v; want the ship to have left its system", err)
+	}
+	qualified := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to system A orbit 11
+`
+	if _, err := Check(context.Background(), conn, strings.NewReader(qualified)); err == nil ||
+		!strings.Contains(err.Error(), "orbit 11 is the stellium orbit and belongs to no system") {
+		t.Fatalf("Check error = %v; want the stellium orbit to reject a system", err)
+	}
+}
+
+func TestCheckWarnsWhenTheShipCannotPayForItsOrders(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	if err := sqlitex.ExecuteScript(conn, `
+		UPDATE inventory SET quantity = 200 WHERE entity_id = 40 AND unit = 'FUEL';`, nil); err != nil {
+		t.Fatal(err)
+	}
+	// Ship 40 has one HDRV-4 and 200 FUEL. The move burns 1 * 0.1 * 40 and
+	// each 4-unit jump burns 1 * 4 * 40, so the tank covers the move and the
+	// first jump but comes up short on the second.
+	input := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to orbit 6
+jump ship 40 to (1,2,3)
+jump ship 40 to (0,0,0)
+`
+	result, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Orders != 3 {
+		t.Fatalf("orders = %d; want 3", result.Orders)
+	}
+	var lines []string
+	for _, warning := range result.Warnings {
+		lines = append(lines, fmt.Sprintf("%d: %s", warning.Line, warning.Message))
+	}
+	want := []string{
+		"6: ship 40 needs 160 FUEL to jump and will hold 36; the order fails unless fuel reaches the ship first",
+	}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("warnings = %q; want %q", lines, want)
+	}
+}
+
+func TestCheckWarnsOnceTheTankIsEmptyAndSubmitKeepsTheOrders(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	if err := sqlitex.ExecuteScript(conn, `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'FUEL';`, nil); err != nil {
+		t.Fatal(err)
+	}
+	// A dry ship warns on every order but still submits them: fuel may reach
+	// the ship before the turn resolves.
+	input := `game "TEST" turn 3
+id faction 1
+
+move ship 40 to orbit 6
+move ship 40 to orbit 4
+`
+	result, err := Submit(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 2 {
+		t.Fatalf("warnings = %+v; want one per order", result.Warnings)
+	}
+	for _, warning := range result.Warnings {
+		if !strings.Contains(warning.Message, "needs 4 FUEL to move and will hold 0") {
+			t.Errorf("warning = %q; want it to report an empty tank", warning.Message)
+		}
+	}
+	var stored []string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d|%d', sequence, fuel_spent)
+		FROM move_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			stored = append(stored, stmt.ColumnText(0))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"1|4", "2|4"}; strings.Join(stored, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("stored moves = %q; want %q", stored, want)
 	}
 }

@@ -212,7 +212,7 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 				if err := addQuantity(&entity.enclosedVolume, quantity, perUnit); err != nil {
 					return preparedEntity{}, fmt.Errorf("%s entity %q enclosed volume: %w", kind, id, err)
 				}
-			} else if !(section.dbName == "cargo" && (kind == "COPN" || kind == "CORB") && isDepotResource(unit)) {
+			} else if !(section.dbName == "cargo" && (kind == "COPN" || kind == "CORB") && isBulkResource(unit)) {
 				volume := metrics.cargoVolume
 				switch section.dbName {
 				case "component":
@@ -266,6 +266,12 @@ func parseUnitTag(tag string) (unit string, techLevel int, hasTechLevel bool, er
 }
 
 func metricsForUnit(unit string, techLevel int, hasTechLevel bool) unitMetrics {
+	// The bulk resources are measured, not manufactured: one unit masses 1 MU
+	// and takes 1 VU wherever it is held, with none of the multipliers that
+	// installing a manufactured unit costs.
+	if isBulkResource(unit) && !hasTechLevel {
+		return unitMetrics{mass: 1, cargoVolume: 1, operationalVolume: 1, componentVolume: 1}
+	}
 	base := int64(6)
 	if hasTechLevel {
 		base = int64(2 * techLevel)
@@ -287,7 +293,10 @@ func metricsForUnit(unit string, techLevel int, hasTechLevel bool) unitMetrics {
 	return metrics
 }
 
-func isDepotResource(unit string) bool {
+// isBulkResource reports whether a unit is one of the four raw resources. They
+// share a mass and volume of 1, and as cargo on a COPN or CORB they sit in
+// external depots rather than in enclosed space.
+func isBulkResource(unit string) bool {
 	return unit == "GOLD" || unit == "FUEL" || unit == "METL" || unit == "MNRL"
 }
 

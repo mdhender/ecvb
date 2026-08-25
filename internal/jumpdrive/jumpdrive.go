@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Michael D Henderson. All rights reserved.
 
-// Package jumpdrive implements the HDRV rules that limit how far a ship jumps
-// and how much mass it can carry through a jump.
+// Package jumpdrive implements the HDRV rules that limit how a ship moves
+// inside a stellium, how far it jumps between stellia, and how much mass it
+// can carry either way.
 package jumpdrive
 
 import (
@@ -26,6 +27,45 @@ const (
 
 // UnitMass returns the mass in MU of one HDRV unit at techLevel.
 func UnitMass(techLevel int) int64 { return MassPerTechLevel * int64(techLevel) }
+
+// MoveKind classifies a move inside a stellium. Distance inside a stellium is
+// not measured: it takes one of three fixed values, and naming them keeps the
+// fractions out of the code entirely.
+type MoveKind int
+
+const (
+	// MoveNowhere is the one move that costs nothing: a ship already orbiting
+	// the stellium ordered back to the stellium orbit. There is nowhere in the
+	// stellium orbit to go, so the ship does not stir.
+	MoveNowhere MoveKind = iota
+	// MoveHop crosses 0.1 LY: between the stellium orbit and any planet of
+	// the stellium, or between two planets of one system.
+	MoveHop
+	// MoveCrossSystem crosses 0.2 LY, between planets of different systems of
+	// one stellium. It is two hops because the ship crosses the stellium orbit
+	// on the way.
+	MoveCrossSystem
+)
+
+// KindOfMove classifies a move from one place inside a stellium to another. A
+// system of zero is the stellium orbit, which every system is one hop away
+// from.
+//
+// A ship ordered to the planet it is already at still makes a hop. It has to
+// break orbit and settle again, which costs the same as crossing to any other
+// planet of the system; only a ship going nowhere in the stellium orbit stays
+// put. That is why the planets do not enter into this: whether the endpoints
+// are the same planet or different ones, the cost is the same.
+func KindOfMove(startSystemID, endSystemID int64) MoveKind {
+	switch {
+	case startSystemID == 0 && endSystemID == 0:
+		return MoveNowhere
+	case startSystemID != 0 && endSystemID != 0 && startSystemID != endSystemID:
+		return MoveCrossSystem
+	default:
+		return MoveHop
+	}
+}
 
 // Drive is the jump drive assembled from a ship's component HDRV units. The
 // zero Drive is a ship that cannot jump at all.
@@ -71,11 +111,44 @@ func SquaredDistance(x1, y1, z1, x2, y2, z2 int) int {
 	return dx*dx + dy*dy + dz*dz
 }
 
-// Distance returns the distance between two stellia: their Euclidean distance
-// rounded up to the next integer. Range tests use SquaredDistance; this reports
-// a distance to a player.
+// Distance returns the distance between two stellia in light years: their
+// Euclidean distance rounded up to the next whole light year. Range tests use
+// SquaredDistance; this reports a distance to a player and prices a jump.
 func Distance(x1, y1, z1, x2, y2, z2 int) int {
 	return int(math.Ceil(math.Sqrt(float64(SquaredDistance(x1, y1, z1, x2, y2, z2)))))
+}
+
+// FUEL costs are per assembled HDRV unit. Every unit draws: a ship cannot idle
+// part of its drive to save fuel, so a large drive is expensive to run even on
+// a short hop.
+const (
+	// FuelPerLightYear is the FUEL one unit burns per light year of a jump.
+	FuelPerLightYear = 40
+	// FuelPerHop is the FUEL one unit burns on a hop inside a stellium. A hop
+	// is a tenth of a light year, so this is FuelPerLightYear divided by ten.
+	FuelPerHop = FuelPerLightYear / 10
+	// FuelPerCrossSystem is the FUEL one unit burns crossing between systems
+	// of one stellium, which is two hops.
+	FuelPerCrossSystem = 2 * FuelPerHop
+)
+
+// FuelForMove returns the FUEL the drive burns on one move inside a stellium.
+func (d Drive) FuelForMove(kind MoveKind) int64 {
+	switch kind {
+	case MoveHop:
+		return d.Units * FuelPerHop
+	case MoveCrossSystem:
+		return d.Units * FuelPerCrossSystem
+	default:
+		return 0
+	}
+}
+
+// FuelForJump returns the FUEL the drive burns crossing lightYears between
+// stellia. A jump distance is always a whole number of light years, because it
+// is a Euclidean distance rounded up.
+func (d Drive) FuelForJump(lightYears int) int64 {
+	return d.Units * int64(lightYears) * FuelPerLightYear
 }
 
 // Load returns the jump drive assembled on one entity.

@@ -261,9 +261,26 @@ render deposit quantities as approximate quantities.
 
 ### `move_order`
 
-A move order stores the optional requested system letter, requested orbit, and
-the resolved destination stellium, system, and planet IDs. A successful move
-places the ship in ring 99.
+A move order stores the optional requested system letter, requested orbit, the
+resolved destination stellium, system, and planet IDs, and the fuel the move
+burns. A successful move to a planet places the ship in a ring drawn from 2
+through 99; the draw is seeded from `game.seed_high`, `game.seed_low`, the
+turn, and the order, so resolving a turn twice reaches the same rings. Distance
+inside a stellium is not stored: it takes one of three fixed values, which the
+engine reads off the start and destination systems, and fuel is the number a
+player sees.
+
+Requested orbit 11 is the stellium orbit, which no planet occupies. It resolves
+to a destination stellium with no system and no planet, and CHECK constraints
+tie the three together: orbit 11 exactly when the destination system is null,
+never qualified by a system letter, and a destination system and planet that
+are null together.
+
+`fuel_spent` on `move_order` and `jump_order` is the fuel the order would burn
+while it is pending, and the fuel it did burn once it resolves, which is zero
+for a failed order. Spending fuel deletes it from `inventory` and takes its
+mass off `entity.mass`, so an entity's mass stays the total of its population
+and inventory.
 
 Submission atomically replaces every kind of pending order for the faction and
 current turn. Semantic validation follows engine resolution order: all probes

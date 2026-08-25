@@ -45,11 +45,19 @@ func processOrderFile(ctx context.Context, directory, path string, submit bool) 
 	return orderpkg.Check(ctx, conn, file)
 }
 
+// writeOrderResult reports what was checked or submitted. Warnings follow the
+// summary: they do not stop a submission, so the operator sees the orders were
+// accepted and then what may still go wrong when the turn resolves.
 func writeOrderResult(w io.Writer, action string, result orderpkg.Result) error {
 	_, err := fmt.Fprintf(w, "%s %d orders for game %s turn %d faction %d\n",
 		action, result.Orders, result.GameCode, result.Turn, result.FactionID)
 	if err != nil {
 		return fmt.Errorf("write orders result: %w", err)
+	}
+	for _, warning := range result.Warnings {
+		if _, err := fmt.Fprintf(w, "warning: line %d: %s\n", warning.Line, warning.Message); err != nil {
+			return fmt.Errorf("write orders warning: %w", err)
+		}
 	}
 	return nil
 }

@@ -388,6 +388,93 @@ CREATE TABLE sensor_contact (
 CREATE INDEX probe_order_game_turn_idx ON probe_order(game_id, turn);
 CREATE INDEX probe_order_entity_id_idx ON probe_order(entity_id);
 `,
+	`
+CREATE TABLE move_order_migration_guard (id INTEGER);
+CREATE TRIGGER move_order_migration_requires_empty_move_order
+BEFORE INSERT ON move_order_migration_guard
+BEGIN
+    SELECT RAISE(ABORT, 'cannot migrate submitted move_order rows; preserve the order files, clear the submissions, and submit them after migration');
+END;
+INSERT INTO move_order_migration_guard SELECT 1 FROM move_order LIMIT 1;
+DROP TRIGGER move_order_migration_requires_empty_move_order;
+DROP TABLE move_order_migration_guard;
+DROP TABLE move_order;
+
+CREATE TABLE move_order (
+    game_id INTEGER NOT NULL,
+    turn INTEGER NOT NULL CHECK (turn >= 0),
+    faction_id INTEGER NOT NULL,
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    source_line INTEGER NOT NULL CHECK (source_line > 0),
+    ship_id INTEGER NOT NULL,
+    requested_system TEXT CHECK (requested_system IS NULL OR requested_system IN ('A', 'B', 'C', 'D', 'E')),
+    requested_orbit INTEGER NOT NULL CHECK (requested_orbit BETWEEN 1 AND 11),
+    destination_stellium_id INTEGER NOT NULL,
+    destination_system_id INTEGER,
+    destination_planet_id INTEGER,
+    distance_tenths INTEGER NOT NULL CHECK (distance_tenths >= 0),
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'succeeded', 'failed')),
+    error_message TEXT,
+    start_stellium_id INTEGER,
+    start_system_id INTEGER,
+    start_planet_id INTEGER,
+    start_planet_ring INTEGER,
+    final_stellium_id INTEGER,
+    final_system_id INTEGER,
+    final_planet_id INTEGER,
+    final_planet_ring INTEGER,
+    PRIMARY KEY (game_id, turn, faction_id, sequence),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
+    FOREIGN KEY (ship_id, faction_id) REFERENCES entity(id, faction_id),
+    FOREIGN KEY (destination_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (destination_system_id, destination_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (destination_planet_id, destination_system_id) REFERENCES planet(id, system_id),
+    FOREIGN KEY (start_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (start_system_id, start_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (start_planet_id, start_system_id) REFERENCES planet(id, system_id),
+    FOREIGN KEY (final_stellium_id, game_id) REFERENCES stellium(id, game_id),
+    FOREIGN KEY (final_system_id, final_stellium_id) REFERENCES system(id, stellium_id),
+    FOREIGN KEY (final_planet_id, final_system_id) REFERENCES planet(id, system_id),
+    -- Orbit 11 is the stellium orbit. It belongs to no system, so it names no
+    -- destination system or planet and cannot be qualified by a system letter.
+    CHECK ((requested_orbit = 11) = (destination_system_id IS NULL)),
+    CHECK (requested_orbit <> 11 OR requested_system IS NULL),
+    CHECK ((destination_system_id IS NULL) = (destination_planet_id IS NULL)),
+    CHECK (
+        (status = 'pending' AND error_message IS NULL
+            AND start_stellium_id IS NULL AND start_system_id IS NULL
+            AND start_planet_id IS NULL AND start_planet_ring IS NULL
+            AND final_stellium_id IS NULL AND final_system_id IS NULL
+            AND final_planet_id IS NULL AND final_planet_ring IS NULL)
+        OR
+        (status = 'succeeded' AND error_message IS NULL
+            AND start_stellium_id IS NOT NULL AND final_stellium_id IS NOT NULL)
+        OR
+        (status = 'failed' AND error_message IS NOT NULL AND error_message <> ''
+            AND start_stellium_id IS NOT NULL AND final_stellium_id IS start_stellium_id
+            AND final_system_id IS start_system_id AND final_planet_id IS start_planet_id
+            AND final_planet_ring IS start_planet_ring)
+    ),
+    CHECK ((start_system_id IS NULL AND start_planet_id IS NULL AND start_planet_ring IS NULL)
+        OR (start_system_id IS NOT NULL AND start_planet_id IS NOT NULL AND start_planet_ring IS NOT NULL)),
+    CHECK ((final_system_id IS NULL AND final_planet_id IS NULL AND final_planet_ring IS NULL)
+        OR (final_system_id IS NOT NULL AND final_planet_id IS NOT NULL AND final_planet_ring IS NOT NULL))
+);
+
+CREATE INDEX move_order_game_turn_idx ON move_order(game_id, turn);
+CREATE INDEX move_order_ship_id_idx ON move_order(ship_id);
+`,
+	`
+ALTER TABLE move_order ADD COLUMN fuel_spent INTEGER NOT NULL DEFAULT 0 CHECK (fuel_spent >= 0);
+ALTER TABLE jump_order ADD COLUMN fuel_spent INTEGER NOT NULL DEFAULT 0 CHECK (fuel_spent >= 0);
+`,
+	`
+-- Distance inside a stellium takes one of three fixed values, so the engine
+-- names the kind of move rather than measuring it. Fuel is the single number a
+-- player sees for what a move cost.
+ALTER TABLE move_order DROP COLUMN distance_tenths;
+`,
 }
 
 // SchemaVersion is the latest database schema version.

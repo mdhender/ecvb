@@ -74,7 +74,7 @@
       },
       "components": {
         "STRC-10": 2000,
-        "HDRV-1": 1,
+        "HDRV-3": 20,
         "SDRV-1": 1,
         "LFSU-1": 1,
         "SNSR-1": 1
@@ -88,7 +88,7 @@
         "FARM-1": 25,
         "FARM-2": 3,
         "FOOD": 1000,
-        "FUEL": 100,
+        "FUEL": 3500,
         "MINE-1": 1
       }
     }

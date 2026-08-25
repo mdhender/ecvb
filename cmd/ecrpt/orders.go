@@ -49,9 +49,11 @@ func showOrdersReport(ctx context.Context, directory, gameCode, email string, fa
 
 func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
 	fmt.Fprintf(w, "\n%s\n", heading)
-	fmt.Fprintln(w, "SEQUENCE\tLINE\tENTITY\tVERB\tINPUT\tSTATUS\tSTART\tFINAL\tERROR")
+	fmt.Fprintln(w, "SEQUENCE\tLINE\tENTITY\tVERB\tINPUT\tFUEL\tSTATUS\tSTART\tFINAL\tERROR")
+	// Fuel is the one number that prices a move or a jump: what the order
+	// would burn while it is pending, and what it did burn once it resolves.
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT sequence, source_line, ship_id, verb, input, status, error_message,
+		SELECT sequence, source_line, ship_id, verb, input, fuel_spent, status, error_message,
 			start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
 			final_stellium_id, final_system_id, final_planet_id, final_planet_ring
 		FROM (
@@ -60,6 +62,7 @@ func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 					THEN printf('orbit %d', requested_orbit)
 					ELSE printf('system %s orbit %d', requested_system, requested_orbit)
 				END AS input,
+				fuel_spent,
 				status, error_message,
 				start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
 				final_stellium_id, final_system_id, final_planet_id, final_planet_ring
@@ -68,6 +71,7 @@ func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 			UNION ALL
 			SELECT sequence, source_line, ship_id, 'jump' AS verb,
 				printf('(%d,%d,%d)', destination_x, destination_y, destination_z) AS input,
+				fuel_spent,
 				status, error_message,
 				start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
 				final_stellium_id, final_system_id, final_planet_id, final_planet_ring
@@ -77,9 +81,10 @@ func writeOrders(w io.Writer, conn *sqlite.Conn, gameCode string, turn int, fact
 		ORDER BY sequence, verb;`, &sqlitex.ExecOptions{
 		Args: []any{gameCode, turn, factionID, gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
 				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
-				stmt.ColumnText(4), stmt.ColumnText(5), orderLocation(stmt, 7), orderLocation(stmt, 11), nullableText(stmt, 6))
+				stmt.ColumnText(4), stmt.ColumnInt64(5), stmt.ColumnText(6),
+				orderLocation(stmt, 8), orderLocation(stmt, 12), nullableText(stmt, 7))
 			return nil
 		},
 	}); err != nil {

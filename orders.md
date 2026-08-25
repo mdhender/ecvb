@@ -101,8 +101,76 @@ move ship 2 to system B orbit 4
 ```
 
 The named system must exist in the ship's current stellium and must contain a
-planet in the requested orbit. Both forms place the ship in ring 99 at the
-destination planet.
+planet in the requested orbit. Both forms place the ship at the destination
+planet in a ring the game draws at random from 2 through 99. Ring 0 is the
+surface and ring 1 belongs to orbital colonies, so a ship arriving under its
+own power never lands in either. The draw is seeded from the game and the
+order, so re-resolving a turn puts the ship in the same ring.
+
+Return to the stellium orbit:
+
+```text
+move ship 2 to orbit 11
+```
+
+Orbit 11 does not exist. It is a fiction that gives `MOVE` a way to say "leave
+the planets", and it is the only orbit that is not a place: no planet occupies
+it, and a probe cannot read it. Because the stellium orbit belongs to no
+system, `move ship 2 to system A orbit 11` is an error. The ship ends the move
+orbiting the stellium with no system, planet, or ring, which is where a jump
+also leaves it.
+
+The ship's drive moves it. A move fails when the ship has no assembled `HDRV`
+units or when its mass exceeds their capacity. Distance does not limit a move:
+every move inside a stellium is well within the range of any drive.
+
+A move costs one of three fixed amounts of `FUEL`, per assembled `HDRV` unit:
+
+| Move | Fuel per unit |
+| --- | --- |
+| Stellium orbit to any planet of the stellium, or back | 4 |
+| Planet to planet in the same system | 4 |
+| Planet to the planet the ship is already at | 4 |
+| Planet to planet in different systems of the stellium | 8 |
+| Stellium orbit to the stellium orbit | 0 |
+
+A move between systems costs two hops because the ship crosses the stellium
+orbit on the way. A ship with more than one move order in a turn starts each
+move from where the previous one left it. A failed move burns nothing.
+
+Only one move is free. Ordering a ship in the stellium orbit to the stellium
+orbit is a no-op: there is nowhere to go, so it burns nothing and the ship is
+not touched. Ordering a ship to the planet it is **already at** is not a no-op:
+it breaks orbit and settles again, which costs a hop and draws a fresh ring. It
+is the one way to change a ship's ring without going anywhere.
+
+## Fuel
+
+Every `MOVE` and every `JUMP` burns `FUEL`, and every assembled `HDRV` unit
+draws. A `PROBE` burns none.
+
+A jump of X light years costs `40 * X` per unit. A move costs 4 or 8 per unit,
+as the table above shows; those are the same rate applied to the tenth and the
+fifth of a light year that a move covers, so nothing fractional is ever
+measured or stored. See [Unit Glossary](units.md) for the drive rules and the
+order the sections are drawn in.
+
+A ship that cannot pay for an order does not stop the submission. `orders
+check` and `orders submit` accept the file and warn:
+
+```text
+warning: line 5: ship 2 needs 960 FUEL to jump and will hold 144; the order fails unless fuel reaches the ship first
+```
+
+The warning is a projection: it charges each order in resolution order against
+what the ship is projected to hold, so a ship that runs dry partway through a
+file warns on every order after that. A ship still short of fuel when the
+engine reaches the order fails it, burning nothing and going nowhere, and the
+turn carries on.
+
+The warning is deliberately not an error, because fuel may reach the ship
+between submission and resolution. Nothing moves fuel between entities yet;
+transfer orders are not implemented.
 
 ## PROBE
 
@@ -195,6 +263,8 @@ ecrpt --db-path games/beta show orders --game BETA-001 --email user01@example.co
 Use `--turn NUMBER` to review the retained orders from the previous turn after
 the next turn has opened.
 
-The report displays each order's input, status, starting location, final
-location, and error message. Pending orders have no outcome locations. For a
-failed order, the starting and final locations are identical.
+The report displays each order's input, fuel, status, starting location, final
+location, and error message. Fuel is the one number that prices an order,
+whether it is a move or a jump. Pending orders have no outcome locations, and
+their fuel is what the order would burn. For a failed order, the starting and
+final locations are identical and the fuel is zero.
