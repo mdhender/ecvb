@@ -1,4 +1,5 @@
 game "CLAUDE-01" turn 0
 id faction 1
 
-jump ship 4 to (-4,7,8)
+probe colony 1 orbit 3 7
+probe ship 4 orbit 1 2 5 6 8 9

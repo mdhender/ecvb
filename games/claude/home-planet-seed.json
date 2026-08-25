@@ -12,7 +12,8 @@
         "NAS": 110
       },
       "components": {
-        "STRC-10": 250
+        "STRC-10": 250,
+        "SNSR-1": 2
       },
       "operational": {
         "FARM-1": 90,
@@ -77,7 +78,7 @@
         "HDRV-8": 8,
         "SDRV-1": 1,
         "LFSU-1": 1,
-        "SNSR-1": 1
+        "SNSR-2": 3
       },
       "operational": {
         "FARM-2": 12
