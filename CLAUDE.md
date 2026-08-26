@@ -183,11 +183,16 @@ The two docs are reconciled: every accepted verb lands on a step of a stage, and
 `docs/turn-sequence.md` is the authority on *when* an order takes effect. Its
 twenty-two stages are forty-two phases, because a stage's lettered steps run in
 their letter order and a step is exactly a `Phase`. Six stages are pure sweeps;
-four are orders *and* a sweep -- combat, the market, espionage, the news service
--- where the orders declare intent and one sweep settles all of them against
-each other. Two orders will outlive the turn that carries them, `create` and a
-reworked `jump`, which the three-way `status` CHECK and `ec turn open`'s purge
-have to learn about first.
+five are orders *and* a sweep -- combat, the market, espionage, ship movement,
+the news service -- where the orders declare intent and one sweep settles all of
+them against each other.
+
+Two effects will outlive the turn that ordered them, and they are not the same
+shape. A `jump` order departs and *succeeds*; what continues is a ship in
+transit, which will be a row of its own -- ship, destination stellium, arrival
+turn -- landed by a sweep on the jump phase, so `jump` needs no new order state.
+A `create` keeps running, which the three-way `status` CHECK and `ec turn
+open`'s purge have to learn about first.
 
 ## Turn lifecycle
 

@@ -27,9 +27,8 @@ the surrounding detail, but it does not say what a group produces per turn, what
 a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
 See "What the code still has to be told" below for the list, verb by verb.
-`create` and the `jump` rework wait on one thing more, the pipeline's own
-missing state for an order that outlives its turn; both decisions that was
-waiting on are now taken, so that piece is buildable whenever it is wanted.**
+The `jump` rework is the exception and waits on nothing: it is fully specified
+and buildable today, and it no longer shares a prerequisite with `create`.**
 
 ---
 
@@ -481,11 +480,13 @@ alternative was moving `Phase` off `Spec` onto the bound order; renaming two
 words was smaller than making every other order pay for one order's grammar.
 
 Three shapes came out of it that the engine has to be built for. Six stages are
-pure sweeps; four are **orders and a sweep** -- combat, the market, espionage,
-and the news service -- where orders declare intent and one sweep settles all of
-them against each other. That third shape is not just combat: matching market
-offers by commission is structurally the same problem as a battle between the
-fleets that met.
+pure sweeps; five are **orders and a sweep** -- combat, the market, espionage,
+ship movement, and the news service -- where orders declare intent and one sweep
+settles all of them against each other. That third shape is not just combat:
+matching market offers by commission is structurally the same problem as a
+battle between the fleets that met. Ship movement joined the list late and for a
+milder reason: its sweep settles nothing between the orders, it only lands the
+ships whose crossing finished this turn.
 
 ### The parser reads the accepted surface
 
@@ -517,25 +518,27 @@ technology level -- 40 per assembled `HDRV` unit per light year -- so it is now
 the only thing that limits a long jump, and it grows linearly with the
 distance. The third change, the crossing taking more than one turn, is below.
 
-### Two orders outlive the turn that carries them
+### Two effects outlive the turn that ordered them
+
+This section used to read *two orders*, and used to say that one prerequisite
+blocked both. Both halves of that were wrong, and the decisions below are what
+showed it.
 
 `create` may take several turns to finish, which is why it pre-allocates its
-`CWKR` cadre and holds it for the duration, and `jump` is to become the same:
-a crossing of _d_ light years by a drive at technology level _t_ takes
-\(\lceil d / t \rceil\) turns. That is a pending change to a *built* order,
-due when the engine is next worked on.
+`CWKR` cadre and holds it for the duration, and `jump` takes
+\(\lceil d / t \rceil\) turns to cross _d_ light years at technology level
+_t_. Only `create` is an order that keeps running. A jump *departs* -- and what
+outlives the turn is a ship in transit, which is not the order at all.
 
-Nothing in the pipeline knows about such an order. `game_order.status` is a
-three-way CHECK -- `pending`, `succeeded`, `failed` -- where `pending` means
-submitted and not yet resolved, and `ec turn open` purges rows older than the
-most recently resolved turn. An order still running when its turn resolves is a
-fourth thing: resolved, not failed, not done. **The status column and the purge
-have to learn about it before batch 2 (`create`) or the `jump` rework can be
-built**, which makes it a prerequisite of two batches rather than a detail
-inside one.
+`create` is therefore the one that needs something the pipeline lacks.
+`game_order.status` is a three-way CHECK -- `pending`, `succeeded`, `failed` --
+where `pending` means submitted and not yet resolved, and `ec turn open` purges
+rows older than the most recently resolved turn. An order still running when its
+turn resolves is a fourth thing: resolved, not failed, not done. **The status
+column and the purge have to learn about it before batch 2 (`create`) can be
+built.** The `jump` rework was thought to need it too, and does not.
 
-Two rules that were open here are now settled, so the work is no longer waiting
-on a decision:
+Two rules that were open here are now settled:
 
 - **A jump's fuel is drawn in full on departure.** The whole bill -- 40 per
   assembled `HDRV` unit per light year -- is charged in the turn the order
@@ -544,19 +547,34 @@ on a decision:
   moves; it also means a ship that cannot pay never leaves, which is the answer
   that needs no rule for running dry halfway. `docs/accepted-orders.md` carried
   this as a TODO and now carries the decision.
-- **A ship in transit is nowhere.** `entity.stellium_id` becomes nullable and
-  the location CHECK grows an arm for a ship with no stellium, no system, no
-  planet, and no ring. A crossing ship is invisible to probes, to passive
-  sensors, and to the turn report until it arrives, because it is not anywhere
-  to be found. The alternative -- leaving it at its origin until the last turn
-  -- would have had a fleet that departed three turns ago still showing up on
-  someone's sensor sweep, which is worse than the query churn.
+- **A ship in transit is nowhere, and a crossing is a row of its own.**
+  `entity.stellium_id` becomes nullable and the location CHECK grows an arm for
+  a ship with no stellium, no system, no planet, and no ring; a new `in_transit`
+  table holds the ship, the stellium it is bound for, and the turn it is due.
+  The row is written when the jump executes and deleted when the ship arrives,
+  and it is the only thing that knows where the ship went. A crossing ship is
+  invisible to probes, to passive sensors, and to the turn report, and can be
+  given no order -- it cannot be recalled or redirected, which is deliberate:
+  a higher-technology drive does not reach further, since every drive reaches
+  everywhere, it spends fewer turns off the board. That is what makes building
+  one worth doing.
 
-That second decision is the expensive half, because every query that assumes an
-entity has a stellium has to be read: `world.Load`'s entity load, the probe and
-sensor sweeps, and the turn and stellium reports. It is a schema change, so it
-is a new migration, and `docs/model.md` and `docs/entity-location.md` move with
-it. Neither is written yet -- the schema still has the CHECK it always had.
+**This is what splits `jump` from `create`, and it is the useful consequence.**
+The crossing is not the order: the jump order departs, burns the whole fuel
+bill, and *succeeds*. So `jump` needs no fourth status and no change to the
+purge. It needs the nullable location, the `in_transit` table, and an arrival
+sweep on the existing jump phase, which lands every ship due that turn in the
+destination's stellium orbit at the end of stage 15b. A one-turn crossing is the
+degenerate case, written and consumed in the same sweep, so today's behaviour
+and its goldens fall out of the one path. The fourth status is now a `create`
+prerequisite alone, and `jump` can be built first and by itself.
+
+The nullable location is still the expensive half, because every query that
+assumes an entity has a stellium has to be read: `world.Load`'s entity load, the
+probe and sensor sweeps, and the turn and stellium reports. It is a schema
+change, so it is a new migration, and `docs/model.md` and
+`docs/entity-location.md` move with it. None of that is written yet -- the
+schema still has the CHECK it always had.
 
 ### What the code still has to be told
 
@@ -636,13 +654,13 @@ be told", and it is the 1978 text the user is supplying, verb by verb. Nothing
 in the code has to be prepared for it first, so a batch can be built the week
 its rules land.
 
-One piece is blocked on this repository rather than on the rules, and it is the
-only one: the pipeline has no state for an order that resolved without
-finishing, which `create` and the reworked `jump` both need. Both decisions that
-work was waiting on are now taken (see "Two orders outlive the turn that carries
-them"), so it can be built today, ahead of any rules. Build order when work
-resumes: the fourth status and the purge, then the `jump` duration on top of it,
-then whichever batch has rules.
+Two pieces are blocked on this repository rather than on the rules, and they
+have come apart. The **`jump` rework** is fully specified and depends on nothing
+else: a nullable entity location, an `in_transit` table, and an arrival sweep on
+the jump phase. It can be built today, ahead of any rules. **`create`** still
+needs the fourth order status and a purge that keeps it, which is now its
+prerequisite alone. Build order when work resumes: the `jump` rework, then
+whichever batch has rules, with `create` behind whatever its design settles on.
 
 The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
 `probe`, `name` -- and two of those still need reworking: `name` for naming

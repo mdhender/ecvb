@@ -377,9 +377,24 @@ whole crossing never leaves.
 
 A ship in transit is nowhere. It is at no stellium, no system, and no planet
 until it arrives, so it cannot be probed, does not appear on a passive sensor
-sweep, and cannot be given an order. It arrives at the destination's stellium
-orbit at the end of the last turn of the crossing, and may be ordered again the
-turn after that.
+sweep, and cannot be given an order of any kind. A crossing cannot be recalled,
+redirected, or cancelled once it has begun, and because the fuel was drawn on
+departure, a jump written to the wrong coordinates is not recoverable. That is
+the intended cost of a long crossing and the reason to build a drive of a higher
+technology level: a better drive is not a longer reach -- every drive reaches
+everywhere -- it is fewer turns spent off the board.
+
+An in-transit ship is a row of its own rather than a state of the order that
+started it: the ship, the stellium it is bound for, and the turn it is due. The
+row is written when the jump executes and deleted when the ship arrives, and it
+is the only thing that knows where the ship went. The ship arrives at the
+destination's stellium orbit at the end of ship movement on its due turn, so it
+is on the board for the next turn's orders and appears in the next turn's
+reports -- the same rule a single-turn jump already follows, because everything
+that reads the world happens before movement.
+
+A crossing of one turn is the same thing with nothing left over: the row is
+written and deleted in the same turn, and the ship arrives where it always did.
 
 ## Draft Orders
 

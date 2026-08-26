@@ -28,9 +28,11 @@ built.
   settled between the fleets that met rather than one order at a time, and the
   market matches offers across every faction that made one.
 
-Six stages are pure sweeps (1, 2, 3, 18, 19, 21) and four are orders and a
-sweep (4, 11, 14, 22). The rest are orders, except that stage 13 is one step of
-orders and one step that is a sweep.
+Six stages are pure sweeps (1, 2, 3, 18, 19, 21) and five are orders and a
+sweep (4, 11, 14, 15, 22). The rest are orders, except that stage 13 is one step
+of orders and one step that is a sweep. Stage 15 is the odd one of the five: its
+sweep settles nothing between the orders, it only lands the ships whose crossing
+finished this turn.
 
 A lettered sub-step is a step of a stage, and steps run in the lettered order:
 every order of step a resolves before any order of step b, whichever way round
@@ -270,21 +272,37 @@ other as a special case.
 
 ### 15. Ship movement occurs
 
-  a. Move orders executed -- `move`
-  b. Jump orders executed -- `jump`
+**Orders and a sweep.**
 
-Both sub-steps are orders. They are two phases and not one because every move
-must finish before any jump begins: a ship moves inside its stellium, then
-jumps between stellia, and a file that writes the jump first still moves first.
+  a. Move orders executed -- `move`
+  b. Jump orders executed -- `jump`, then arrivals
+
+Step a is orders. Step b is orders and a sweep. They are two phases and not one
+because every move must finish before any jump begins: a ship moves inside its
+stellium, then jumps between stellia, and a file that writes the jump first
+still moves first.
 
 A jump begins from the stellium orbit, which is why step a is ahead of step b
 rather than merely beside it: a ship at a planet has to be moved out in the
 same turn before it can go. That much is built.
 
-A jump of _d_ light years by a drive at technology level _t_ will take
-\(\lceil d / t \rceil\) turns to complete. That is a pending change to the
-order rather than a rule of the stage, and it lands when the engine is
-implemented -- see *Orders that outlive their turn* below.
+A jump of _d_ light years by a drive at technology level _t_ takes
+\(\lceil d / t \rceil\) turns to complete, and the crossing is not the order.
+The order departs: it burns the whole fuel bill, takes the ship off the board,
+and succeeds. What is left behind is a row saying which ship is bound for which
+stellium and on which turn it is due. Step b's sweep is what reads those rows,
+and it lands every ship due this turn in the destination's stellium orbit.
+
+The sweep runs after step b's orders, so this turn's departures are settled
+before this turn's arrivals, and an arriving ship cannot be caught by a jump
+order written the turn it lands.
+
+A crossing of one turn is the degenerate case rather than a special one: the row
+is written by the order and consumed by the sweep in the same step b, which is
+the single-turn jump that is built today. One path serves both.
+
+This is a pending change to the order and the schema rather than a rule of the
+stage; it lands when the engine is next worked on.
 
 Everything that reads the world -- combat, surveys, probes, sensors, espionage
 -- has already happened, so a turn's movement is what the *next* turn's reports
@@ -425,22 +443,32 @@ also let `grant` and `refuse` split across stages 11 and 20 if that ever
 matters, but every other order would pay for it in reading to buy one order's
 grammar.
 
-## Orders that outlive their turn
+## What outlives the turn that ordered it
 
-Two orders are no longer finished when the turn that carried them resolves.
-`create` may take several turns, which is why it pre-allocates its `CWKR` cadre
-and holds it for the duration (stage 5), and `jump` is to become the same: the
-crossing takes \(\lceil d / t \rceil\) turns, the distance over the drive's
-technology level. That part of the jump rework is pending; the other two
-changes -- that a jump begins from the stellium orbit, and that technology
-level no longer caps the distance -- are built.
+Two effects outlast the turn that ordered them, and they are not the same shape.
 
-Nothing in the pipeline knows about such an order yet. Today `game_order.status`
-is a three-way `CHECK` -- `pending`, `succeeded`, `failed` -- where `pending`
-means submitted and not yet resolved, and where `ec turn open` purges rows older
-than the most recently resolved turn. An order still running at the end of its
-turn is a fourth thing: resolved, not failed, not done. Both the status column
-and the purge have to learn about it before either order can be built.
+`jump` is the smaller of the two, because the crossing is not the order. The
+order departs and is done -- fuel drawn, ship off the board, `succeeded` -- and
+what continues is a ship in transit, which is a row of its own naming the ship,
+the stellium it is bound for, and the turn it is due. Stage 15's arrival sweep
+consumes those rows. **So `jump` needs no new order state at all**: it needs the
+in-transit row, a nullable location on `entity` so a crossing ship is genuinely
+nowhere, and a sweep on the jump phase, which is a seam the engine already has.
+
+`create` is the larger one, and it is the only order that actually outlives
+itself: it holds its `CWKR` cadre for the duration (stage 5), so the *order* is
+still running rather than merely having left something behind. Today
+`game_order.status` is a three-way `CHECK` -- `pending`, `succeeded`, `failed`
+-- where `pending` means submitted and not yet resolved, and `ec turn open`
+purges rows older than the most recently resolved turn. An order still running
+at the end of its turn is a fourth thing: resolved, not failed, not done. The
+status column and the purge have to learn about it before `create` can be built.
+
+Splitting the two is worth the paragraph. It was written here as one problem
+blocking both orders; it is one problem blocking one order, and `jump` can go
+first and alone. Whether `create` is better modelled the same way -- as work in
+progress recorded beside the order rather than as a state of it -- is the open
+question, and the answer decides whether the fourth status is needed at all.
 
 ## What the sequence still does not settle
 
@@ -477,7 +505,7 @@ built.
 | 12. Surveys | `survey` | orders | no |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |
 | 14. Espionage | `assess`, `detect`, `obtain`, `convert`, `incite`, `neutralize` | orders + sweep | no |
-| 15. Ship movement | `move`, `jump` | orders | **yes** |
+| 15. Ship movement | `move`, `jump` | orders, orders + sweep | **yes**, less the arrival sweep |
 | 16. Draft and disband | `draft`, `disband` | orders | no |
 | 17. Pay and rations | `pay`, `rations` | orders | no |
 | 18. Rebellion | `rebellion` | sweep | no |
