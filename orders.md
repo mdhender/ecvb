@@ -1,9 +1,24 @@
 # Order File Reference
 
 An order file identifies one game turn and one submitting faction, followed by
-zero or more orders. The engine resolves every `PROBE` order, then reads passive
-sensors, then resolves every `MOVE` order, then every `JUMP` order. File sequence controls orders for the same ship only when those orders
-resolve in the same phase, segment, and step.
+zero or more orders.
+
+A turn resolves in phases, and every order of one phase resolves before any
+order of the next, whichever way round the file wrote them. File order decides
+only between orders of the same phase, segment, and step. The phases, in the
+order they happen:
+
+| # | Phase | What resolves |
+| --- | --- | --- |
+| 1 | probe | every `PROBE` order |
+| 2 | sensor | every assembled `SNSR` reads the sky from where it stands; no order is given for it |
+| 3 | move | every `MOVE` order |
+| 4 | jump | every `JUMP` order |
+
+Probes and passive sensors both read where things stood when the turn began, so
+both settle before anything moves; a ship that jumps this turn reports its new
+stellium in next turn's report. `ec orders help` prints this table from the
+same list the engine walks, so it cannot fall behind.
 
 ## File names
 

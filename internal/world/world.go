@@ -232,6 +232,41 @@ func (w *World) RecordProbe(turn int, factionID, planetID int64) error {
 	return nil
 }
 
+// RecordSensors snapshots what every sensor-equipped entity reads from where it
+// stands. The reading is stored rather than derived at report time because the
+// entity may move or jump later in the turn, and what it saw is what it saw.
+func (w *World) RecordSensors(turn int) error {
+	for _, entity := range w.Entities() {
+		if !entity.Sensors.Installed() {
+			continue
+		}
+		if err := sqlitex.ExecuteTransient(w.conn, `
+			INSERT OR REPLACE INTO sensor_survey (game_id, turn, faction_id, entity_id, stellium_id, system_id, systems)
+			VALUES (?, ?, ?, ?, ?, ?, (SELECT count(*) FROM system WHERE stellium_id = ?));`, &sqlitex.ExecOptions{
+			Args: []any{w.game.ID, turn, entity.FactionID, entity.ID, entity.Location.StelliumID,
+				nullableID(entity.Location.SystemID), entity.Location.StelliumID},
+		}); err != nil {
+			return fmt.Errorf("record sensor survey for entity %d: %w", entity.ID, err)
+		}
+		if entity.Location.SystemID == 0 {
+			continue
+		}
+		// At a planet the sensors also read every ship and orbital colony
+		// around every planet of that system.
+		if err := sqlitex.ExecuteTransient(w.conn, `
+			INSERT OR REPLACE INTO sensor_contact (game_id, turn, faction_id, entity_id, planet_id, contact_id, unit, planet_ring, mass)
+			SELECT ?, ?, ?, ?, c.planet_id, c.id, c.unit, c.planet_ring, c.mass
+			FROM entity AS c
+			JOIN planet AS p ON p.id = c.planet_id
+			WHERE p.system_id = ? AND c.unit IN ('SHIP', 'CORB');`, &sqlitex.ExecOptions{
+			Args: []any{w.game.ID, turn, entity.FactionID, entity.ID, entity.Location.SystemID},
+		}); err != nil {
+			return fmt.Errorf("record sensor contacts for entity %d: %w", entity.ID, err)
+		}
+	}
+	return nil
+}
+
 func (w *World) loadStellia() error {
 	if err := sqlitex.ExecuteTransient(w.conn,
 		"SELECT id, x, y, z FROM stellium WHERE game_id = ?;", &sqlitex.ExecOptions{

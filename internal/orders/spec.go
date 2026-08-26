@@ -6,26 +6,55 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/mdhender/ecvb/internal/world"
 )
 
-// Phase is when in a turn an order resolves. Every order of one phase resolves
-// before any order of the next, whichever way round the player wrote them.
-type Phase int
+// Phase is a stage of a turn. Every order of one phase resolves before any
+// order of the next, whichever way round the player wrote them; file order
+// decides only between orders of the same phase.
+//
+// Most phases are their orders and nothing else. A phase may also carry a
+// Sweep, which is what the phase does apart from anyone's orders: the sensor
+// phase has no orders at all and is only its sweep, and combat, when it
+// arrives, will be mostly sweep, because a battle is settled between the
+// fleets that met rather than one order at a time.
+type Phase struct {
+	// Name identifies the phase to a player.
+	Name string
+	// Sweep runs after the phase's orders, or is the whole phase when it has
+	// none. nil for a phase that is only its orders.
+	Sweep func(*world.World, int) error
+	// order is the phase's place in the turn, filled in from the table below.
+	order int
+}
 
-// The phases of a turn, in the order they resolve. Production and combat
-// append to this list.
-const (
-	PhaseProbe Phase = iota
-	PhaseMove
-	PhaseJump
+// The phases of a turn. Production and combat will be new entries here and a
+// Phase on their orders' Specs; nothing else has to learn about them.
+var (
+	PhaseProbe  = &Phase{Name: "probe"}
+	PhaseSensor = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
+	PhaseMove   = &Phase{Name: "move"}
+	PhaseJump   = &Phase{Name: "jump"}
 )
 
-// Phases lists the phases of a turn in resolution order.
-func Phases() []Phase { return []Phase{PhaseProbe, PhaseMove, PhaseJump} }
+// phases is the turn, in the order it happens. Probes and passive sensors both
+// read where things stood when the turn began, so both come before anything
+// moves; a ship that jumps this turn reports its new stellium next turn.
+var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump}
+
+func init() {
+	for i, phase := range phases {
+		phase.order = i
+	}
+}
+
+// Phases lists the phases of a turn in the order they resolve.
+func Phases() []*Phase { return phases }
 
 // PhaseOf is when an order resolves. An unregistered verb never reaches this:
 // the parser refuses a line before it becomes an order.
-func PhaseOf(verb string) Phase {
+func PhaseOf(verb string) *Phase {
 	if spec, ok := Lookup(verb); ok {
 		return spec.Phase
 	}
@@ -43,8 +72,8 @@ type Spec struct {
 	Summary string
 	// Syntax lists every legal form of the order.
 	Syntax []string
-	// Phase is when in a turn the order resolves.
-	Phase Phase
+	// Phase is the stage of a turn the order resolves in.
+	Phase *Phase
 	// Parse reads the rest of the line, after the verb.
 	Parse func(line *Line) (Params, error)
 }
@@ -105,15 +134,21 @@ func (s *Spec) syntaxError() error {
 	return fmt.Errorf("expected %s", strings.Join(s.Syntax, ", or "))
 }
 
-// Help returns the reference `ec orders help` prints.
+// Help returns the reference `ec orders help` prints. It opens with the turn,
+// because when an order takes effect is as much a part of writing a file as
+// what the order says.
 func Help() string {
 	var out strings.Builder
-	out.WriteString("ORDERS\n")
+	out.WriteString("ORDERS\n\n")
+	out.WriteString("A turn resolves in phases. Every order of one phase resolves before any\n")
+	out.WriteString("order of the next; the order of the lines in a file decides only between\n")
+	out.WriteString("orders of the same phase. The phases, in the order they happen:\n\n")
+	for i, phase := range phases {
+		fmt.Fprintf(&out, "  %d. %s\n", i+1, phase.Name)
+	}
 	for _, spec := range Specs() {
-		fmt.Fprintf(&out, "\n%s\n  %s\n", strings.ToUpper(spec.Verb), spec.Summary)
-		for _, form := range spec.Syntax {
-			fmt.Fprintf(&out, "    %s\n", form)
-		}
+		out.WriteString("\n")
+		out.WriteString(describe(spec))
 	}
 	return out.String()
 }
@@ -124,10 +159,14 @@ func HelpFor(verb string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unknown order %q; expected %s", verb, verbList())
 	}
+	return describe(spec), nil
+}
+
+func describe(spec *Spec) string {
 	var out strings.Builder
-	fmt.Fprintf(&out, "%s\n  %s\n", strings.ToUpper(spec.Verb), spec.Summary)
+	fmt.Fprintf(&out, "%s (%s phase)\n  %s\n", strings.ToUpper(spec.Verb), spec.Phase.Name, spec.Summary)
 	for _, form := range spec.Syntax {
 		fmt.Fprintf(&out, "    %s\n", form)
 	}
-	return out.String(), nil
+	return out.String()
 }

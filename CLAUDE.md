@@ -134,9 +134,31 @@ they resolved to, so `loadOrders` rebuilds `Params` and the same `Bind` runs.
 
 `internal/world` is what both halves are written against: one game's entities,
 stellia, systems, and planets, with mutations (`Move`, `BurnFuel`,
-`RecordProbe`, `SpendProbe`) that write through to SQLite and keep the loaded
-copy in step. That is what makes the second order of a turn measure a ship as
-the first order left it.
+`RecordProbe`, `SpendProbe`, `RecordSensors`) that write through to SQLite and
+keep the loaded copy in step. That is what makes the second order of a turn
+measure a ship as the first order left it.
+
+### Phases
+
+A turn is the table in `spec.go` and nothing else:
+
+```go
+var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump}
+```
+
+`orders.Phases()` is what both `simulate` and `engine.resolve` loop over, so
+adding a phase is an entry in that table plus a `Phase` on the Specs that
+resolve in it — no `switch`, no new pass, nothing in the engine to edit. A
+phase may carry a `Sweep func(*world.World, int) error`, which is what the
+phase does apart from anyone's orders: `PhaseSensor` has no orders at all and
+is only its sweep, and combat will be a phase that is mostly sweep, because a
+battle is settled between the fleets that met rather than one order at a time.
+Sweeps run in check and submit as well as in resolve, inside the rolled-back
+savepoint, so a check stays a faithful dry run once a sweep starts changing the
+world the later phases see.
+
+`ec orders help` prints the phase list and tags each order with its phase, from
+the same table, so the reference cannot fall behind the engine.
 
 ## Turn lifecycle
 
@@ -148,7 +170,7 @@ the first order left it.
    turn. `Check` runs exactly the same thing and keeps nothing.
 2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
    `orders.Phases()` in order: **every order of one phase resolves before any
-   order of the next**, today probe, then move, then jump. Expected game-rule
+   order of the next**, today probe, sensor, move, jump. Expected game-rule
    failures are recorded on the order row (`status = 'failed'` plus
    `error_message`, final location equal to start location) and do not abort the
    turn; database/state errors roll the turn back. State flips

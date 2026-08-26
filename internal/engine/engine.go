@@ -124,6 +124,8 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 	}
 
 	result = Result{GameCode: gameCode, Turn: turn, Orders: count}
+	// The turn is its phases, in the order the table gives them. Adding a
+	// phase is an entry in that table, not a case here.
 	for _, phase := range orders.Phases() {
 		for _, order := range submitted[phase] {
 			if err := ctx.Err(); err != nil {
@@ -140,14 +142,12 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 				result.Failed++
 			}
 		}
-		if phase == orders.PhaseProbe {
-			// Probes and passive sensors both read the turn's starting
-			// positions, so the survey is taken once every probe has fired and
-			// before anything moves. A ship that jumps this turn reports its
-			// new stellium in the next turn's report, not this one's.
-			if err := recordPassiveSensors(conn, game.ID, turn, loaded); err != nil {
-				return Result{}, nil, err
-			}
+		if phase.Sweep == nil {
+			continue
+		}
+		if err := phase.Sweep(loaded, turn); err != nil {
+			return Result{}, nil, fmt.Errorf("resolve the %s phase of game %q turn %d: %w",
+				phase.Name, gameCode, turn, err)
 		}
 	}
 	if err := sqlitex.ExecuteTransient(conn, `
@@ -271,8 +271,8 @@ func requireGameTurn(conn *sqlite.Conn, code string, turn int, state string) (*w
 // loadOrders reads a turn's submitted orders, grouped by the phase they
 // resolve in. Step 4 of the order-pipeline rework replaces the three tables
 // and these three queries with one.
-func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[orders.Phase][]storedOrder, int, error) {
-	byPhase := make(map[orders.Phase][]storedOrder)
+func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[*orders.Phase][]storedOrder, int, error) {
+	byPhase := make(map[*orders.Phase][]storedOrder)
 	count := 0
 	add := func(order storedOrder) {
 		phase := orders.PhaseOf(order.verb)
@@ -354,41 +354,6 @@ func requirePending(stmt *sqlite.Stmt, kind string, column int) error {
 	if status := stmt.ColumnText(column); status != "pending" {
 		return fmt.Errorf("%s order for faction %d sequence %d is already %s",
 			kind, stmt.ColumnInt64(0), stmt.ColumnInt(1), status)
-	}
-	return nil
-}
-
-// recordPassiveSensors snapshots what every sensor-equipped entity reads from
-// where it stands at the start of the turn. The reading is stored rather than
-// derived at report time because the entity may move or jump later in the turn.
-func recordPassiveSensors(conn *sqlite.Conn, gameID int64, turn int, loaded *world.World) error {
-	for _, entity := range loaded.Entities() {
-		if !entity.Sensors.Installed() {
-			continue
-		}
-		if err := sqlitex.ExecuteTransient(conn, `
-			INSERT OR REPLACE INTO sensor_survey (game_id, turn, faction_id, entity_id, stellium_id, system_id, systems)
-			VALUES (?, ?, ?, ?, ?, ?, (SELECT count(*) FROM system WHERE stellium_id = ?));`, &sqlitex.ExecOptions{
-			Args: []any{gameID, turn, entity.FactionID, entity.ID, entity.Location.StelliumID,
-				nullableID(entity.Location.SystemID), entity.Location.StelliumID},
-		}); err != nil {
-			return fmt.Errorf("record sensor survey for entity %d: %w", entity.ID, err)
-		}
-		if entity.Location.SystemID == 0 {
-			continue
-		}
-		// At a planet the sensors also read every ship and orbital colony
-		// around every planet of that system.
-		if err := sqlitex.ExecuteTransient(conn, `
-			INSERT OR REPLACE INTO sensor_contact (game_id, turn, faction_id, entity_id, planet_id, contact_id, unit, planet_ring, mass)
-			SELECT ?, ?, ?, ?, c.planet_id, c.id, c.unit, c.planet_ring, c.mass
-			FROM entity AS c
-			JOIN planet AS p ON p.id = c.planet_id
-			WHERE p.system_id = ? AND c.unit IN ('SHIP', 'CORB');`, &sqlitex.ExecOptions{
-			Args: []any{gameID, turn, entity.FactionID, entity.ID, entity.Location.SystemID},
-		}); err != nil {
-			return fmt.Errorf("record sensor contacts for entity %d: %w", entity.ID, err)
-		}
 	}
 	return nil
 }

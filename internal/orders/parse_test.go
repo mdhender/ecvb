@@ -251,6 +251,9 @@ func TestEveryOrderDescribesItself(t *testing.T) {
 		if spec.Parse == nil {
 			t.Errorf("order %q has no parser", spec.Verb)
 		}
+		if spec.Phase == nil {
+			t.Errorf("order %q says nothing about when it resolves", spec.Verb)
+		}
 	}
 }
 

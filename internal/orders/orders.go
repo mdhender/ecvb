@@ -160,35 +160,47 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 
 	binder := &Binder{World: loaded, FactionID: factionID}
 	turn := &Turn{World: loaded, Number: submission.Turn, FactionID: factionID}
+	written := byPhase(submission.Orders)
 	var orders []placed
 	var warnings []Warning
 	sequence := 0
-	for _, order := range resolutionOrder(submission.Orders) {
-		if err := ctx.Err(); err != nil {
-			return validatedSubmission{}, err
-		}
-		bounds, err := order.Params.Bind(binder)
-		if err != nil {
-			// A Bind failure will still be a failure when the turn resolves,
-			// so the file is refused rather than stored. Every reason is
-			// reported: a player fixing a file sees the whole list.
-			for _, each := range eachError(err) {
-				found = append(found, problem{order.Line, each.Error()})
-			}
-			continue
-		}
-		for _, bound := range bounds {
-			sequence++
-			turn.Sequence = sequence
-			outcome, err := bound.Apply(turn)
-			if err != nil {
+	// The same turn the engine will resolve, phase by phase, so a file is
+	// priced against the world each phase leaves behind rather than against
+	// the world as it stands now.
+	for _, phase := range Phases() {
+		for _, order := range written[phase] {
+			if err := ctx.Err(); err != nil {
 				return validatedSubmission{}, err
 			}
-			if outcome.Status == StatusFailed {
-				warnings = append(warnings, Warning{Line: order.Line,
-					Message: outcome.Message + "; the order is kept in case that changes before the turn resolves"})
+			bounds, err := order.Params.Bind(binder)
+			if err != nil {
+				// A Bind failure will still be a failure when the turn
+				// resolves, so the file is refused rather than stored. Every
+				// reason is reported: a player fixing a file sees the list.
+				for _, each := range eachError(err) {
+					found = append(found, problem{order.Line, each.Error()})
+				}
+				continue
 			}
-			orders = append(orders, placed{sequence: sequence, line: order.Line, bound: bound})
+			for _, bound := range bounds {
+				sequence++
+				turn.Sequence = sequence
+				outcome, err := bound.Apply(turn)
+				if err != nil {
+					return validatedSubmission{}, err
+				}
+				if outcome.Status == StatusFailed {
+					warnings = append(warnings, Warning{Line: order.Line,
+						Message: outcome.Message + "; the order is kept in case that changes before the turn resolves"})
+				}
+				orders = append(orders, placed{sequence: sequence, line: order.Line, bound: bound})
+			}
+		}
+		if phase.Sweep == nil {
+			continue
+		}
+		if err := phase.Sweep(loaded, submission.Turn); err != nil {
+			return validatedSubmission{}, err
 		}
 	}
 	if len(found) != 0 {
@@ -203,15 +215,15 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	}, nil
 }
 
-// resolutionOrder is the order a turn resolves in: every order of one phase
-// before any order of the next, with orders of the same phase left in the
-// order the player wrote them.
-func resolutionOrder(written []Order) []Order {
-	sorted := slices.Clone(written)
-	slices.SortStableFunc(sorted, func(a, b Order) int {
-		return cmp.Compare(PhaseOf(a.Verb), PhaseOf(b.Verb))
-	})
-	return sorted
+// byPhase sorts a file's orders into the phases that will resolve them,
+// leaving the orders of one phase in the order the player wrote them.
+func byPhase(written []Order) map[*Phase][]Order {
+	grouped := make(map[*Phase][]Order, len(phases))
+	for _, order := range written {
+		phase := PhaseOf(order.Verb)
+		grouped[phase] = append(grouped[phase], order)
+	}
+	return grouped
 }
 
 func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, problems, error) {
