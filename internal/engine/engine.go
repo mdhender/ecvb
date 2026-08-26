@@ -294,7 +294,7 @@ func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[*orders.Phase][]
 			// one order either may be given.
 			add(storedOrder{
 				verb: "probe", factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2),
-				request: probeRequest(system, orbit),
+				request: orbitRequest(system, orbit),
 				params: orders.ProbeParams{
 					EntityID: stmt.ColumnInt64(3), System: system, Orbits: []int{orbit},
 				},
@@ -316,7 +316,7 @@ func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[*orders.Phase][]
 			system, orbit := nullableText(stmt, 4), stmt.ColumnInt(5)
 			add(storedOrder{
 				verb: "move", factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2),
-				request: fmt.Sprintf("system %s orbit %d", displaySystem(system), orbit),
+				request: orbitRequest(system, orbit),
 				params:  orders.MoveParams{ShipID: stmt.ColumnInt64(3), System: system, Orbit: orbit},
 			})
 			return nil
@@ -413,18 +413,15 @@ func updateProbeOutcome(conn *sqlite.Conn, gameID int64, turn int, item outcome)
 	return nil
 }
 
-func probeRequest(system string, orbit int) string {
+// orbitRequest echoes back an order that named an orbit, in the words the
+// player used. An order that named no system asked for the one its actor was
+// already in and says so by leaving the system out, exactly as the file did
+// and exactly as the orders report prints it.
+func orbitRequest(system string, orbit int) string {
 	if system == "" {
 		return fmt.Sprintf("orbit %d", orbit)
 	}
 	return fmt.Sprintf("system %s orbit %d", system, orbit)
-}
-
-func displaySystem(system string) string {
-	if system == "" {
-		return "current"
-	}
-	return system
 }
 
 func nullableText(stmt *sqlite.Stmt, column int) string {
