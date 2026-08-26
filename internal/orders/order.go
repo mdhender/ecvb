@@ -237,8 +237,7 @@ func (e bindErrors) Error() string {
 
 // eachError flattens what Bind returned into one message per thing wrong.
 func eachError(err error) []error {
-	var many bindErrors
-	if errors.As(err, &many) {
+	if many, ok := errors.AsType[bindErrors](err); ok {
 		return many
 	}
 	return []error{err}

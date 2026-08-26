@@ -22,8 +22,8 @@ func badSyntax(format string, args ...any) error {
 }
 
 func isSyntaxError(err error) bool {
-	var target syntaxErr
-	return errors.As(err, &target)
+	_, ok := errors.AsType[syntaxErr](err)
+	return ok
 }
 
 // wholeNumber converts a token, telling a value that is out of range from one
