@@ -21,7 +21,7 @@ func TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes(t *testing.T) {
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 		) VALUES
-			(1, 3, 1, 1, 5, 'move', 40, 'orbit 6', '{"orbit":6}'),
+			(1, 3, 1, 1, 5, 'move', 40, 'orbit 11', '{"orbit":11}'),
 			(1, 3, 1, 2, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}'),
 			(1, 3, 1, 3, 6, 'jump', 41, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
@@ -60,17 +60,23 @@ func TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes(t *testing.T) {
 		t.Fatalf("ship final location = (%d, system null %t, planet null %t, ring null %t)", stelliumID, systemIsNull, planetIsNull, ringIsNull)
 	}
 
-	var jumpStartPlanet int64
+	// The ship began the turn at planet 30 and the move took it to the stellium
+	// orbit. The jump records that as its start, which is the MOVE phase having
+	// gone first -- and a jump from planet 30 would not have bound at all.
+	var jumpStartStellium int64
+	var jumpStartedAtNoPlanet bool
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT start_planet_id FROM order_movement
+		SELECT start_stellium_id, start_planet_id IS NULL FROM order_movement
 		WHERE game_id = 1 AND turn = 3 AND faction_id = 1 AND sequence = 2;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
-		jumpStartPlanet = stmt.ColumnInt64(0)
+		jumpStartStellium = stmt.ColumnInt64(0)
+		jumpStartedAtNoPlanet = stmt.ColumnInt(1) != 0
 		return nil
 	}}); err != nil {
 		t.Fatal(err)
 	}
-	if jumpStartPlanet != 31 {
-		t.Fatalf("jump start planet = %d; want 31 after MOVE phase", jumpStartPlanet)
+	if jumpStartStellium != 10 || !jumpStartedAtNoPlanet {
+		t.Fatalf("jump started at stellium %d, planet null %t; want the stellium orbit of 10 after the MOVE phase",
+			jumpStartStellium, jumpStartedAtNoPlanet)
 	}
 
 	var status, message string
@@ -178,17 +184,23 @@ func openEngineTestDatabase(t *testing.T) *sqlite.Conn {
 	return conn
 }
 
-func TestResolveFailsJumpsBeyondDriveRangeAndCapacity(t *testing.T) {
-	// Stellium 11 is (1,2,3) from stellium 10, a distance of 4.
+func TestResolveFailsJumpsTheDriveCannotMake(t *testing.T) {
+	// Stellium 11 is (1,2,3) from stellium 10, a distance of 4. Ship 40 starts
+	// at a planet, so every case puts it in the stellium orbit first: a jump
+	// from a planet fails for that reason before the drive is measured.
+	const inTheStelliumOrbit = `
+		UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;`
 	for _, tc := range []struct {
 		name    string
 		setup   string
 		message string
 	}{
 		{
-			name:    "out of range",
-			setup:   `UPDATE inventory SET tech_level = 3 WHERE entity_id = 40 AND unit = 'HDRV';`,
-			message: "jump of 4 units exceeds ship 40 jump range of 3 units",
+			// Technology level no longer caps the distance. A drive that the
+			// old range rule refused makes this jump, and only its fuel grows.
+			name:    "at a planet rather than the stellium orbit",
+			setup:   `UPDATE entity SET system_id = 20, planet_id = 30, planet_ring = 64 WHERE id = 40;`,
+			message: "ship 40 is at a planet and a jump begins from the stellium orbit; move it to orbit 11 first",
 		},
 		{
 			name:    "too massive",
@@ -203,7 +215,7 @@ func TestResolveFailsJumpsBeyondDriveRangeAndCapacity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := openEngineTestDatabase(t)
-			if err := sqlitex.ExecuteScript(conn, tc.setup+`
+			if err := sqlitex.ExecuteScript(conn, inTheStelliumOrbit+tc.setup+`
 				INSERT INTO game_order (
 					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 				) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
@@ -240,9 +252,10 @@ func TestResolveFailsJumpsBeyondDriveRangeAndCapacity(t *testing.T) {
 
 func TestResolveAllowsJumpExactlyAtDriveLimits(t *testing.T) {
 	conn := openEngineTestDatabase(t)
-	// Range 4 reaches the distance of 4, and the drive propels exactly the mass.
+	// The drive propels exactly the mass, and the ship is in the stellium
+	// orbit, which is the only thing left that a jump has to be.
 	if err := sqlitex.ExecuteScript(conn, `
-		UPDATE entity SET mass = 4180 WHERE id = 40;
+		UPDATE entity SET mass = 4180, system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 		) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
@@ -260,15 +273,16 @@ func TestResolveAllowsJumpExactlyAtDriveLimits(t *testing.T) {
 
 func TestResolveProbesBeforeMovesAndRecordsFindings(t *testing.T) {
 	conn := openEngineTestDatabase(t)
-	// The probe reads planet 30, the ship's starting planet, before the jump
-	// carries the ship out of the system, so the finding has to survive the
-	// ship leaving.
+	// The probe reads planet 30, the ship's starting planet, before the move
+	// and the jump carry the ship out of the system, so the finding has to
+	// survive the ship leaving.
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 		) VALUES
 			(1, 3, 1, 1, 4, 'probe', 40, 'orbit 4', '{"orbits":[4]}'),
-			(1, 3, 1, 2, 5, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
+			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}'),
+			(1, 3, 1, 3, 6, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -276,8 +290,8 @@ func TestResolveProbesBeforeMovesAndRecordsFindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Orders != 2 || result.Succeeded != 2 {
-		t.Fatalf("result = %+v; want both orders to succeed", result)
+	if result.Orders != 3 || result.Succeeded != 3 {
+		t.Fatalf("result = %+v; want all three orders to succeed", result)
 	}
 
 	var status string
@@ -320,13 +334,15 @@ func TestResolveProbesBeforeMovesAndRecordsFindings(t *testing.T) {
 
 func TestResolveReadsPassiveSensorsBeforeAnythingMoves(t *testing.T) {
 	conn := openEngineTestDatabase(t)
-	// Ship 40 starts at planet 30 in system 20 of stellium 10 and jumps to
-	// stellium 11. Its sensors fire first, so this turn's survey is of
-	// stellium 10; stellium 11 is only surveyed next turn.
+	// Ship 40 starts at planet 30 in system 20 of stellium 10, moves out to the
+	// stellium orbit and jumps to stellium 11. Its sensors fire first, so this
+	// turn's survey is of stellium 10; stellium 11 is only surveyed next turn.
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
-		) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
+		) VALUES
+			(1, 3, 1, 1, 4, 'move', 40, 'orbit 11', '{"orbit":11}'),
+			(1, 3, 1, 2, 5, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}

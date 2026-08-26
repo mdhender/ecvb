@@ -1,9 +1,10 @@
 game "GOLD-01" turn 0
 id faction 1
 
-probe ship 100 orbit 4 6        # the home planet and its neighbour
-probe ship 100 system B orbit 4
-probe colony 101 orbit 4
-move ship 100 to orbit 6
-move ship 104 to orbit 6        # 104 holds 1 FUEL and a hop costs 4
-jump ship 100 to (1,2,2)
+ship 100 probe orbit 4 6        # the home planet and its neighbour
+ship 100 probe system B orbit 4
+colony 101 probe orbit 4
+ship 100 move to orbit 6
+ship 104 move to orbit 6        # 104 holds 1 FUEL and a hop costs 4
+ship 100 move to orbit 11       # a jump begins from the stellium orbit
+ship 100 jump to (1,2,2)

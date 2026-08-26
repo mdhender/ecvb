@@ -1,9 +1,9 @@
 game "GOLD-01" turn 1
 id faction 1
 
-probe ship 100 system A orbit 1
-move ship 100 to system A orbit 1
-move ship 100 to orbit 11
-name ship 100 "Bellerophon"
-name (1,2,2) "Near"
-name (1,2,2) system A orbit 1 "Landfall"
+ship 100 probe system A orbit 1
+ship 100 move to system A orbit 1
+ship 100 move to orbit 11
+ship 100 name "Bellerophon"
+we name (1,2,2) "Near"
+we name (1,2,2) system A orbit 1 "Landfall"

@@ -163,18 +163,26 @@ func parseIdentityLine(line *Line, submission *Submission) error {
 	return nil
 }
 
-// parseOrder dispatches on the verb, so a line is only ever measured against
-// the forms of the order it names.
+// parseOrder reads the subject, then dispatches on the verb, so a line is only
+// ever measured against the forms of the order it names -- and only ever
+// against the forms its subject may be given.
 func parseOrder(line *Line) (Order, error) {
+	subject, err := parseSubject(line)
+	if err != nil {
+		return Order{}, err
+	}
 	verb, ok := line.next()
 	if !ok || verb.quoted {
-		return Order{}, fmt.Errorf("expected an order; %s", verbList())
+		return Order{}, fmt.Errorf("expected an order after %s; %s", subjectNoun(subject.Kind), verbList())
 	}
 	spec, ok := Lookup(verb.text)
 	if !ok {
 		return Order{}, fmt.Errorf("unknown order %q; expected %s", verb.text, verbList())
 	}
-	params, err := spec.Parse(line)
+	if !spec.accepts(subject.Kind) {
+		return Order{}, spec.subjectError(subject.Kind)
+	}
+	params, err := spec.Parse(subject, line)
 	if err != nil {
 		// A field that was read but wrong says so itself. A form that never
 		// matched reports this verb's syntax instead.
@@ -187,4 +195,23 @@ func parseOrder(line *Line) (Order, error) {
 		return Order{}, spec.syntaxError()
 	}
 	return Order{Line: line.Number, Verb: spec.Verb, Params: params}, nil
+}
+
+// parseSubject reads who the order is being given to. Every order opens with
+// it, so the parser knows the actor before it knows the verb, and an order
+// never reads its own actor.
+func parseSubject(line *Line) (Subject, error) {
+	kind, ok := line.keyword(SubjectShip, SubjectColony, SubjectFaction)
+	if !ok {
+		return Subject{}, fmt.Errorf("expected an order to begin with %s, %s, or %s",
+			SubjectShip, SubjectColony, SubjectFaction)
+	}
+	if kind == SubjectFaction {
+		return Subject{Kind: kind}, nil
+	}
+	id, err := line.entityID(kind)
+	if err != nil {
+		return Subject{}, err
+	}
+	return Subject{Kind: kind, ID: id}, nil
 }

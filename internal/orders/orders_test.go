@@ -17,9 +17,9 @@ import (
 const validOrders = `game "TEST" turn 3
 id player " PLAYER@EXAMPLE.COM "
 
-move ship 40 to orbit 6
-jump ship 40 to (1,2,3)
-move ship 40 to system b orbit 4
+ship 40 move to system b orbit 4
+ship 40 move to orbit 11
+ship 40 jump to (1,2,3)
 `
 
 func TestCheckValidatesSequentialOrdersWithoutWriting(t *testing.T) {
@@ -49,9 +49,10 @@ func TestCheckPutsTheWorldBackTheWayItFoundIt(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 orbit 4
-move ship 40 to orbit 6
-jump ship 40 to (1,2,3)
+ship 40 probe orbit 4
+ship 40 move to orbit 6
+ship 40 move to orbit 11
+ship 40 jump to (1,2,3)
 `
 	before := worldSnapshot(t, conn)
 	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
@@ -87,12 +88,15 @@ func worldSnapshot(t *testing.T, conn *sqlite.Conn) string {
 	return strings.Join(parts, " | ")
 }
 
+// A jump begins from the stellium orbit and ship 40 starts at a planet, so
+// this file only binds if the move on the second line resolved before the jump
+// on the first. The phase order is proved by a rule rather than by a count.
 func TestCheckValidatesMovesBeforeJumpsRegardlessOfFileOrder(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 3
 id faction 1
-jump ship 40 to (1,2,3)
-move ship 40 to orbit 4
+ship 40 jump to (1,2,3)
+ship 40 move to orbit 11
 `
 	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
 		t.Fatalf("Check: %v", err)
@@ -103,10 +107,10 @@ func TestCheckReportsInvalidTargets(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 4
 id faction 1
-jump ship 999 to (1,2,3)
-move ship 41 to orbit 6
-jump ship 42 to (1,2,3)
-jump ship 40 to (9,9,9)
+ship 999 jump to (1,2,3)
+ship 41 move to orbit 6
+ship 42 jump to (1,2,3)
+ship 40 jump to (9,9,9)
 `
 	_, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err == nil {
@@ -148,8 +152,8 @@ func TestSubmitAtomicallyReplacesOrders(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"1|40|move|orbit 6",
-		"2|40|move|system B orbit 4",
+		"1|40|move|system B orbit 4",
+		"2|40|move|orbit 11",
 		"3|40|jump|(1,2,3)",
 	}
 	if strings.Join(rows, "\n") != strings.Join(want, "\n") {
@@ -312,22 +316,21 @@ func orderCount(t *testing.T, conn *sqlite.Conn) int {
 }
 
 func TestCheckRejectsJumpsTheDriveCannotMake(t *testing.T) {
-	// Stellium 11 is (1,2,3) from stellium 10, a distance of 4.
+	// Stellium 11 is (1,2,3) from stellium 10, a distance of 4. Ship 40 is put
+	// in the stellium orbit first, because a drive that cannot jump cannot
+	// move either and the move would fail before the jump was reached.
+	const inTheStelliumOrbit = `
+		UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;`
 	input := `game "TEST" turn 3
 id faction 1
 
-jump ship 40 to (1,2,3)
+ship 40 jump to (1,2,3)
 `
 	for _, tc := range []struct {
 		name    string
 		setup   string
 		problem string
 	}{
-		{
-			name:    "out of range",
-			setup:   `UPDATE inventory SET tech_level = 3 WHERE entity_id = 40 AND unit = 'HDRV';`,
-			problem: "jump of 4 units exceeds ship 40 jump range of 3 units",
-		},
 		{
 			name:    "too massive",
 			setup:   `UPDATE entity SET mass = 4181 WHERE id = 40;`,
@@ -341,7 +344,7 @@ jump ship 40 to (1,2,3)
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := openOrderTestDatabase(t)
-			if err := sqlitex.ExecuteScript(conn, tc.setup, nil); err != nil {
+			if err := sqlitex.ExecuteScript(conn, inTheStelliumOrbit+tc.setup, nil); err != nil {
 				t.Fatal(err)
 			}
 			_, err := Check(context.Background(), conn, strings.NewReader(input))
@@ -358,17 +361,40 @@ jump ship 40 to (1,2,3)
 	}
 }
 
-func TestCheckMeasuresASecondJumpFromTheFirstDestination(t *testing.T) {
+// A jump begins from the stellium orbit. A ship still at a planet when the
+// jump phase reaches it cannot go, and because that cannot change between the
+// file and the turn, it rejects the file rather than failing one order.
+func TestCheckRejectsAJumpFromAPlanet(t *testing.T) {
 	conn := openOrderTestDatabase(t)
-	// Ship 40 starts at the origin with a range of 4. Stellium 13 at (2,4,6)
-	// is 4 units from stellium 11 at (1,2,3) but 8 units from the origin, so
-	// the second jump is only legal when it is measured from the first jump's
-	// destination.
+	// Ship 40 starts at planet 30, and orbit 6 is another planet: a move that
+	// leaves the ship at a planet is no help.
 	input := `game "TEST" turn 3
 id faction 1
 
-jump ship 40 to (1,2,3)
-jump ship 40 to (2,4,6)
+ship 40 move to orbit 6
+ship 40 jump to (1,2,3)
+`
+	_, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err == nil {
+		t.Fatal("Check succeeded; want the jump rejected")
+	}
+	want := "line 5: ship 40 is at a planet and a jump begins from the stellium orbit; move it to orbit 11 first"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %v; want %q", err, want)
+	}
+}
+
+// Technology level used to cap how far a drive jumped. It no longer caps
+// anything: this jump is 8 light years with a technology level 4 drive, which
+// the old rule refused, and the only thing that grows with the distance is the
+// fuel. See TestSubmitPricesASecondJumpFromTheFirstDestination for that.
+func TestCheckAcceptsAJumpBeyondTheOldDriveRange(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 3
+id faction 1
+
+ship 40 move to orbit 11
+ship 40 jump to (2,4,6)
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
@@ -377,22 +403,65 @@ jump ship 40 to (2,4,6)
 	if result.Orders != 2 {
 		t.Errorf("orders = %d; want 2", result.Orders)
 	}
+	if len(result.Warnings) != 0 {
+		t.Errorf("warnings = %+v; want none", result.Warnings)
+	}
 }
 
-func TestCheckRejectsASecondJumpBeyondRangeOfTheFirstDestination(t *testing.T) {
+// A second jump starts where the first one landed. Nothing refuses a long jump
+// any more, so what proves it is the price: stellium 13 at (2,4,6) is 4 light
+// years from stellium 11 at (1,2,3) and 8 from the origin, and the second jump
+// is booked at the shorter one.
+func TestSubmitPricesASecondJumpFromTheFirstDestination(t *testing.T) {
 	conn := openOrderTestDatabase(t)
-	// Reversing the order puts stellium 13 first, 8 units from the origin.
 	input := `game "TEST" turn 3
 id faction 1
 
-jump ship 40 to (2,4,6)
+ship 40 move to orbit 11
+ship 40 jump to (1,2,3)
+ship 40 jump to (2,4,6)
 `
-	_, err := Check(context.Background(), conn, strings.NewReader(input))
-	if err == nil {
-		t.Fatal("Check succeeded; want the jump rejected")
+	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatalf("Submit: %v", err)
 	}
-	if want := "line 4: jump of 8 units exceeds ship 40 jump range of 4 units"; !strings.Contains(err.Error(), want) {
-		t.Errorf("error = %v; want %q", err, want)
+	var booked []string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%s|%s|%d', verb, input, fuel_spent)
+		FROM game_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			booked = append(booked, stmt.ColumnText(0))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// One HDRV unit at 40 FUEL per light year: 4 for the hop out, then two
+	// jumps of 4 light years each. Measured from the origin the second would
+	// have been 8 light years and 320 FUEL.
+	want := []string{"move|orbit 11|4", "jump|(1,2,3)|160", "jump|(2,4,6)|160"}
+	if strings.Join(booked, "\n") != strings.Join(want, "\n") {
+		t.Errorf("orders = %q; want %q", booked, want)
+	}
+}
+
+// A jump leaves the ship in the destination's stellium orbit, which is where
+// the next jump has to begin, so two jumps in one file need no move between
+// them.
+func TestCheckAcceptsASecondJumpWithNoMoveBetween(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 3
+id faction 1
+
+ship 40 move to orbit 11
+ship 40 jump to (1,2,3)
+ship 40 jump to (2,4,6)
+`
+	result, err := Check(context.Background(), conn, strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if result.Orders != 3 {
+		t.Errorf("orders = %d; want 3", result.Orders)
 	}
 }
 
@@ -403,7 +472,7 @@ func TestCheckAcceptsProbesWithinTheSensorBudget(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 orbit 4 6
+ship 40 probe orbit 4 6
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
@@ -423,24 +492,24 @@ func TestCheckRejectsProbesTheSensorsCannotSupport(t *testing.T) {
 	}{
 		{
 			name:    "over budget",
-			input:   "probe ship 40 orbit 4 6 4",
+			input:   "ship 40 probe orbit 4 6 4",
 			problem: "ship 40 has only 2 probes this turn",
 		},
 		{
 			name:    "empty orbit",
-			input:   "probe ship 40 orbit 5",
+			input:   "ship 40 probe orbit 5",
 			problem: "system current has no planet in orbit 5",
 		},
 		{
 			name:    "no sensors",
 			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'SNSR';`,
-			input:   "probe ship 40 orbit 4",
+			input:   "ship 40 probe orbit 4",
 			problem: "ship 40 has no assembled SNSR and cannot probe",
 		},
 		{
 			name:    "no system",
 			setup:   `UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;`,
-			input:   "probe ship 40 orbit 4",
+			input:   "ship 40 probe orbit 4",
 			problem: "ship 40 is orbiting the stellium; name a system to probe",
 		},
 	} {
@@ -471,8 +540,8 @@ func TestCheckProbesTheSystemTheShipStartsIn(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 orbit 6
-move ship 40 to system b orbit 4
+ship 40 probe orbit 6
+ship 40 move to system b orbit 4
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
@@ -490,9 +559,9 @@ func TestCheckOrdersProbesAheadOfMovesAndJumps(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to orbit 6
-jump ship 40 to (1,2,3)
-probe ship 40 orbit 4
+ship 40 move to orbit 11
+ship 40 jump to (1,2,3)
+ship 40 probe orbit 4
 `
 	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
 		t.Fatal(err)
@@ -518,7 +587,7 @@ func TestSubmitStoresOneProbeOrderForEachOrbit(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 orbit 4 6
+ship 40 probe orbit 4 6
 `
 	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
 		t.Fatal(err)
@@ -546,7 +615,7 @@ func TestCheckProbesANamedSystemOfTheCurrentStellium(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 system B orbit 4
+ship 40 probe system B orbit 4
 `
 	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
 		t.Fatalf("Check: %v", err)
@@ -564,7 +633,7 @@ func TestCheckProbesANamedSystemFromStelliumOrbit(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 system A orbit 4
+ship 40 probe system A orbit 4
 `
 	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
 		t.Fatalf("Check: %v", err)
@@ -576,7 +645,7 @@ func TestCheckRejectsAProbeOfASystemTheStelliumDoesNotHold(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 40 system C orbit 4
+ship 40 probe system C orbit 4
 `
 	_, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err == nil {
@@ -593,7 +662,7 @@ func TestCheckAcceptsAColonyProbe(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe colony 41 orbit 4
+colony 41 probe orbit 4
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
@@ -610,11 +679,11 @@ func TestCheckRejectsAProbeThatNamesTheWrongKindOfEntity(t *testing.T) {
 		input   string
 		problem string
 	}{
-		{name: "colony named as a ship", input: "probe ship 41 orbit 4", problem: "entity 41 is a COPN, not a ship"},
-		{name: "ship named as a colony", input: "probe colony 40 orbit 4", problem: "entity 40 is a ship, not a colony"},
-		// Only a probe may name a colony, so MOVE reports its own syntax
-		// rather than every form of every order in the game.
-		{name: "colony ordered to move", input: "move colony 41 to orbit 6", problem: "expected move ship SHIP-ID to orbit ORBIT"},
+		{name: "colony named as a ship", input: "ship 41 probe orbit 4", problem: "entity 41 is a COPN, not a ship"},
+		{name: "ship named as a colony", input: "colony 40 probe orbit 4", problem: "entity 40 is a ship, not a colony"},
+		// A colony is not a subject MOVE takes, so the line is refused before
+		// MOVE's parser ever sees it, and the error says who may be given one.
+		{name: "colony ordered to move", input: "colony 41 move to orbit 6", problem: "MOVE is given to a ship, not to a colony"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := openOrderTestDatabase(t)
@@ -638,9 +707,9 @@ func TestSubmitStoresMoveFuelAndTheStelliumOrbit(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to orbit 6
-move ship 40 to system B orbit 4
-move ship 40 to orbit 11
+ship 40 move to orbit 6
+ship 40 move to system B orbit 4
+ship 40 move to orbit 11
 `
 	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
 		t.Fatal(err)
@@ -673,7 +742,7 @@ func TestCheckRejectsMovesTheDriveCannotMake(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to orbit 6
+ship 40 move to orbit 6
 `
 	for _, tc := range []struct {
 		name    string
@@ -718,8 +787,8 @@ func TestCheckMovesFromTheStelliumOrbitAndRejectsQualifyingIt(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to orbit 11
-move ship 40 to orbit 4
+ship 40 move to orbit 11
+ship 40 move to orbit 4
 `
 	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err == nil ||
 		!strings.Contains(err.Error(), "line 5: ship has no current system") {
@@ -728,7 +797,7 @@ move ship 40 to orbit 4
 	qualified := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to system A orbit 11
+ship 40 move to system A orbit 11
 `
 	if _, err := Check(context.Background(), conn, strings.NewReader(qualified)); err == nil ||
 		!strings.Contains(err.Error(), "orbit 11 is the stellium orbit and belongs to no system") {
@@ -742,15 +811,15 @@ func TestCheckWarnsWhenTheShipCannotPayForItsOrders(t *testing.T) {
 		UPDATE inventory SET quantity = 200 WHERE entity_id = 40 AND unit = 'FUEL';`, nil); err != nil {
 		t.Fatal(err)
 	}
-	// Ship 40 has one HDRV-4 and 200 FUEL. The move burns 1 * 0.1 * 40 and
-	// each 4-unit jump burns 1 * 4 * 40, so the tank covers the move and the
-	// first jump but comes up short on the second.
+	// Ship 40 has one HDRV-4 and 200 FUEL. The move out to the stellium orbit
+	// burns 1 * 0.1 * 40 and each 4-light-year jump burns 1 * 4 * 40, so the
+	// tank covers the move and the first jump but comes up short on the second.
 	input := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to orbit 6
-jump ship 40 to (1,2,3)
-jump ship 40 to (0,0,0)
+ship 40 move to orbit 11
+ship 40 jump to (1,2,3)
+ship 40 jump to (0,0,0)
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
@@ -781,8 +850,8 @@ func TestCheckWarnsOnceTheTankIsEmptyAndSubmitKeepsTheOrders(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-move ship 40 to orbit 6
-move ship 40 to orbit 4
+ship 40 move to orbit 6
+ship 40 move to orbit 4
 `
 	result, err := Submit(context.Background(), conn, strings.NewReader(input))
 	if err != nil {

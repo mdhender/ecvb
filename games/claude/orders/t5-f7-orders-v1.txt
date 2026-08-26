@@ -1,5 +1,6 @@
 game "CLAUDE-01" turn 5
 id faction 7
 
-probe ship 24 system A orbit 4
-jump ship 24 to (-6,0,-15)
+ship 24 probe system A orbit 4
+ship 24 move to orbit 11
+ship 24 jump to (-6,0,-15)

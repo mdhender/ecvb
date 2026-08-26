@@ -85,20 +85,28 @@ things: a `Spec`, a `Params` type, and a `Bound` type.
 
 ```go
 register(&Spec{
-    Verb:    "move",
-    Summary: "move a ship inside its stellium, to a planet or to the stellium orbit",
-    Syntax:  []string{"move ship SHIP-ID to orbit ORBIT", ...},
-    Phase:   PhaseMove,
-    Parse:   func(line *Line) (Params, error) { ... },
+    Verb:     "move",
+    Subjects: []string{SubjectShip},
+    Summary:  "move a ship inside its stellium, to a planet or to the stellium orbit",
+    Syntax:   []string{"ship SHIP-ID move to orbit ORBIT", ...},
+    Phase:    PhaseMove,
+    Parse:    func(subject Subject, line *Line) (Params, error) { ... },
 })
 ```
 
-The parser tokenizes a line once and dispatches on its verb, so a line is only
-ever measured against the forms of the order it names, and a mistyped verb is
-told which orders exist. `Parse` consumes from a `*Line` using the shared field
-readers in `token.go` -- `entityID`, `number`, `systemLetter`, `coordinates`,
-`orbitList`, `quoted` -- rather than a regex per surface form, and returns the
-order's own `Params` type, so a field belongs to the one order that has it.
+Every order line is **subject first**: `ship 18 jump to (-1,2,3)`,
+`colony 24 probe orbit 5`, `we name (-1,2,3) "Stellium Joe"`. The parser
+tokenizes the line once, reads the subject, then dispatches on the verb, so a
+line is only ever measured against the forms of the order it names -- and only
+against the forms its subject may be given. `Subjects` is that list, and a line
+whose subject is not on it is refused before `Parse` ever runs, so no order
+checks who it was given to. `we` is the faction itself and carries no id.
+
+`Parse` receives the subject already read and consumes the rest from a `*Line`
+using the shared field readers in `token.go` -- `entityID`, `number`,
+`systemLetter`, `coordinates`, `orbitList`, `quoted` -- rather than a regex per
+surface form, and returns the order's own `Params` type, so a field belongs to
+the one order that has it.
 
 Syntax errors are of two kinds and are treated differently. A line that never
 matched the shape of its order returns a `syntaxErr` (every `expect` does), and

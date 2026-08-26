@@ -35,97 +35,107 @@ func TestSubmitRejects(t *testing.T) {
 	}{
 		{
 			name:  "no drive",
-			order: "move ship 102 to orbit 6",
+			order: "ship 102 move to orbit 6",
 			want:  "ship 102 has no assembled HDRV and cannot move",
 		},
 		{
 			name:  "ship outweighs its drive",
-			order: "move ship 103 to orbit 6",
+			order: "ship 103 move to orbit 6",
 			want:  "ship 103 masses 9000 MU and its drive propels 1045 MU",
 		},
 		{
-			name:  "jump beyond the drive's range",
-			order: "jump ship 100 to (3,4,0)",
-			want:  "jump of 5 units exceeds ship 100 jump range of 3 units",
+			// Ship 100 starts at a planet, and a jump begins from the stellium
+			// orbit. (3,4,0) is 5 light years away, which the drive's old
+			// range of 3 refused and nothing refuses now.
+			name:  "jump from a planet",
+			order: "ship 100 jump to (3,4,0)",
+			want:  "ship 100 is at a planet and a jump begins from the stellium orbit; move it to orbit 11 first",
 		},
 		{
 			name:  "jump to empty space",
-			order: "jump ship 100 to (9,9,9)",
+			order: "ship 100 jump to (9,9,9)",
 			want:  `game "GOLD-01" has no stellium at (9,9,9)`,
 		},
 		{
 			name:  "no planet in that orbit",
-			order: "move ship 100 to orbit 9",
+			order: "ship 100 move to orbit 9",
 			want:  "system current has no planet in orbit 9",
 		},
 		{
 			name:  "no such system in this stellium",
-			order: "probe ship 100 system E orbit 1",
+			order: "ship 100 probe system E orbit 1",
 			want:  "current stellium has no system E",
 		},
 		{
 			name:  "more probes than the sensors launch",
-			order: "probe ship 100 orbit 4 6 4 6 4",
+			order: "ship 100 probe orbit 4 6 4 6 4",
 			want:  "ship 100 has only 4 probes this turn",
 		},
 		{
 			name:  "a ship is not a colony",
-			order: "probe colony 100 orbit 4",
+			order: "colony 100 probe orbit 4",
 			want:  "entity 100 is a ship, not a colony",
 		},
 		{
 			name:  "another faction's ship",
-			order: "move ship 200 to orbit 6",
+			order: "ship 200 move to orbit 6",
 			want:  "ship 200 does not belong to faction 1",
 		},
 		{
 			name:  "the stellium orbit belongs to no system",
-			order: "move ship 100 to system A orbit 11",
+			order: "ship 100 move to system A orbit 11",
 			want:  "orbit 11 is the stellium orbit and belongs to no system",
 		},
 		{
 			name:  "a colony cannot move",
-			order: "move ship 101 to orbit 6",
+			order: "ship 101 move to orbit 6",
 			want:  "entity 101 is a COPN, not a ship",
 		},
 		{
+			// Written as a colony, the line never reaches MOVE's parser: the
+			// subject decides which orders a line may name.
+			name:  "an order given to a subject that cannot be given it",
+			order: "colony 101 move to orbit 6",
+			want:  "MOVE is given to a ship, not to a colony",
+		},
+		{
 			name:  "a name longer than a name may be",
-			order: `name ship 100 "twenty five characters!!!"`,
+			order: `ship 100 name "twenty five characters!!!"`,
 			want:  `a name may be 24 characters and "twenty five characters!!!" is 25`,
 		},
 		{
 			name:  "a name that begins with a space",
-			order: `name ship 100 " Bellerophon"`,
+			order: `ship 100 name " Bellerophon"`,
 			want:  "a name may not begin or end with a space",
 		},
 		{
 			name:  "a name with a gap in it",
-			order: `name ship 100 "Bell  erophon"`,
+			order: `ship 100 name "Bell  erophon"`,
 			want:  "a name may not hold two spaces in a row",
 		},
 		{
 			name:  "a name with nothing in it",
-			order: `name ship 100 ""`,
+			order: `ship 100 name ""`,
 			want:  "a name cannot be empty",
 		},
 		{
 			name:  "naming a stellium that is not there",
-			order: `name (9,9,9) "Nowhere"`,
+			order: `we name (9,9,9) "Nowhere"`,
 			want:  `game "GOLD-01" has no stellium at (9,9,9)`,
 		},
 		{
 			name:  "naming a system the stellium does not hold",
-			order: `name (0,0,0) system E "Elsewhere"`,
+			order: `we name (0,0,0) system E "Elsewhere"`,
 			want:  "the stellium at (0,0,0) has no system E",
 		},
 		{
 			name:  "naming a planet that is not in that orbit",
-			order: `name (0,0,0) system A orbit 9 "Empty"`,
+			order: `we name (0,0,0) system A orbit 9 "Empty"`,
 			want:  "system A has no planet in orbit 9",
 		},
 		{
 			name:  "naming another faction's ship",
-			order: `name ship 200 "Easy Target"`,
+			order: `ship 200 name "Easy Target"`,
 			want:  "ship 200 does not belong to faction 1",
 		},
 	} {

@@ -361,6 +361,19 @@ A tech level order names no quantity, because a technology level is bought once.
 
 > ship 18 jump to (-1,2,3)
 
+A jump begins from the stellium orbit, so a ship at a planet must be moved out
+to orbit 11 first. Every move resolves before any jump, so both orders may be
+written in one file.
+
+Technology level does not limit how far a drive jumps. It sets how long the
+crossing takes: a jump of _d_ light years by a drive at technology level _t_
+takes \(\lceil d / t \rceil\) turns to complete. `FUEL` is unchanged -- 40 per
+assembled `HDRV` unit per light year -- so the fuel is what makes a long jump
+expensive and the duration is what makes it slow.
+
+TODO: a jump that spans turns has to say when its fuel is drawn. Today the
+whole bill is charged when the order executes, which is the only turn there is.
+
 ## Draft Orders
 
 ### Draft Orders

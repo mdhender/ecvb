@@ -1,8 +1,8 @@
 game "GOLD-01" turn 2
 id faction 1
 
-probe ship 100 system A orbit 1
-move ship 100 to orbit 11
-jump ship 100 to (0,0,0)
-name ship 100 "Bucephalus"           # renaming replaces the old name
-name (0,0,0) system A "Home System"
+ship 100 probe system A orbit 1
+ship 100 move to orbit 11
+ship 100 jump to (0,0,0)
+ship 100 name "Bucephalus"           # renaming replaces the old name
+we name (0,0,0) system A "Home System"

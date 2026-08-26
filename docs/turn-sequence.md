@@ -277,7 +277,12 @@ Both sub-steps are orders. They are two phases and not one because every move
 must finish before any jump begins: a ship moves inside its stellium, then
 jumps between stellia, and a file that writes the jump first still moves first.
 
-A jump may take more than one turn to complete. That is a pending change to the
+A jump begins from the stellium orbit, which is why step a is ahead of step b
+rather than merely beside it: a ship at a planet has to be moved out in the
+same turn before it can go. That much is built.
+
+A jump of _d_ light years by a drive at technology level _t_ will take
+\(\lceil d / t \rceil\) turns to complete. That is a pending change to the
 order rather than a rule of the stage, and it lands when the engine is
 implemented -- see *Orders that outlive their turn* below.
 
@@ -424,8 +429,11 @@ grammar.
 
 Two orders are no longer finished when the turn that carried them resolves.
 `create` may take several turns, which is why it pre-allocates its `CWKR` cadre
-and holds it for the duration (stage 5), and `jump` is to become the same --
-a pending change, due when the engine is implemented.
+and holds it for the duration (stage 5), and `jump` is to become the same: the
+crossing takes \(\lceil d / t \rceil\) turns, the distance over the drive's
+technology level. That part of the jump rework is pending; the other two
+changes -- that a jump begins from the stellium orbit, and that technology
+level no longer caps the distance -- are built.
 
 Nothing in the pipeline knows about such an order yet. Today `game_order.status`
 is a three-way `CHECK` -- `pending`, `succeeded`, `failed` -- where `pending`

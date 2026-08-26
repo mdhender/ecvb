@@ -13,9 +13,9 @@ this plan removes them before adding the orders.
 
 **Status: steps 0 through 4 are done. Step 5 has begun: NAME is built
 (`e3eada9`) and `docs/accepted-orders.md` is now accepted rather than proposed.
-It specifies a surface the built parser cannot read, so the parser rewrite comes
-first. The accepted verbs are now mapped onto `docs/turn-sequence.md`, which is
-twenty-two stages and forty-two phases -- see "The turn sequence and the
+The parser now reads that surface: every order line is subject first, and `we`
+is a subject. The accepted verbs are mapped onto `docs/turn-sequence.md`, which
+is twenty-two stages and forty-two phases -- see "The turn sequence and the
 accepted doc are reconciled" below. The rest of step 5 is still waiting on rules
 the docs do not settle.**
 
@@ -463,11 +463,43 @@ them against each other. That third shape is not just combat: matching market
 offers by commission is structurally the same problem as a battle between the
 fleets that met.
 
+### The parser reads the accepted surface
+
+Every order line is subject first -- `ship 18 jump to (-1,2,3)`,
+`colony 24 probe orbit 5`, `we name (-1,2,3) "Stellium Joe"`. `Spec` gained
+`Subjects`, the list of subjects an order may be given to, and the parser
+refuses a line whose subject is not on it before `Parse` runs, so no order
+checks who it was given to. `Spec.Parse` takes the subject already read.
+`we` is a real subject now, which is the half of the `name` rework that the
+place forms needed; naming another faction's ships still waits on batch 6.
+
+Not yet read: the multi-line `create` form terminated by `end`, and the
+`quantity` grammar with its mandatory thousands separators. Both arrive with
+the orders that use them.
+
+### Two of the three jump changes are built
+
+A jump now **begins from the stellium orbit**: a ship at a planet has to be
+moved out to orbit 11 in the same file, which works because every MOVE resolves
+before any JUMP. It binds rather than applies, because by the time the jump
+phase runs the moves have happened, so the file is refused when the ship will
+still be at a planet and the order fails at resolution when a move it needed
+failed for fuel.
+
+**Technology level no longer caps the distance.** `Drive.Range` became
+`Drive.TechLevel` and `Drive.Reaches` is gone; any ship can be sent to any
+stellium in the game. `FUEL` is unchanged and was never a function of
+technology level -- 40 per assembled `HDRV` unit per light year -- so it is now
+the only thing that limits a long jump, and it grows linearly with the
+distance. The third change, the crossing taking more than one turn, is below.
+
 ### Two orders outlive the turn that carries them
 
 `create` may take several turns to finish, which is why it pre-allocates its
-`CWKR` cadre and holds it for the duration, and `jump` is to become the same --
-a pending change to a *built* order, due when the engine is next worked on.
+`CWKR` cadre and holds it for the duration, and `jump` is to become the same:
+a crossing of _d_ light years by a drive at technology level _t_ takes
+\(\lceil d / t \rceil\) turns. That is a pending change to a *built* order,
+due when the engine is next worked on.
 
 Nothing in the pipeline knows about such an order. `game_order.status` is a
 three-way CHECK -- `pending`, `succeeded`, `failed` -- where `pending` means
@@ -549,9 +581,9 @@ A new order becomes: one `Spec` (parse + bind + apply), a section in
 `docs/orders.md`, and tests.
 
 The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
-`probe`, `name` -- and two of those need reworking: `name` for the faction
-subject, and `jump` for taking more than one turn. Thirty-one remain, batched so
-that each exercises what the next needs:
+`probe`, `name` -- and two of those still need reworking: `name` for naming
+another faction's ships and colonies, and `jump` for taking more than one turn.
+Thirty-one remain, batched so that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. Establishes
    `World`'s inventory mutations, which everything below moves units through.

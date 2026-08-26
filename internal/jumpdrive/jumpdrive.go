@@ -70,14 +70,18 @@ func KindOfMove(startSystemID, endSystemID int64) MoveKind {
 // Drive is the jump drive assembled from a ship's component HDRV units. The
 // zero Drive is a ship that cannot jump at all.
 type Drive struct {
-	Units    int64 // assembled HDRV units
-	Range    int   // longest jump in units of distance
-	Capacity int64 // mass in MU the drive propels through one jump
+	Units int64 // assembled HDRV units
+	// TechLevel is the lowest technology level installed, which is the level
+	// the whole drive runs at: every unit has to make the same jump. It no
+	// longer caps how far a drive goes -- nothing does but the fuel -- and it
+	// is what will divide a jump's distance to give the turns it takes.
+	TechLevel int
+	Capacity  int64 // mass in MU the drive propels through one jump
 }
 
 // Add installs quantity HDRV units at techLevel.
 //
-// The lowest technology level installed limits the range of the whole drive,
+// The lowest technology level installed is the level the whole drive runs at,
 // because every unit has to make the same jump. Capacity is the sum over the
 // units of their own technology levels, so a mixed drive still carries the mass
 // its high-technology units can propel.
@@ -85,8 +89,8 @@ func (d Drive) Add(techLevel int, quantity int64) Drive {
 	if quantity <= 0 {
 		return d
 	}
-	if d.Units == 0 || techLevel < d.Range {
-		d.Range = techLevel
+	if d.Units == 0 || techLevel < d.TechLevel {
+		d.TechLevel = techLevel
 	}
 	d.Units += quantity
 	d.Capacity += quantity * PropulsionPerTechLevel * int64(techLevel)
@@ -95,12 +99,6 @@ func (d Drive) Add(techLevel int, quantity int64) Drive {
 
 // Installed reports whether the ship has a jump drive.
 func (d Drive) Installed() bool { return d.Units > 0 }
-
-// Reaches reports whether the drive crosses a jump of the given squared
-// distance. The test stays in integer arithmetic: a jump distance is a
-// Euclidean distance rounded up, so it is within an integer range exactly when
-// the squared distance is within the squared range.
-func (d Drive) Reaches(squaredDistance int) bool { return squaredDistance <= d.Range*d.Range }
 
 // CanPropel reports whether the drive moves mass through a jump.
 func (d Drive) CanPropel(mass int64) bool { return mass <= d.Capacity }
@@ -112,8 +110,8 @@ func SquaredDistance(x1, y1, z1, x2, y2, z2 int) int {
 }
 
 // Distance returns the distance between two stellia in light years: their
-// Euclidean distance rounded up to the next whole light year. Range tests use
-// SquaredDistance; this reports a distance to a player and prices a jump.
+// Euclidean distance rounded up to the next whole light year. It is what a
+// report shows a player and what prices a jump.
 func Distance(x1, y1, z1, x2, y2, z2 int) int {
 	return int(math.Ceil(math.Sqrt(float64(SquaredDistance(x1, y1, z1, x2, y2, z2)))))
 }

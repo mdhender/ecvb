@@ -20,13 +20,12 @@ import (
 // Params is the line the player wrote, and its Bound is what the game does
 // about it. Nothing else in the pipeline knows the order exists.
 
-var errExpectedActor = syntaxErr{message: "expected ship or colony"}
-
 func init() {
 	register(&Spec{
 		Verb:     "jump",
-		Summary:  "send a ship to another stellium, within its drive's range",
-		Syntax:   []string{"jump ship SHIP-ID to (X,Y,Z)"},
+		Subjects: []string{SubjectShip},
+		Summary:  "send a ship from the stellium orbit to another stellium",
+		Syntax:   []string{"ship SHIP-ID jump to (X,Y,Z)"},
 		Phase:    PhaseJump,
 		Movement: true,
 		Decode: func(actor int64, encoded string) (Params, error) {
@@ -36,18 +35,12 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(line *Line) (Params, error) {
-			var order JumpParams
-			if err := line.expect("ship"); err != nil {
-				return nil, err
-			}
-			var err error
-			if order.ShipID, err = line.entityID("ship"); err != nil {
-				return nil, err
-			}
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := JumpParams{ShipID: subject.ID}
 			if err := line.expect("to"); err != nil {
 				return nil, err
 			}
+			var err error
 			if order.X, order.Y, order.Z, err = line.coordinates(); err != nil {
 				return nil, err
 			}
@@ -56,11 +49,12 @@ func init() {
 	})
 
 	register(&Spec{
-		Verb:    "move",
-		Summary: "move a ship inside its stellium, to a planet or to the stellium orbit",
+		Verb:     "move",
+		Subjects: []string{SubjectShip},
+		Summary:  "move a ship inside its stellium, to a planet or to the stellium orbit",
 		Syntax: []string{
-			"move ship SHIP-ID to orbit ORBIT",
-			"move ship SHIP-ID to system SYSTEM orbit ORBIT",
+			"ship SHIP-ID move to orbit ORBIT",
+			"ship SHIP-ID move to system SYSTEM orbit ORBIT",
 		},
 		Phase:    PhaseMove,
 		Movement: true,
@@ -71,15 +65,9 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(line *Line) (Params, error) {
-			var order MoveParams
-			if err := line.expect("ship"); err != nil {
-				return nil, err
-			}
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := MoveParams{ShipID: subject.ID}
 			var err error
-			if order.ShipID, err = line.entityID("ship"); err != nil {
-				return nil, err
-			}
 			if err := line.expect("to"); err != nil {
 				return nil, err
 			}
@@ -101,14 +89,15 @@ func init() {
 	})
 
 	register(&Spec{
-		Verb:    "name",
-		Summary: "give a place or one of your ships or colonies a name only you see",
+		Verb:     "name",
+		Subjects: []string{SubjectShip, SubjectColony, SubjectFaction},
+		Summary:  "give a place or one of your ships or colonies a name only you see",
 		Syntax: []string{
-			`name ship SHIP-ID "NAME"`,
-			`name colony COLONY-ID "NAME"`,
-			`name (X,Y,Z) "NAME"`,
-			`name (X,Y,Z) system SYSTEM "NAME"`,
-			`name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"`,
+			`ship SHIP-ID name "NAME"`,
+			`colony COLONY-ID name "NAME"`,
+			`we name (X,Y,Z) "NAME"`,
+			`we name (X,Y,Z) system SYSTEM "NAME"`,
+			`we name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"`,
 		},
 		Phase: PhaseNaming,
 		Decode: func(actor int64, encoded string) (Params, error) {
@@ -118,17 +107,13 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(line *Line) (Params, error) {
-			var order NameParams
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := NameParams{Kind: subject.Kind, Entity: subject.ID}
 			var err error
-			// A name is given either to a place, which opens with its
-			// coordinates, or to an entity, which opens with what kind it is.
-			if kind, ok := line.keyword("ship", "colony"); ok {
-				order.Kind = kind
-				if order.Entity, err = line.entityID(kind); err != nil {
-					return nil, err
-				}
-			} else {
+			// Naming something you own is an order to the thing itself, so the
+			// subject is the thing. Naming a place is a faction order, because
+			// no ship or colony carries it out, and the place follows the verb.
+			if subject.Kind == SubjectFaction {
 				place := &Place{}
 				if place.X, place.Y, place.Z, err = line.coordinates(); err != nil {
 					return nil, err
@@ -155,13 +140,14 @@ func init() {
 	})
 
 	register(&Spec{
-		Verb:    "probe",
-		Summary: "read planets with a ship's or a colony's sensors, one probe per orbit",
+		Verb:     "probe",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "read planets with a ship's or a colony's sensors, one probe per orbit",
 		Syntax: []string{
-			"probe ship SHIP-ID orbit ORBIT ...",
-			"probe colony COLONY-ID orbit ORBIT ...",
-			"probe ship SHIP-ID system SYSTEM orbit ORBIT ...",
-			"probe colony COLONY-ID system SYSTEM orbit ORBIT ...",
+			"ship SHIP-ID probe orbit ORBIT ...",
+			"colony COLONY-ID probe orbit ORBIT ...",
+			"ship SHIP-ID probe system SYSTEM orbit ORBIT ...",
+			"colony COLONY-ID probe system SYSTEM orbit ORBIT ...",
 		},
 		Phase: PhaseProbe,
 		Decode: func(actor int64, encoded string) (Params, error) {
@@ -171,17 +157,9 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(line *Line) (Params, error) {
-			var order ProbeParams
-			kind, ok := line.keyword("ship", "colony")
-			if !ok {
-				return nil, errExpectedActor
-			}
-			order.Kind = kind
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := ProbeParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
-			if order.EntityID, err = line.entityID(kind); err != nil {
-				return nil, err
-			}
 			// A probe that names a system reads any system of the entity's
 			// stellium; one that does not reads the system it is in.
 			if _, ok := line.keyword("system"); ok {
@@ -327,6 +305,17 @@ func (p JumpParams) Actor() int64 { return p.ShipID }
 func (p JumpParams) Input() string { return fmt.Sprintf("(%d,%d,%d)", p.X, p.Y, p.Z) }
 
 // Bind finds the destination stellium and measures the jump against the drive.
+//
+// A jump begins from the stellium orbit, so where the ship stands is part of
+// what binds. It binds in the jump phase, which is after every MOVE has
+// resolved, so a ship ordered out to the stellium orbit and then away in one
+// file is measured as the move left it. A move that failed leaves the ship at
+// its planet, and the jump behind it fails for the same reason.
+//
+// Nothing here measures the jump against a range. A drive's technology level
+// no longer caps how far it goes; it will decide how many turns the crossing
+// takes instead, and until then the only limit on a long jump is the FUEL it
+// burns, which is linear in the distance.
 func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 	ship, err := b.actor(p.ShipID, "ship")
 	if err != nil {
@@ -336,6 +325,10 @@ func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 	if destinationID == 0 {
 		return nil, fmt.Errorf("game %q has no stellium at (%d,%d,%d)", b.World.Game().Code, p.X, p.Y, p.Z)
 	}
+	if ship.Location.SystemID != 0 {
+		return nil, fmt.Errorf("ship %d is at a planet and a jump begins from the stellium orbit; move it to orbit %d first",
+			ship.ID, StelliumOrbit)
+	}
 	if !ship.Drive.Installed() {
 		return nil, fmt.Errorf("ship %d has no assembled %s and cannot jump", ship.ID, jumpdrive.Unit)
 	}
@@ -344,10 +337,6 @@ func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 			ship.ID, ship.Mass, ship.Drive.Capacity)
 	}
 	from := b.World.Coordinates(ship.Location.StelliumID)
-	if !ship.Drive.Reaches(jumpdrive.SquaredDistance(from.X, from.Y, from.Z, p.X, p.Y, p.Z)) {
-		return nil, fmt.Errorf("jump of %d units exceeds ship %d jump range of %d units",
-			jumpdrive.Distance(from.X, from.Y, from.Z, p.X, p.Y, p.Z), ship.ID, ship.Drive.Range)
-	}
 	return []Bound{&jumpBound{
 		ship: ship, x: p.X, y: p.Y, z: p.Z, destinationID: destinationID,
 		cost: ship.Drive.FuelForJump(jumpdrive.Distance(from.X, from.Y, from.Z, p.X, p.Y, p.Z)),

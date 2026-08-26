@@ -13,9 +13,9 @@ func TestParseShipOrders(t *testing.T) {
 		"game \"BETA-001\" turn 0\n" +
 		"id faction 1\n" +
 		"\n" +
-		"MOVE ship 2 to orbit 6\n" +
-		"jump ship 2 to (6, -9, 8)\n" +
-		"move ship 2 to system b orbit 4\n"))
+		"SHIP 2 MOVE to orbit 6\n" +
+		"ship 2 jump to (6, -9, 8)\n" +
+		"ship 2 move to system b orbit 4\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,8 +43,8 @@ func TestParseReportsAllSyntaxErrors(t *testing.T) {
 	_, err := Parse(strings.NewReader("" +
 		"game BETA-001 turn zero\n" +
 		"id somebody 1\n" +
-		"ship 2 jump to (1,2,3)\n" +
-		"move ship 0 to orbit 4\n"))
+		"ship 2 jump to (1,2)\n" +
+		"ship 0 move to orbit 4\n"))
 	if err == nil {
 		t.Fatal("Parse succeeded; want errors")
 	}
@@ -60,8 +60,8 @@ func TestParseProbeOrders(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 2 orbit 6
-PROBE SHIP 2 ORBIT 1 2 3 4 5 8 9 10
+ship 2 probe orbit 6
+SHIP 2 PROBE ORBIT 1 2 3 4 5 8 9 10
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
@@ -95,7 +95,7 @@ func TestParseRejectsProbeWithoutOrbits(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 2
+ship 2 probe
 `
 	if _, err := Parse(strings.NewReader(input)); err == nil {
 		t.Fatal("Parse succeeded; want a problem")
@@ -106,7 +106,7 @@ func TestParseProbeWithASystem(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-probe ship 4 system a orbit 1 2 3
+ship 4 probe system a orbit 1 2 3
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
@@ -126,10 +126,10 @@ func TestParseIgnoresCommentsAndBlankLines(t *testing.T) {
 id faction 1
 
 # a whole line of commentary
-move ship 2 to orbit 6   # and a trailing one
+ship 2 move to orbit 6   # and a trailing one
    # indented, still a comment
 
-probe ship 2 orbit 1
+ship 2 probe orbit 1
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
@@ -154,7 +154,7 @@ probe ship 2 orbit 1
 // A mistyped verb is told which orders exist, so the list has to hold every
 // registered one rather than a remembered few.
 func TestParseNamesEveryOrderWhenTheVerbIsUnknown(t *testing.T) {
-	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nattak ship 2\n"))
+	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nship 2 attak\n"))
 	if err == nil {
 		t.Fatal("Parse succeeded; want an error")
 	}
@@ -172,10 +172,10 @@ func TestParseNameOrders(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-name ship 18 "Jalopy"
-name (-1,2,3) "Stellium Joe"
-name (-1,2,3) system A "Alpha Sur"
-name (-1,2,3) system A orbit 8 "Headly's Gate"
+ship 18 name "Jalopy"
+we name (-1,2,3) "Stellium Joe"
+we name (-1,2,3) system A "Alpha Sur"
+we name (-1,2,3) system A orbit 8 "Headly's Gate"
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
@@ -212,11 +212,11 @@ name (-1,2,3) system A orbit 8 "Headly's Gate"
 // An orbit belongs to a system, so a name may not reach for one without
 // naming the system it is in.
 func TestParseRejectsAnOrbitWithoutASystem(t *testing.T) {
-	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nname (1,2,3) orbit 8 \"Nope\"\n"))
+	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nwe name (1,2,3) orbit 8 \"Nope\"\n"))
 	if err == nil {
 		t.Fatal("Parse succeeded; want an error")
 	}
-	if want := `name (X,Y,Z) "NAME"`; !strings.Contains(err.Error(), want) {
+	if want := `we name (X,Y,Z) "NAME"`; !strings.Contains(err.Error(), want) {
 		t.Errorf("error = %v; want it to show %q", err, want)
 	}
 }
@@ -240,33 +240,45 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 	}{
 		{
 			name:  "a move that does not parse reports only move's forms",
-			input: "move ship 2 to planet 6",
-			want:  "expected move ship SHIP-ID to orbit ORBIT, or move ship SHIP-ID to system SYSTEM orbit ORBIT",
+			input: "ship 2 move to planet 6",
+			want:  "expected ship SHIP-ID move to orbit ORBIT, or ship SHIP-ID move to system SYSTEM orbit ORBIT",
 		},
 		{
 			name:  "a jump that does not parse reports only jump's form",
-			input: "jump ship 2 towards (1,2,3)",
-			want:  "expected jump ship SHIP-ID to (X,Y,Z)",
+			input: "ship 2 jump towards (1,2,3)",
+			want:  "expected ship SHIP-ID jump to (X,Y,Z)",
 		},
 		{
 			name:  "a field that was read and found wrong says so itself",
-			input: "move ship 0 to orbit 6",
+			input: "ship 0 move to orbit 6",
 			want:  "invalid ship id: must be positive",
 		},
 		{
 			name:  "a system outside A through E",
-			input: "move ship 2 to system Z orbit 4",
+			input: "ship 2 move to system Z orbit 4",
 			want:  `invalid system "Z"; systems are A through E`,
 		},
 		{
 			name:  "trailing words are a mistake, not ignored",
-			input: "move ship 2 to orbit 6 please",
-			want:  "expected move ship SHIP-ID to orbit ORBIT",
+			input: "ship 2 move to orbit 6 please",
+			want:  "expected ship SHIP-ID move to orbit ORBIT",
 		},
 		{
-			name:  "a probe must name a ship or a colony",
-			input: "probe fleet 2 orbit 1",
-			want:  "expected probe ship SHIP-ID orbit ORBIT",
+			name:  "an order must name a subject the game knows",
+			input: "fleet 2 probe orbit 1",
+			want:  "expected an order to begin with ship, colony, or we",
+		},
+		{
+			name:  "an order given to the wrong kind of subject says so",
+			input: "colony 2 move to orbit 4",
+			want:  "MOVE is given to a ship, not to a colony",
+		},
+		{
+			// The subject is one NAME takes, so the line is measured against
+			// NAME's forms and shown them; only the place form is a faction's.
+			name:  "a place named by a ship reports name's forms",
+			input: `ship 2 name (1,2,3) "Nope"`,
+			want:  `expected ship SHIP-ID name "NAME"`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -284,7 +296,7 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 // Coordinates read the same however they are spaced.
 func TestParseAcceptsAnySpacingInCoordinates(t *testing.T) {
 	for _, form := range []string{"(6,-9,8)", "( 6 , -9 , 8 )", "(6, -9,8)"} {
-		submission, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\njump ship 2 to " + form + "\n"))
+		submission, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nship 2 jump to " + form + "\n"))
 		if err != nil {
 			t.Fatalf("Parse(%q): %v", form, err)
 		}
@@ -308,9 +320,23 @@ func TestEveryOrderDescribesItself(t *testing.T) {
 		if len(spec.Syntax) == 0 {
 			t.Errorf("order %q lists no syntax", spec.Verb)
 		}
+		// Every form opens with a subject the order takes and names the verb
+		// after it, because that is the shape a player writes.
+		shown := map[string]bool{}
 		for _, form := range spec.Syntax {
-			if !strings.HasPrefix(form, spec.Verb+" ") {
-				t.Errorf("order %q lists syntax %q, which does not start with the verb", spec.Verb, form)
+			subject, rest, ok := strings.Cut(form, " ")
+			if !ok || !spec.accepts(subject) {
+				t.Errorf("order %q lists syntax %q, which does not open with a subject it takes", spec.Verb, form)
+				continue
+			}
+			shown[subject] = true
+			if !strings.Contains(" "+rest+" ", " "+spec.Verb+" ") {
+				t.Errorf("order %q lists syntax %q, which never names the verb", spec.Verb, form)
+			}
+		}
+		for _, subject := range spec.Subjects {
+			if !shown[subject] {
+				t.Errorf("order %q takes %q but no form shows one", spec.Verb, subject)
 			}
 		}
 		if spec.Parse == nil {
@@ -337,7 +363,12 @@ func TestHelpListsEveryOrder(t *testing.T) {
 	if _, err := HelpFor("nosuchorder"); err == nil {
 		t.Error("HelpFor an unknown order succeeded; want an error")
 	}
-	if got, err := HelpFor("MOVE"); err != nil || !strings.Contains(got, "move ship SHIP-ID to orbit ORBIT") {
+	if got, err := HelpFor("MOVE"); err != nil || !strings.Contains(got, "ship SHIP-ID move to orbit ORBIT") {
 		t.Errorf("HelpFor(MOVE) = %q, %v; want move's syntax", got, err)
+	}
+	// The reference says who an order may be given to, because that is half of
+	// knowing how to write the line.
+	if got, err := HelpFor("PROBE"); err != nil || !strings.Contains(got, "given to a ship or a colony") {
+		t.Errorf("HelpFor(PROBE) = %q, %v; want probe's subjects", got, err)
 	}
 }

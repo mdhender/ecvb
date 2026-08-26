@@ -195,9 +195,10 @@ func TestRunResolveAndOpenTurn(t *testing.T) {
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES (10, 1, 0, 0, 0), (11, 1, 1, 2, 3);
 		INSERT INTO system (id, stellium_id, sequence) VALUES (20, 10, 'A');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES (30, 20, 4, 'rocky', 10);
+		-- The ship sits in the stellium orbit, because a jump begins there.
 		INSERT INTO entity (
 			id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume
-		) VALUES (40, 'SHIP', 1, 10, 20, 30, 64, 1, 100);
+		) VALUES (40, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 100);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(40, 'component', 'HDRV', 4, 1), (40, 'cargo', 'FUEL', 0, 500);
 		UPDATE entity SET mass = 4000 WHERE id = 40;

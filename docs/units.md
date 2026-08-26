@@ -88,24 +88,30 @@ mass but consumes no enclosed space.
 assembled in component inventory propel a ship; `HDRV` held in any other
 section is freight.
 
-A unit at technology level \(t\) has a mass of \(45t\) MU, jumps \(t\) units
-of distance, and propels \(1045t\) MU through a jump.
+A unit at technology level \(t\) has a mass of \(45t\) MU and propels
+\(1045t\) MU through a jump.
 
 A ship's drive is the sum of its assembled units. The **lowest** technology
-level installed sets the range of the whole drive, because every unit has to
+level installed is the level the whole drive runs at, because every unit has to
 make the same jump. Capacity is the sum over the units of their own technology
 levels, so a mixed drive still carries the mass its high-technology units can
-propel. A ship carrying 10 `HDRV-1` and 3 `HDRV-2` jumps 1 unit and propels
-\(10 \times 1045 \times 1 + 3 \times 1045 \times 2\) MU.
+propel. A ship carrying 10 `HDRV-1` and 3 `HDRV-2` runs at technology level 1
+and propels \(10 \times 1045 \times 1 + 3 \times 1045 \times 2\) MU.
+
+**Technology level does not limit how far a drive jumps.** Any ship can be sent
+to any stellium in the game; what a long jump costs is fuel, and the fuel grows
+with the distance. A jump always ends at a stellium; there is no deep space to
+stop in.
 
 A jump fails when the ship has no assembled drive, when its mass exceeds the
-drive's capacity, or when the distance exceeds the drive's range. A jump always
-ends at a stellium; there is no deep space to stop in.
+drive's capacity, or when the ship is at a planet rather than in the stellium
+orbit -- a jump begins from the stellium orbit, so a ship at a planet has to
+move out first.
 
 The same units move a ship inside a stellium. A move fails when the ship has no
-assembled drive or when its mass exceeds the drive's capacity, but never for
-range: the shortest-ranged drive reaches anywhere in a stellium. See
-[Order File Reference](orders.md) for the move forms.
+assembled drive or when its mass exceeds the drive's capacity. Distance never
+enters into a move: every move inside a stellium is one of three fixed kinds.
+See [Order File Reference](orders.md) for the move forms.
 
 ### Fuel
 
@@ -131,8 +137,8 @@ report. A ship with 21 assembled units hopping burns \(21 \times 4 = 84\)
 Fuel is burned, not assembled, so it counts from any section. It is drawn
 **operational** first, then **unassembled**, and **cargo** last, so a hold of
 spare fuel survives until the working supply is gone. Burned fuel leaves the
-ship: its mass falls by 6 MU per unit, and a later order in the same turn
-measures the drive against the lighter ship.
+ship: its mass falls by 1 MU per unit, `FUEL` being a bulk resource, and a
+later order in the same turn measures the drive against the lighter ship.
 
 A move or jump fails when the ship cannot pay. `orders check` and `orders
 submit` only warn, because fuel may still reach the ship before the turn

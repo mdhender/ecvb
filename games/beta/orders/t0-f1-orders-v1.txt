@@ -1,7 +1,9 @@
 game "BETA-001" turn 0
 id faction 1
 
-move ship 2 to orbit 6
-move ship 2 to orbit 11
-jump ship 2 to (-1,1,6)
-move ship 2 to system A orbit 4
+# Every move resolves before any jump, so the moves inside this stellium come
+# first and the ship leaves from the stellium orbit.
+ship 2 move to orbit 6
+ship 2 move to system A orbit 4
+ship 2 move to orbit 11
+ship 2 jump to (-1,1,6)

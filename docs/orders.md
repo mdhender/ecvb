@@ -3,6 +3,22 @@
 An order file identifies one game turn and one submitting faction, followed by
 zero or more orders.
 
+Every order names its subject first and then what the subject is being told to
+do:
+
+```text
+ship 18 jump to (-1,2,3)
+colony 24 probe orbit 5
+we name (-1,2,3) "Stellium Joe"
+```
+
+A subject is one of your ships, one of your colonies, or `we`, which is the
+faction itself. `we` takes no id, because the file header already says which
+faction is writing, and it is the subject of the orders that no ship or colony
+carries out -- naming a place is the only one so far. An order given to a
+subject that cannot be given it is rejected and says so: `MOVE` is given to a
+ship, and `PROBE` to a ship or a colony.
+
 A turn resolves in phases, and every order of one phase resolves before any
 order of the next, whichever way round the file wrote them. File order decides
 only between orders of the same phase, segment, and step. The phases, in the
@@ -61,7 +77,7 @@ line or follow an order:
 
 ```text
 # scout the neighbouring system
-probe ship 2 system B orbit 4    # before anything moves
+ship 2 probe system B orbit 4    # before anything moves
 ```
 
 Keywords and system letters are case-insensitive. Game codes are matched
@@ -75,45 +91,61 @@ set.
 ## JUMP
 
 ```text
-jump ship SHIP-ID to (X,Y,Z)
+ship SHIP-ID jump to (X,Y,Z)
 ```
 
 Example:
 
 ```text
-jump ship 2 to (6,-9,8)
+ship 2 jump to (6,-9,8)
 ```
 
 The ship must belong to the submitting faction. The coordinates must identify a
 stellium in the named game; a jump cannot end in deep space. When executed, the
 ship moves to that stellium and orbits the stellium rather than a planet.
 
-The ship's jump drive limits the jump. The distance to the destination, which is
-the Euclidean distance rounded up, must be within the range of the ship's
-assembled `HDRV` units, and the ship's mass must be within their capacity. See
-[Unit Glossary](units.md) for the drive rules.
+**A jump begins from the stellium orbit.** A ship at a planet cannot jump: send
+it out first, in the same file, with `ship SHIP-ID move to orbit 11`.
+
+```text
+ship 2 move to orbit 11
+ship 2 jump to (6,-9,8)
+```
+
+Every `MOVE` resolves before any `JUMP`, so those two lines work in either
+order in the file. A move that fails -- for want of fuel, say -- leaves the
+ship at its planet, and the jump behind it fails for the same reason.
+
+**Distance does not limit a jump.** A drive's technology level no longer caps
+how far it goes, so any ship can be sent to any stellium in the game. What
+limits a long jump is the `FUEL` it burns, which is 40 per assembled `HDRV`
+unit per light year and so grows with the distance. The ship's mass must still
+be within its drive's capacity. See [Unit Glossary](units.md) for the drive
+rules.
 
 A ship with more than one jump order in a turn measures each jump from where the
-previous one left it. Both `orders check` and the engine apply these limits, so a
-jump the check rejects is a jump the engine would have failed.
+previous one left it -- and the second one begins in the stellium orbit the
+first one arrived in, so no move is needed between them. Both `orders check` and
+the engine apply these limits, so a jump the check rejects is a jump the engine
+would have failed.
 
 ## MOVE
 
 ```text
-move ship SHIP-ID to orbit ORBIT
-move ship SHIP-ID to system SYSTEM orbit ORBIT
+ship SHIP-ID move to orbit ORBIT
+ship SHIP-ID move to system SYSTEM orbit ORBIT
 ```
 
 Move to a planet in the ship's current system:
 
 ```text
-move ship SHIP-ID to orbit ORBIT
+ship SHIP-ID move to orbit ORBIT
 ```
 
 Example:
 
 ```text
-move ship 2 to orbit 6
+ship 2 move to orbit 6
 ```
 
 The ship must currently have a system, and that system must contain a planet in
@@ -122,13 +154,13 @@ the requested orbit.
 Move to a planet in a named system of the ship's current stellium:
 
 ```text
-move ship SHIP-ID to system SYSTEM orbit ORBIT
+ship SHIP-ID move to system SYSTEM orbit ORBIT
 ```
 
 Example:
 
 ```text
-move ship 2 to system B orbit 4
+ship 2 move to system B orbit 4
 ```
 
 The named system must exist in the ship's current stellium and must contain a
@@ -141,15 +173,15 @@ order, so re-resolving a turn puts the ship in the same ring.
 Return to the stellium orbit:
 
 ```text
-move ship 2 to orbit 11
+ship 2 move to orbit 11
 ```
 
 Orbit 11 does not exist. It is a fiction that gives `MOVE` a way to say "leave
 the planets", and it is the only orbit that is not a place: no planet occupies
 it, and a probe cannot read it. Because the stellium orbit belongs to no
-system, `move ship 2 to system A orbit 11` is an error. The ship ends the move
+system, `ship 2 move to system A orbit 11` is an error. The ship ends the move
 orbiting the stellium with no system, planet, or ring, which is where a jump
-also leaves it.
+also leaves it -- and where a jump has to begin.
 
 The ship's drive moves it. A move fails when the ship has no assembled `HDRV`
 units or when its mass exceeds their capacity. Distance does not limit a move:
@@ -207,31 +239,32 @@ transfer orders are not implemented.
 ## PROBE
 
 ```text
-probe ship SHIP-ID orbit ORBIT ...
-probe colony COLONY-ID orbit ORBIT ...
-probe ship SHIP-ID system SYSTEM orbit ORBIT ...
-probe colony COLONY-ID system SYSTEM orbit ORBIT ...
+ship SHIP-ID probe orbit ORBIT ...
+colony COLONY-ID probe orbit ORBIT ...
+ship SHIP-ID probe system SYSTEM orbit ORBIT ...
+colony COLONY-ID probe system SYSTEM orbit ORBIT ...
 ```
 
-A probe is the one order a colony may give. `MOVE` and `JUMP` are ship orders.
+A probe is the one order a colony may be given. `MOVE` and `JUMP` are ship
+orders.
 
 Example:
 
 ```text
-probe ship 2 orbit 6
+ship 2 probe orbit 6
 ```
 
 One order may name several orbits, and spends one probe on each:
 
 ```text
-probe ship 2 orbit 1 2 3 4 5 8 9 10
+ship 2 probe orbit 1 2 3 4 5 8 9 10
 ```
 
 A probe may also name a system of the ship's current stellium:
 
 ```text
-probe ship 4 system A orbit 1
-probe ship 4 system A orbit 1 2 3
+ship 4 probe system A orbit 1
+ship 4 probe system A orbit 1 2 3
 ```
 
 A probe that names no system reads the system the entity is in, which is why a
@@ -263,31 +296,32 @@ it read the planet.
 ## NAME
 
 ```text
-name ship SHIP-ID "NAME"
-name colony COLONY-ID "NAME"
-name (X,Y,Z) "NAME"
-name (X,Y,Z) system SYSTEM "NAME"
-name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"
+ship SHIP-ID name "NAME"
+colony COLONY-ID name "NAME"
+we name (X,Y,Z) "NAME"
+we name (X,Y,Z) system SYSTEM "NAME"
+we name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"
 ```
 
 Examples:
 
 ```text
-name ship 18 "Jalopy"
-name colony 24 "Jingo"
-name (-1,2,3) "Stellium Joe"
-name (-1,2,3) system A "Alpha Sur"
-name (-1,2,3) system A orbit 8 "Headly's Gate"
+ship 18 name "Jalopy"
+colony 24 name "Jingo"
+we name (-1,2,3) "Stellium Joe"
+we name (-1,2,3) system A "Alpha Sur"
+we name (-1,2,3) system A orbit 8 "Headly's Gate"
 ```
 
 A name is yours. Naming your ship does not change what anybody else's report
 calls it, and a stellium, system, or planet may be named without ever having
 been visited -- though it has to exist. Naming something again renames it.
 
-The entity forms name a ship or colony your faction owns. The coordinate forms
-name a place: the stellium at those coordinates, or one of its systems, or the
-planet in an orbit of one of its systems. An orbit may only follow a system,
-because only a system holds planets.
+Naming something you own is an order to the thing itself, so the ship or colony
+is the subject. Naming a place is a faction order, because no ship or colony
+carries it out, so `we` is the subject: the stellium at those coordinates, or
+one of its systems, or the planet in an orbit of one of its systems. An orbit
+may only follow a system, because only a system holds planets.
 
 A name is quoted text of at most 24 characters, counting spaces. It may not be
 empty, may not begin or end with a space, may not hold two spaces in a row, and
@@ -318,10 +352,11 @@ submission leaves the existing order set unchanged and stores nothing. Errors
 include the source line number when applicable.
 
 An order file is refused for anything that cannot change between now and the
-turn resolving: a ship that is not yours, an entity of the wrong kind, a
-destination that does not exist, a drive that cannot reach or cannot lift.
-Anything that can still change -- fuel above all -- is a warning, and the order
-is stored.
+turn resolving: a ship that is not yours, an entity of the wrong kind, an order
+given to a subject that cannot be given it, a destination that does not exist,
+a drive that cannot lift the ship, or a jump ordered from a planet. Anything
+that can still change -- fuel above all -- is a warning, and the order is
+stored.
 
 ## Reporting submitted orders
 
