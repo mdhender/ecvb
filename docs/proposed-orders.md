@@ -6,6 +6,13 @@
 
 _commitment_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 
+_coordinates_ are integer X, Y, Z coordinates, separated by commas and surrounded by `(` and `)`.
+Interior ASCII spaces or tabs are ignored.
+
+_depositNo_ is the sequence number of a deposit on the planet the entity is at, 1 through 45.
+
+_groupNo_ is the sequence number of a factory, farm, or mine group, starting at 1.
+
 _payRate_ is an integer percentage amount, at least 0, followed by a `%`.
 
 _rationRate_ is an integer percentage amount, at least 0, followed by a `%`.
@@ -14,199 +21,280 @@ _quantity_ is an integer, greater than 0, and must include commas if greater tha
 
 _unitCode_ is a unit code with an optional technology level (e.g., GOLD or LFSU-7).
 
-### Bombard orders
+### Attack orders
 
-`combat` (`ship` | `colony`) _id_ _commitment_ `bombard` (`ship` | `colony`) _id_
+(`ship` | `colony`) _id_ `attack` (`ship` | `colony`) _id_ _commitment_
 
-> combat ship 18 75% bombard colony 24
+> colony 24 attack ship 18 75%
 
 ### Invade Orders
 
-`combat` (`ship` | `colony`) _id_ _commitment_ `invade` (`ship` | `colony`) _id_
+(`ship` | `colony`) _id_ `invade` (`ship` | `colony`) _id_  _commitment_
 
-> combat ship 18 55% invade colony 24
+> colony 24 invade ship 18 55%
 
 ### Raid Orders
 
-`combat` (`ship` | `colony`) _id_ _commitment_ `raid` _unit_ (`ship` | `colony`) _id_
+(`ship` | `colony`) _id_ `raid` (`ship` | `colony`) _id_ `seeking` _unit_ (`,` _unit_) _commitment_
 
-> combat ship 18 28% raid GOLD colony 24
+> ship 18 raid colony 24 seeking GOLD, FUEL 22%
 
 ### Support Orders
 
-`combat` (`ship` | `colony`) _id_ _commitment_ `support` (`ship` | `colony`) _id_ `attacking` (`ship` | `colony`) _id_
+(`ship` | `colony`) _id_ `support` (`ship` | `colony`) _id_ `attacking` ((`ship` | `colony`) _id_)? _commitment_
 
-> combat ship 18 35% support ship 97 attacking colony 24
+> ship 18 support ship 97 attacking 35%
 
-### Defend Orders
+> ship 18 support ship 97 attacking colony 24 35%
 
-`combat` (`ship` | `colony`) _id_ _commitment_ `defend` (`ship` | `colony`) _id_ (`from` (`ship` | `colony`) _id_)?
+(`ship` | `colony`) _id_ `support` (`ship` | `colony`) _id_ `defending` (`against` (`ship` | `colony`) _id_)? _commitment_
 
-> combat ship 18 40% defend colony 14
+> ship 18 support colony 14 defending 40%
 
-> combat ship 18 45% defend colony 14 from ship 33
+> ship 18 support colony 14 defending against ship 33 45%
 
-## Set Up Orders
-17.2.2.1. Format
-The order, location No. of the new ship or colony, type (ship or colony), ID No. of establishing colony or ship, "transfer," quantity and item, quantity and item, etc., END. The word END must be written at the end of set up orders only.
+## Create Orders
 
-17.2.2.2. Examples
-Set Up, 5.1, ship, 29, transfer, 58, 60 structural units, 5 space drives-1, 5 Life Supports-1, 5 Food, 5 Professionals, 1 sensor-1, 16,800 fuel, 61 hyper engines-1, END.
-The "-1" in "space drives-1" refers to TL1.
+## Ship and Colony Creation
 
-## Assembly orders
-17.2.3.1. Format
-Factory assembly: Colony/ship ID No., "assemble," quantity of "factories," units the factory will make. Mine assembly: Colony/ship ID No., "assemble," quantity of "mines," location No. of deposit. Other assemblies: Colony/ship ID No., "assemble," quantity of units.
+(`ship` | `colony`) `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?) `using` _quantity_ _unit_ (`,` _quantity_ _unit_) `transfering` _quantity_ _unit_ (`,` _quantity_ _unit_) `with` _quantity_ `CWKR`
 
-17.2.3.2. Examples
-Factories
-91, assemble, 54,000 factories-6, consumer goods.
-Mines
-83, assemble, 25,680 mine-2, 148.
-Others
-58, assemble, 6,000 missile launchers-1.
+> ship 18 create ship
+>   using 60 STRC-8,
+>         61 HDRV-1, 5 SDRV-1
+>         , 5 LFSU-3, 1 SNSR-1
+>   transfering 25 FOOD, 5 PRO,  16,800 FUEL, 93 GOLD
+>   with 500 CWKR
+> end
 
-## Dis-assembly orders
-Format and examples are the same as for assembly orders, with the word "dis-assemble" replacing the word "assemble."
+The ship and colony create orders must be terminated with `end`.
+This allows the order to span multiple lines.
 
-## Build Change Orders
-17.2.5.1. Format
-Ship/colony ID No., "build change," factory group No., item to start building, (or retooling).
+### Factory Group Creation
 
-17.2.5.2. Examples
-16, build change, 8, retool.
-16, build change, 8, energy weapons-4.
-17, build change, research.
+A factory group must say what it will make.
+
+Only colonies are permitted to create factory groups.
+
+`colony` _id_ `create` `factory-group` `with` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `making` _unitCode_
+
+> colony 24 create factory-group with 54,000 FACT-6 making CNGD
+
+Units within a factory group may have different tech-levels.
+The units used to create the factory group do not have to be assembled first.
+
+`colony` _id_ `add` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `to` `factory-group` _groupNo_ (`and` `stow`)?
+
+> colony 24 add 63 FACT-9 to factory-group 3
+
+`colony` _id_ `remove` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `from` `factory-group` _groupNo_
+
+Units removed from the factory group will be unassembled and optionally moved to cargo.
+There are rules about the work in progress - the engine will salvage what it can and recyle what it can't.
+
+`colony` _id_ `idle` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `in` `factory-group` _groupNo_
+
+Units in the factory group will be idled but left in the group.
+They will remain active until the work in progress is drained from them.
+
+`colony` _id_ `activate` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `in` `factory-group` _groupNo_
+
+Idle units in the factory group will be activated.
+Production in them will resume immediately.
+
+`colony` _id_ `retool` `factory-group` _groupNo_ `making` _unitCode_
+
+The production line will drain (which may take 3 turns), then 1 turn will be spent retooling.
+Production will resume on the next turn.
+
+Optionally, the player may force an immediate retooling.
+This discards the entire work in progress - all materials in the production line are recycled.
+1 turn is spent retooling and production resumes the following turn.
+
+`colony` _id_ `retool` `immediately` `factory-group` _groupNo_ `making` _unitCode_
+
+### Farm Group Creation
+
+(`ship` | `colony`) _id_ `create` `farm-group` `with` _quantity_ _unitCode_
+
+> ship 18 create farm-group with 1,234,000 FARM-6
+
+Note: The table below summarizes the tech-level of farming units that may created on an entity.
+The inputs are entity type and orbit number.
+
+| Entity | Orbits  | Allowed farming units | Notes |
+| ------ | ------- | --------------------- | ----- |
+| COPN   | 1 .. 5  | FARM-1                | Limited to Habitability Number (HN) x 100,000 per planet |
+| COPN   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
+| CENC   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
+| CORB   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
+| COPN   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
+| CENC   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
+| CORB   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
+| SHIP   | 1 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
+
+TODO: this table belongs in the rules reference, but is included here because the order validator uses it.
+
+All units within a farm group must have the same tech-level.
+
+### Mine Group Creation
+
+Only surface colonies are permitted to create mine groups.
+
+`colony` _id_ `create` `mine-group` `with` _quantity_ _unitCode_ `working` _depositNo_
+
+All units within a mine group must have the same tech-level.
+
+## Assemble Orders
+Assembly turns unassembled units into working ones.
+This usually increases the volume of the units.
+
+Every form names the entity assembling, the unit code being assembled, and how many.
+One order may assemble several kinds of units once.
+
+(`ship` | `colony`) _id_ `assemble` _unitCode_ _quantity_ (`,` _unitCode_ _quantity_)*
+
+> ship 18 assemble 6,000 SNSR-1 
+
+> colony 24 assemble 5 LFSU-1, 60 STRL-1
+
+## Unassemble Orders
+
+Unassemble returns working units to unassembled inventory, optionally moving them to cargo.
+
+(`ship` | `colony`) _id_ `unassemble` (`and` `stow`)? _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
+
+> ship 18 unassemble 1,000 SNSR-1
+
+> colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
 
 ## Transfer Orders
 
-> transfer ship 18 SOL 500 colony 24
+(`ship` | `colony`) _id_ `transfer` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `to` (`ship` | `colony`) _id_
 
-> transfer ship 18 GOLD 4,500 FOOD 18,000 colony 24
+> ship 18 transfer SOL 500 to colony 24
 
-## Mining Change Orders
-17.2.7.1. Format
-ID No., "mining," mining group No., new deposit location No.
+> ship 18 transfer GOLD 4,500, FOOD 18,000 to colony 24
 
-17.2.7.2. Examples
-348, mining, 18, 92.
+Transfer orders fail if the two entities are not at the same location when the order is executed.
+
+The order will be partially fulfilled if there are not enough transports available for the entire load.
+
+Units must be in cargo to be transferred and will be automatically stowed by the receiving entity.
 
 ## Market Order
-Format
-ID No. , "buy"  , quantity , unit type, price each
-ID No. , "sell" , quantity , unit type, price each
-Examples
-555, buy, 25600, structural, 0.01
-721, sell, TL-4, 800000
-44, sell, 4, space drive-3, 0.2
-53, buy, TL-6, 1000000
-Note: Quantity for TL must be omitted.
+
+(`ship` | `colony`) _id_ `purchase` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
+
+Purchased units will automatically be stowed by the receiving entity.
+
+Warning: if there are not enough transports available for the entire load, the excess will be permanently lost.
 
 ## Survey Orders
 
-`survey` (`ship` | `colony`) _id_
+(`ship` | `colony`) _id_ `survey`
 
-> survey ship 18
+> ship 18 survey
 
 ## Probe Orders
 
-`probe`  (`ship` | `colony`) _id_ (`system` _seq_)? `orbit` _orbitNo_+
+(`ship` | `colony`) _id_ `probe` (`system` _seq_)? `orbit` _orbitNo_+
 
-> probe ship 18 orbit 1
+> ship 18 probe orbit 1
 
-> probe ship 18 system B orbit 5 8 2
-
-> probe colony 24 orbit 1 2 3
-
-> probe colony 24 system B orbit 3
+> colony 24 probe system B orbit 3 1 8
 
 ## Spy Orders
 
-> spy colony 24 report-on rebels 1
+> colony 24 report on rebels using 1 spies
 
-> spy colony 24 report-on spies 4
+> colony 24 report on spies using 4 spies
 
-> spy colony 24 report-on information 18
+> colony 24 obtain information from ship 18 using 200 spies
 
-> spy colony 24 convert rebels 3
+> colony 24 convert rebels using 3 spies
 
-> spy colony 24 incite rebels 21
+> colony 24 incite rebels using 21 spies
 
-> spy colony 24 attack spies 11
+> colony 24 attack faction 1 spies using 11 spies
 
 ## News Release
 
-> broadcast (-1,2,3) system B orbit 8 "message" "optional signature"
+> ship 18 broadcast system B orbit 8 "message" "optional signature"
 
 ## Move Orders
 
-`move` `ship` _id_ (`system` _seq_)? orbit _orbitNo_
+`ship` _id_ `move` `to` (`system` _seq_)? orbit _orbitNo_
 
-> move ship 18 orbit 5
+> ship 18 move to orbit 5
 
-> move ship 18 system B orbit 8
+> ship 18 move to system B orbit 8
 
 ## Jump Orders
 
-`move` `ship` _id_ _coordinates_
+`ship` _id_ `jump` `to` _coordinates_
 
-> jump ship 18 (-1,2,3)
+> ship 18 jump to (-1,2,3)
 
 ## Draft Orders
 
 ### Draft Orders
 
-`draft` (`ship` | `colony`) _id_ (_population_ _quantity_)+
+(`ship` | `colony`) _id_ `draft` _quantity_ _population_ (`,` _quantity_ _population_)*
 
-> draft ship 18 SOL 13
+> ship 18 draft 13 SOL
 
-> draft colony 24 SOL 3600
+> colony 24 draft 3,600 SOL
 
 ### Disband Orders
 
-`disband` (`ship` | `colony`) _id_ (_population_ _quantity_)+
+(`ship` | `colony`) _id_ `disband` _quantity_ _population_ (`,` _quantity_ _population_)*
 
-> disband ship 18 SOL 13
+> ship 18 disband 13 SOL
 
-> disband colony 24 SOL 3600
+> colony 24 disband 3,600 SOL
 
 ## Pay Orders
 
-`draft` (`ship` | `colony`) _id_ (_population_ _payRate_)+
+(`ship` | `colony`) _id_ `pay` _population_ _payRate_ (`,` _population_ _payRate_)*
 
-> pay ship 18 USK 120%
+> ship 18 pay USK 120%
 
-> pay colony 24 PRO 15%
+> colony 24 PRO 15%, USK 18%
 
 ## Ration Orders
 
-`draft` (`ship` | `colony`) _id_ _rationRate_
+(`ship` | `colony`) _id_ `rations` _rationRate_
 
-> ration ship 18 75%
+> ship 18 rations 75%
 
-> ration colony 24 130%
+> colony 24 rations 130%
 
 ## Control Orders
 
 ### Control Orders
 
+(`ship` | `colony`) _id_ `control` (`ship` | `colony`) _id_
+
+> ship 18 control colony 24
+
+(`ship` | `colony`) _id_ `control` `system` _seq_ `orbit` _orbitNo_
+
+> colony 8 control system A orbit 5
+
 Control orders against an entity or planet that is already controlled automatically fail.
 
-`control` (`ship` | `colony`) _id_ (_coordinates_ `system` _seq_ `orbit` _orbitNo_)?
-
-> control ship 18
-
-> control colony 24
-
-> control (-1,2,3) system A orbit 5
+Note: control orders are given to an entity that is at the same location as the object (entity or planet) to be controlled.
 
 ### Release Control Orders
 
-`release` (`ship` | `colony`) _id_ (_coordinates_ `system` _seq_ `orbit` _orbitNo_)?
+`release` (`ship` | `colony`) _id_
 
 > release ship 18
 
-> release colony 24
+Release has a variant that allows you to release control of a planet.
+
+`release` _coordinates_ `system` _seq_ `orbit` _orbitNo_
 
 > release (-1,2,3) system A orbit 5
 
@@ -215,11 +303,24 @@ Control orders against an entity or planet that is already controlled automatica
 Names must be quoted text.
 They may be no more than 24 characters long, including spaces.
 
-`name` _coordinates (`system` _seq_ (`orbit` _orbitNo_)?)? _quotedText_
+You may name a stellium.
+You are allowed to name stellia that you have not yet visited.
+
+`name` _coordinates _quotedText_
 
 > name (-1,2,3) "Stellium Joe"
 
+You may name a system.
+You are allowed to name systems that you have not yet visited.
+
+`name` _coordinates `system` _seq_ _quotedText_
+
 > name (-1,2,3) system A "Alpha Sur"
+
+You may name a planet.
+You are not allowed to name one that you have never had a report of.
+
+`name` _coordinates `system` _seq_ `orbit` _orbitNo_ _quotedText_
 
 > name (-1,2,3) system A orbit 8 "Headly's Gate"
 
@@ -231,9 +332,15 @@ You may name a ship or colony that you control.
 
 > name colony 24 "Jingo"
 
-You may name another player's ships and colonies.
+You may name another player or faction.
+You are not allowed to name one that you have not yet encountered.
 
-`name` `player` _id_ (`ship` | `colony`) _id_ _quotedText_
+`name` (`player` | `faction`) _id_ _quotedText_
+
+You may name another player or faction's ships and colonies.
+You are not allowed to name one that you have not yet encountered.
+
+`name` (`player` | `faction`) _id_ (`ship` | `colony`) _id_ _quotedText_
 
 > name player 5 ship 19 "Easy Target"
 
@@ -241,17 +348,15 @@ You may name another player's ships and colonies.
 
 ## Trade Station Orders
 
-> grant player 1 permission-to-trade (-1,2,3) system A orbit 5 station 4
+> alter permission grant trade (-1,2,3) system A orbit 5 station 4 to faction 1
 
-> refuse player 1 permission-to-trade (-1,2,3) system A orbit 5 station 4
-
-> revoke player 1 permission-to-trade (-1,2,3) system A orbit 5 station 4
+> alter permission refuse trade (-1,2,3) system A orbit 5 station 4 to faction 1
 
 ## Colonizing Permission
 
-> grant player 1 permission-to-colonize (-1,2,3) system A orbit 5
+> alter permission grant colonize (-1,2,3) system A orbit 5 to faction 1
 
-> refuse player 1 permission-to-colonize (-1,2,3) system A orbit 5
+> alter permission refuse colonize (-1,2,3) system A orbit 5 to faction 1
 
 ## General Notes
 
