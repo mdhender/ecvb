@@ -494,9 +494,11 @@ rather than syntax:
   75%`) and espionage (`colony 24 attack faction 1 spies using 11 spies`). Same
   subject shape, same verb, different grammar and different phase. One `Spec`
   has to carry both, or one has to be renamed.
-- **The cadres are not units.** `CWKR`, `PLCF`, `SPCF`, and `TRNE` are defined
-  in the accepted doc and appear in no `units.md` entry, no migration, and no
-  kit. `CWKR` is required by every `create`.
+- **The cadres are named but not specified.** `CWKR`, `PLCF`, `SPCF`, and
+  `TRNE` now have `units.md` entries, but nothing says what they are made of or
+  what they mass, `entity_population.class` still admits only `USK`, `SKW`,
+  `SOL`, and `NAS` (`migrations.go:134`), and no starting kit carries one.
+  `CWKR` is required by every `create`.
 
 ## Step 5 — add the orders
 

@@ -18,6 +18,11 @@ The loader currently uses provisional mass and volume values for testing:
   volumes are independent values, currently 2 VU each.
 - One population unit represents 100 persons in census reports.
 
+The cadres -- `CWKR`, `PLCF`, `SPCF`, and `TRNE` -- are named by
+`docs/accepted-orders.md` and are not yet specified. What they are made of,
+whether they are population, and their mass and volume are all open, and
+`entity_population.class` does not admit them.
+
 ## `CNGD`
 
 An inventory unit stored as cargo in the starting kit.
@@ -38,6 +43,11 @@ stored in external depots and consumes no enclosed space.
 
 **Surface colony.** An entity located on a planet's surface in ring 0. Its
 enclosed-space efficiency is 0.2.
+
+## `CWKR`
+
+**Construction Worker cadre.** A cadre without a technology level. Every
+`create` order names a quantity of `CWKR`.
 
 ## `FACT`
 
@@ -149,6 +159,10 @@ mass but consumes no enclosed space.
 **Non-Assignable population.** Population that a faction cannot assign to work
 in farms, mines, or factories.
 
+## `PLCF`
+
+**Police Force cadre.** A cadre without a technology level.
+
 ## `SDRV`
 
 A technology-level component unit used by colonies and ships in the starting
@@ -198,6 +212,10 @@ stellium. See [Order File Reference](orders.md).
 **Soldier population.** Population that a faction can assign to attack or
 defend entities.
 
+## `SPCF`
+
+**Special Forces cadre.** A cadre without a technology level.
+
 ## `STRC`
 
 **Structural unit.** A technology-level unit. When assembled in component
@@ -213,6 +231,10 @@ it consumes enclosed space normally.
 
 A technology-level operational inventory unit used by orbital colonies in the
 starting kit.
+
+## `TRNE`
+
+**Trainee cadre.** Trainees and recruits. A cadre without a technology level.
 
 ## `USK`
 
