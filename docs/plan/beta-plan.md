@@ -2,7 +2,7 @@
 
 ## Context
 
-Four orders exist (`MOVE`, `JUMP`, `PROBE`, `NAME`). Twenty-six remain, spanning
+Four orders exist (`MOVE`, `JUMP`, `PROBE`, `NAME`). Thirty-one remain, spanning
 inventory & cargo, entities & groups, population, market, information, control &
 diplomacy, and combat — then the production system and the combat system. The 1978 rules are being discovered by
 playing, so orders get reworked after they land, not just added.
@@ -11,13 +11,25 @@ Adding one order used to touch ~33 places across 18 files (measured from
 `git show 9d1b5c8`: 18 files, +1,542/−42). Four structural taxes cause that, and
 this plan removes them before adding the orders.
 
-**Status: steps 0 through 4 are done. Step 5 has begun: NAME is built
-(`e3eada9`) and `docs/accepted-orders.md` is now accepted rather than proposed.
-The parser now reads that surface: every order line is subject first, and `we`
-is a subject. The accepted verbs are mapped onto `docs/turn-sequence.md`, which
-is twenty-two stages and forty-two phases -- see "The turn sequence and the
-accepted doc are reconciled" below. The rest of step 5 is still waiting on rules
-the docs do not settle.**
+**Status: steps 0 through 4 are done and the plan's own verification suite is
+green. Step 5 has begun: NAME is built (`e3eada9`) and `docs/accepted-orders.md`
+is now accepted rather than proposed. The parser now reads that surface: every
+order line is subject first, and `we` is a subject. The accepted verbs are
+mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-two
+phases -- see "The turn sequence and the accepted doc are reconciled" below.**
+
+**Step 5 is stopped, and not for want of pipeline. The four structural taxes
+this plan set out to remove are removed: an order is one `Spec`, a rule is
+written once, a turn is its phase table, and every order is a row of one table.
+What all thirty-one remaining verbs are waiting on is what they *do*.
+`docs/accepted-orders.md` gives their surface forms and settles a good deal of
+the surrounding detail, but it does not say what a group produces per turn, what
+a spy costs, who the market's counterparty is, or what control confers -- and
+writing those would be authoring the 1978 rules rather than implementing them.
+See "What the code still has to be told" below for the list, verb by verb.
+`create` and the `jump` rework wait on one thing more, the pipeline's own
+missing state for an order that outlives its turn; both decisions that was
+waiting on are now taken, so that piece is buildable whenever it is wanted.**
 
 ---
 
@@ -30,7 +42,7 @@ the docs do not settle.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 31 orders | **in progress** | `e3eada9` (NAME) |
+| 5 — add the 31 orders | **blocked** — none of the 31 built | `e3eada9` (NAME, one of the four) |
 
 ### What step 0 built
 
@@ -355,9 +367,21 @@ in phase order, so a later phase only adds sequences at the end and every
 existing ring draw is untouched. The golden diff was 216 lines added, none
 removed.
 
-**Not built:** `name player FACTION-ID (ship|colony) ID "NAME"`. It is unclear
-whether `player 5` means faction 5 or player number 5, and `replay.sh` says
-those differ.
+**Not built:** naming another faction, or another faction's ships and colonies
+-- `we name faction 5 "The Hegemony"` and `we name player 5 ship 19 "Easy
+Target"`. The ambiguity this plan used to record here has narrowed: the accepted
+doc writes the two forms as `(player | faction) _id_`, one production with one
+id, so it reads them as two words for the same thing rather than two numbering
+schemes. That still wants confirming against `replay.sh`, where a player number
+and a faction id differ.
+
+Two things are missing besides. `faction_name` can name a stellium, a system, a
+planet, or an entity, and there is no column for a named *faction*, so the first
+form is a migration. And the accepted doc gates both on not naming a faction
+"you have not yet encountered", which nothing defines: `probe_contact` and
+`sensor_contact` record the entity seen but not who owns it, so an encounter is
+derivable only by joining back through `entity`, and whether one sighting
+counts forever is a rule, not a query.
 
 ## What step 5 needs before the rest can start
 
@@ -510,6 +534,30 @@ have to learn about it before batch 2 (`create`) or the `jump` rework can be
 built**, which makes it a prerequisite of two batches rather than a detail
 inside one.
 
+Two rules that were open here are now settled, so the work is no longer waiting
+on a decision:
+
+- **A jump's fuel is drawn in full on departure.** The whole bill -- 40 per
+  assembled `HDRV` unit per light year -- is charged in the turn the order
+  executes, however many turns the crossing then takes. This is what a
+  single-turn jump already does, so no built behaviour changes and no golden
+  moves; it also means a ship that cannot pay never leaves, which is the answer
+  that needs no rule for running dry halfway. `docs/accepted-orders.md` carried
+  this as a TODO and now carries the decision.
+- **A ship in transit is nowhere.** `entity.stellium_id` becomes nullable and
+  the location CHECK grows an arm for a ship with no stellium, no system, no
+  planet, and no ring. A crossing ship is invisible to probes, to passive
+  sensors, and to the turn report until it arrives, because it is not anywhere
+  to be found. The alternative -- leaving it at its origin until the last turn
+  -- would have had a fleet that departed three turns ago still showing up on
+  someone's sensor sweep, which is worse than the query churn.
+
+That second decision is the expensive half, because every query that assumes an
+entity has a stellium has to be read: `world.Load`'s entity load, the probe and
+sensor sweeps, and the turn and stellium reports. It is a schema change, so it
+is a new migration, and `docs/model.md` and `docs/entity-location.md` move with
+it. Neither is written yet -- the schema still has the CHECK it always had.
+
 ### What the code still has to be told
 
 The accepted doc gives the surface forms, so what is missing is semantics
@@ -579,6 +627,22 @@ has not drafted enough, are unwritten.
 
 A new order becomes: one `Spec` (parse + bind + apply), a section in
 `docs/orders.md`, and tests.
+
+**Where this stopped, and what starts it again.** None of the thirty-one are
+built, and none of them are waiting on the pipeline: an order costs a `Spec`, a
+doc section, and tests now, which is what steps 0 through 4 were for. They are
+waiting on what the verbs *do*. That is the list in "What the code still has to
+be told", and it is the 1978 text the user is supplying, verb by verb. Nothing
+in the code has to be prepared for it first, so a batch can be built the week
+its rules land.
+
+One piece is blocked on this repository rather than on the rules, and it is the
+only one: the pipeline has no state for an order that resolved without
+finishing, which `create` and the reworked `jump` both need. Both decisions that
+work was waiting on are now taken (see "Two orders outlive the turn that carries
+them"), so it can be built today, ahead of any rules. Build order when work
+resumes: the fourth status and the purge, then the `jump` duration on top of it,
+then whichever batch has rules.
 
 The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
 `probe`, `name` -- and two of those still need reworking: `name` for naming

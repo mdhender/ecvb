@@ -371,8 +371,15 @@ takes \(\lceil d / t \rceil\) turns to complete. `FUEL` is unchanged -- 40 per
 assembled `HDRV` unit per light year -- so the fuel is what makes a long jump
 expensive and the duration is what makes it slow.
 
-TODO: a jump that spans turns has to say when its fuel is drawn. Today the
-whole bill is charged when the order executes, which is the only turn there is.
+The whole fuel bill is drawn on departure, in the turn the order executes,
+however many turns the crossing then takes. A ship that cannot pay for the
+whole crossing never leaves.
+
+A ship in transit is nowhere. It is at no stellium, no system, and no planet
+until it arrives, so it cannot be probed, does not appear on a passive sensor
+sweep, and cannot be given an order. It arrives at the destination's stellium
+orbit at the end of the last turn of the crossing, and may be ordered again the
+turn after that.
 
 ## Draft Orders
 
