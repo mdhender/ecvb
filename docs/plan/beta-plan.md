@@ -11,9 +11,11 @@ Adding one order used to touch ~33 places across 18 files (measured from
 `git show 9d1b5c8`: 18 files, +1,542/−42). Four structural taxes cause that, and
 this plan removes them before adding the orders.
 
-**Status: steps 0 through 4 are done. Step 5 has begun: `docs/proposed-orders.md`
-arrived and NAME is built (`e3eada9`). The rest of step 5 is waiting on rules
-the draft does not settle -- see "What step 5 needs" below.**
+**Status: steps 0 through 4 are done. Step 5 has begun: NAME is built
+(`e3eada9`) and `docs/accepted-orders.md` is now accepted rather than proposed.
+It specifies a surface the built parser cannot read, so the parser rewrite comes
+first; the rest of step 5 is still waiting on rules the doc does not settle --
+see "What step 5 needs" below.**
 
 ---
 
@@ -335,7 +337,7 @@ Collapses: one DELETE and one INSERT in `Submit`; one `loadOrders` and one
 
 ### NAME is built
 
-`docs/proposed-orders.md` specifies naming completely, so it went in as the
+`docs/accepted-orders.md` specifies naming completely, so it went in as the
 first order since the rework: five forms, a new `faction_name` table, and a
 `naming` phase last in the turn where `docs/turn-sequence.md` puts it at stage
 19. It cost one `Spec`, a section in `orders.md`, and tests -- no SQL in
@@ -357,11 +359,69 @@ those differ.
 
 ## What step 5 needs before the rest can start
 
-Two forms in the draft contradict what is built: it writes `move ship 18
-orbit 5` and `jump ship 18 (-1,2,3)` where the parser wants `to` before the
-destination. Changing the parser would invalidate every committed order file in
-`games/claude`, `games/beta`, and `internal/replay/testdata`; making `to`
-optional would satisfy both. Open question.
+### The parser rewrite comes first
+
+`docs/accepted-orders.md` is accepted, and it specifies a surface the built
+parser cannot read. Two changes, cheaper together than apart: both land in
+`parseOrder`, and both churn the same corpora and docs.
+
+**Subject first.** Every grammar line in the accepted doc opens with its
+subject, and there are exactly three: `ship` _id_, `colony` _id_, and `we`.
+`parseOrder` inverts -- read the subject, read the verb, check the verb accepts
+that subject, hand the rest to `spec.Parse`. `Spec` grows a `Subjects` field,
+which is what today lives inside each parser as `expect("ship")`, and `Parse`
+takes the subject rather than reading it. `token.go` gains a subject reader.
+Nothing outside `internal/orders` changes: `Input()` renders parameters without
+the verb or the actor, so the replay goldens hold still, and a golden that does
+move is a real behaviour change rather than churn.
+
+**`we` is the faction subject.** Naming a place, releasing control, and granting
+a permission are faction orders. `actor_entity_id` stays nullable and null keeps
+meaning "the faction itself", which is what it already means for a place name,
+so there is no migration.
+
+**Multi-line orders.** `create` is terminated by `end` and ignores line breaks.
+Keep tokenizing one physical line at a time and let `Line` pull the next when an
+order is unfinished; `Spec` declares `Multiline`, and dispatch has already
+happened by then, so nothing has to pre-scan. `game_order.source_line` keeps
+holding the start line, which is the number a player looks for, so the column
+does not change.
+
+**Errors, in four tiers.** A line that never named a verb cannot be answered
+with a verb's syntax, but the subject vocabulary is closed, so the error is
+still precise: `expected ship, colony, or we`. Once the verb is known,
+`verbList()` answers a typo as it does today. A verb that does not take the
+subject it was given is new, and better than what is built: `jump is a ship
+order` rather than `expected ship`. After the verb the existing split is
+untouched -- a `syntaxErr` shows that verb's `Syntax`, a plain error reports as
+written. Inside a multi-line order an error names both numbers: `line 12: in the
+create order beginning on line 8: ...`.
+
+**Resynchronising after a missing `end`.** Without this, one forgotten `end`
+swallows the rest of the file and the player gets forty errors describing one
+mistake. `we` is a hard sync point: it appears nowhere in the grammar except as
+a subject, so a `we` opening a line inside an unterminated block is a new order.
+Stop there and report `the create order beginning on line 8 was never terminated
+with end`. `ship` and `colony` are only a hint, even first on a line: they
+appear mid-order as targets, and `create` takes `ship` as the thing being
+created while ignoring line breaks, so
+
+```text
+ship 18 create
+  ship
+  using 60 STRC-8, ...
+end
+```
+
+is legal and its second line opens with `ship`. Note the position, keep parsing,
+and if the block fails or reaches EOF unterminated, offer it as a guess rather
+than a verdict: `... was never terminated with end; line 12 looks like the start
+of a new order`.
+
+**The corpora.** 168 order lines across 73 files (`games/claude/orders` x70,
+`games/beta/orders` x1, `internal/replay/testdata/orders` x3), rewritten by
+script: move the subject behind the verb, prefix the place-naming lines with
+`we`. `orders.md` moves with them, and `doc_test.go` fails until it does.
 
 `units.md` and `model.md` specify the nouns completely -- the four inventory
 sections, per-unit mass and volume in each, enclosed volume from assembled
@@ -375,7 +435,7 @@ rules, not implementing them, so the user is supplying the 1978 text.
 transfers, which resolve before assembly. Load, unload, and jettison are not in
 the twenty-one stages at all, which may mean they are not separate orders.
 
-What the code still has to be told. `docs/proposed-orders.md` gives the surface
+What the code still has to be told. `docs/accepted-orders.md` gives the surface
 forms for most of these, so what is missing is now semantics rather than
 syntax:
 
@@ -387,11 +447,13 @@ syntax:
 - **LOAD / UNLOAD** -- between what (entity and entity, or entity and a planet
   depot); what co-location is required; which section the cargo lands in; any
   rate limit beyond volume.
-- **TRANSFER** -- the draft gives the form (`transfer ship 18 GOLD 4,500 FOOD
-  18,000 colony 24`) and that quantities over 999 carry commas, but not the
-  co-location rule, which inventory sections the units leave and arrive in, or
-  whether it crosses factions. Population moves too: `SOL 500`. This is the
-  closest of the lot to buildable -- three sentences would unblock it.
+- **TRANSFER** -- the accepted form is `ship 18 transfer 4,500 GOLD, 18,000
+  FOOD to colony 24`, and the doc now settles co-location (the order fails if
+  the two entities are not in the same place), that the units must be in cargo
+  and are stowed on arrival, and that a shortage of transports partially fills
+  it. Still open: which inventory sections the units leave and arrive in, and
+  whether it crosses factions. Population moves too: `500 SOL`. This is the
+  closest of the lot to buildable.
 - **JETTISON** -- destroyed or recoverable; which sections it may draw from;
   whether population can be jettisoned. Not in the twenty-one stages, so it may
   not be a separate order at all.

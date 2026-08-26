@@ -1,6 +1,4 @@
-# Proposed Orders
-
-2026/08/25 - draft
+# Accepted Orders
 
 ## Definitions
 

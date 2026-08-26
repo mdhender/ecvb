@@ -162,13 +162,14 @@ world the later phases see.
 `ec orders help` prints the phase list and tags each order with its phase, from
 the same table, so the reference cannot fall behind the engine.
 
-`docs/proposed-orders.md` drafts the order set the game is heading for and
-`docs/turn-sequence.md` the twenty-one stages it resolves in. Both are
-proposals rather than the spec: `orders.md` is what is actually built, and a
-test fails when a registered form is missing from it. Two of the proposed forms
-already differ from what is built -- the draft writes `move ship 18 orbit 5`
-and `jump ship 18 (-1,2,3)` where the parser wants `to` before the
-destination -- and that is an open question, not an oversight.
+`docs/accepted-orders.md` is the accepted order set the game is heading for and
+`docs/turn-sequence.md` the twenty-one stages it resolves in. Neither is the
+spec of what exists: `orders.md` is what is actually built, and a test fails
+when a registered form is missing from it. The accepted doc writes every order
+subject first -- `ship 18 jump to (-1,2,3)`, and `we` for the orders no ship
+carries out -- and gives `create` multiple lines terminated by `end`. The built
+parser reads neither, so the parser rewrite comes before the rest of the orders;
+`docs/plan/beta-plan.md` carries the design.
 
 ## Turn lifecycle
 
