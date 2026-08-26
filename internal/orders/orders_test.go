@@ -138,16 +138,8 @@ func TestSubmitAtomicallyReplacesOrders(t *testing.T) {
 
 	var rows []string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT printf('%d|%d|%s|%s', sequence, ship_id, verb, input)
-		FROM (
-			SELECT sequence, ship_id, 'move' AS verb,
-				CASE WHEN requested_system IS NULL THEN printf('orbit %d', requested_orbit)
-				ELSE printf('system %s orbit %d', requested_system, requested_orbit) END AS input
-			FROM move_order WHERE faction_id = 1 AND turn = 3
-			UNION ALL
-			SELECT sequence, ship_id, 'jump', printf('(%d,%d,%d)', destination_x, destination_y, destination_z)
-			FROM jump_order WHERE faction_id = 1 AND turn = 3
-		) ORDER BY sequence;`, &sqlitex.ExecOptions{
+		SELECT printf('%d|%d|%s|%s', sequence, actor_entity_id, verb, input)
+		FROM game_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			rows = append(rows, stmt.ColumnText(0))
 			return nil
@@ -187,23 +179,82 @@ func TestSubmitRejectsResolvedTurn(t *testing.T) {
 	}
 }
 
-func TestSpecializedOrderForeignKeysEnforceOwnershipAndDestinationGame(t *testing.T) {
+// The order table enforces the two ids that are still ids: the faction plays
+// this game, and the actor belongs to that faction. Everything else an order
+// names is stored as the words the player wrote and resolved again when the
+// turn runs, so there is no third id here to get wrong.
+func TestTheOrderTableEnforcesTheIdsItStillHolds(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	for name, script := range map[string]string{
-		"ship ownership": `
-			INSERT INTO jump_order (
-				game_id, turn, faction_id, sequence, source_line, ship_id,
-				destination_x, destination_y, destination_z, destination_stellium_id
-			) VALUES (1, 3, 1, 2, 4, 42, 1, 2, 3, 11);`,
-		"destination game": `
-			INSERT INTO jump_order (
-				game_id, turn, faction_id, sequence, source_line, ship_id,
-				destination_x, destination_y, destination_z, destination_stellium_id
-			) VALUES (1, 3, 1, 2, 4, 40, 1, 2, 3, 12);`,
+		// Ship 42 belongs to faction 2.
+		"an actor the faction does not own": `
+			INSERT INTO game_order (
+				game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+			) VALUES (1, 3, 1, 2, 4, 'jump', 42, '(1,2,3)', '{"x":1,"y":2,"z":3}');`,
+		// Faction 2 plays game 1, so it does not play game 2.
+		"a faction that does not play this game": `
+			INSERT INTO game_order (
+				game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+			) VALUES (2, 3, 2, 2, 4, 'jump', NULL, '(1,2,3)', '{"x":1,"y":2,"z":3}');`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := sqlitex.ExecuteTransient(conn, script, nil); err == nil {
 				t.Fatal("insert succeeded; want foreign key error")
+			}
+		})
+	}
+}
+
+// What a status means is one block on one table now, instead of the same block
+// copied onto every kind of order. A failed order says why it failed and
+// burned nothing getting there, and it went nowhere.
+func TestTheOrderTableEnforcesWhatAStatusMeans(t *testing.T) {
+	for name, tc := range map[string]struct {
+		script string
+		want   string
+	}{
+		"a failed order says why": {
+			script: `
+				INSERT INTO game_order (
+					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, status
+				) VALUES (1, 3, 1, 2, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 'failed');`,
+			want: "CHECK constraint failed",
+		},
+		"a failed order burned nothing": {
+			script: `
+				INSERT INTO game_order (
+					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params,
+					status, error_message, fuel_spent
+				) VALUES (1, 3, 1, 2, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 'failed', 'no fuel', 160);`,
+			want: "CHECK constraint failed",
+		},
+		"a pending order has not failed": {
+			script: `
+				INSERT INTO game_order (
+					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, error_message
+				) VALUES (1, 3, 1, 2, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 'no fuel');`,
+			want: "CHECK constraint failed",
+		},
+		"a failed order goes nowhere": {
+			script: `
+				INSERT INTO game_order (
+					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params,
+					status, error_message
+				) VALUES (1, 3, 1, 2, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 'failed', 'no fuel');
+				INSERT INTO order_movement (
+					game_id, turn, faction_id, sequence, start_stellium_id, final_stellium_id
+				) VALUES (1, 3, 1, 2, 10, 11);`,
+			want: "a failed order goes nowhere",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			conn := openOrderTestDatabase(t)
+			err := sqlitex.ExecuteScript(conn, tc.script, nil)
+			if err == nil {
+				t.Fatal("insert succeeded; want the row refused")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error = %v; want it to mention %q", err, tc.want)
 			}
 		})
 	}
@@ -233,10 +284,9 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 			(40, 'component', 'HDRV', 4, 1), (42, 'component', 'HDRV', 4, 1),
 			(40, 'component', 'SNSR', 2, 1), (41, 'component', 'SNSR', 1, 1),
 			(40, 'cargo', 'FUEL', 0, 500), (42, 'cargo', 'FUEL', 0, 500);
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
-		) VALUES (1, 3, 1, 1, 3, 40, 0, 0, 0, 10);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 3, 1, 1, 3, 'jump', 40, '(0,0,0)', '{"x":0,"y":0,"z":0}');
 		-- Checking a file runs the orders for real and rolls them back, so a
 		-- ship has to mass at least the fuel it is about to burn. 500 of each
 		-- ship's 3,000 MU is the fuel it carries, at 1 MU each.
@@ -250,8 +300,7 @@ func orderCount(t *testing.T, conn *sqlite.Conn) int {
 	t.Helper()
 	count := 0
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT (SELECT count(*) FROM move_order WHERE faction_id = 1 AND turn = 3)
-			+ (SELECT count(*) FROM jump_order WHERE faction_id = 1 AND turn = 3);`, &sqlitex.ExecOptions{
+		SELECT count(*) FROM game_order WHERE faction_id = 1 AND turn = 3;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			count = stmt.ColumnInt(0)
 			return nil
@@ -449,19 +498,15 @@ probe ship 40 orbit 4
 		t.Fatal(err)
 	}
 	var order []string
-	for _, query := range []string{
-		"SELECT 'probe', sequence FROM probe_order WHERE faction_id = 1 AND turn = 3",
-		"SELECT 'move', sequence FROM move_order WHERE faction_id = 1 AND turn = 3",
-		"SELECT 'jump', sequence FROM jump_order WHERE faction_id = 1 AND turn = 3",
-	} {
-		if err := sqlitex.ExecuteTransient(conn, query+";", &sqlitex.ExecOptions{
-			ResultFunc: func(stmt *sqlite.Stmt) error {
-				order = append(order, fmt.Sprintf("%s=%d", stmt.ColumnText(0), stmt.ColumnInt(1)))
-				return nil
-			},
-		}); err != nil {
-			t.Fatal(err)
-		}
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT verb, sequence FROM game_order
+		WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			order = append(order, fmt.Sprintf("%s=%d", stmt.ColumnText(0), stmt.ColumnInt(1)))
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
 	}
 	if want := []string{"probe=1", "move=2", "jump=3"}; !slices.Equal(order, want) {
 		t.Errorf("sequences = %v; want %v", order, want)
@@ -480,8 +525,8 @@ probe ship 40 orbit 4 6
 	}
 	var orbits []int
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT requested_orbit FROM probe_order
-		WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		SELECT json_extract(params, '$.orbits[0]') FROM game_order
+		WHERE faction_id = 1 AND turn = 3 AND verb = 'probe' ORDER BY sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			orbits = append(orbits, stmt.ColumnInt(0))
 			return nil
@@ -602,21 +647,22 @@ move ship 40 to orbit 11
 	}
 	var rows []string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT printf('%d|%d|%d|%s|%s|%d', sequence, requested_orbit,
-			fuel_spent, coalesce(destination_system_id, '-'), coalesce(destination_planet_id, '-'),
-			destination_stellium_id)
-		FROM move_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			rows = append(rows, stmt.ColumnText(0))
-			return nil
-		},
-	}); err != nil {
+		SELECT printf('%d|%s|%d', sequence, input, fuel_spent)
+		FROM game_order WHERE faction_id = 1 AND turn = 3 AND verb = 'move' ORDER BY sequence;`,
+		&sqlitex.ExecOptions{
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				rows = append(rows, stmt.ColumnText(0))
+				return nil
+			},
+		}); err != nil {
 		t.Fatal(err)
 	}
+	// The cost of each move is measured from where the one before it left the
+	// ship, which is why the second one costs twice the first.
 	want := []string{
-		"1|6|4|20|31|10", // one hop: planet to planet inside system A
-		"2|4|8|23|33|10", // two hops: planet to planet across systems
-		"3|11|4|-|-|10",  // one hop: planet to the stellium orbit
+		"1|orbit 6|4",          // one hop: planet to planet inside system A
+		"2|system B orbit 4|8", // two hops: planet to planet across systems
+		"3|orbit 11|4",         // one hop: planet to the stellium orbit
 	}
 	if strings.Join(rows, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("move orders = %q; want %q", rows, want)
@@ -753,7 +799,7 @@ move ship 40 to orbit 4
 	var stored []string
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT printf('%d|%d', sequence, fuel_spent)
-		FROM move_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		FROM game_order WHERE faction_id = 1 AND turn = 3 AND verb = 'move' ORDER BY sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			stored = append(stored, stmt.ColumnText(0))
 			return nil

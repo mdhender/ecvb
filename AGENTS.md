@@ -34,6 +34,10 @@ seeding a database.
 - Migration and seed operations require the database file to exist unless the
   command explicitly creates it as part of the requested operation.
 - Migrations must be ordered, repeatable to apply, and recorded in the database.
+- Migrations are append-only from the first live game. Until then the schema is
+  a single baseline that may be rewritten, because every database is rebuilt
+  from committed seeds and scripts; a database whose version does not match is
+  refused, never migrated in place.
 - Seed data should be deterministic and safe for the intended environment.
 
 ### `cmd/server`

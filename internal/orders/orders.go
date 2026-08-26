@@ -5,6 +5,7 @@ package orders
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ type Warning struct {
 
 // placed is a bound order with its place in the file and in the turn.
 type placed struct {
+	verb     string
 	sequence int
 	line     int
 	bound    Bound
@@ -86,9 +88,12 @@ func Submit(ctx context.Context, conn *sqlite.Conn, r io.Reader) (result Result,
 	}
 	// The dry run has been rolled back and the orders are known to be legal.
 	// Replacing them is the only thing this transaction keeps.
-	// Findings before the orders that produced them, so the deletes stay valid
-	// the day one references the other.
-	for _, table := range []string{"probe_contact", "probe_deposit", "move_order", "jump_order", "probe_order"} {
+	//
+	// What an order recorded goes before the order itself, because the record
+	// points at it; the findings go too, because a resubmitted file reads the
+	// planets again.
+	for _, table := range []string{"probe_contact", "probe_deposit",
+		"order_movement", "order_survey", "game_order"} {
 		if err = sqlitex.ExecuteTransient(conn,
 			"DELETE FROM "+table+" WHERE game_id = ? AND turn = ? AND faction_id = ?;", &sqlitex.ExecOptions{
 				Args: []any{validated.gameID, validated.result.Turn, validated.result.FactionID},
@@ -97,14 +102,32 @@ func Submit(ctx context.Context, conn *sqlite.Conn, r io.Reader) (result Result,
 		}
 	}
 	for _, order := range validated.orders {
-		if err = order.bound.store(row{
-			conn: conn, gameID: validated.gameID, turn: submission.Turn,
-			factionID: validated.result.FactionID, sequence: order.sequence, line: order.line,
-		}); err != nil {
+		if err = store(conn, validated.gameID, submission.Turn, validated.result.FactionID, order); err != nil {
 			return Result{}, fmt.Errorf("store the order on line %d: %w", order.line, err)
 		}
 	}
 	return validated.result, nil
+}
+
+// store writes one bound order. Every order is a row of game_order whatever
+// its verb, so this is written once rather than once per kind of order.
+func store(conn *sqlite.Conn, gameID int64, turn int, factionID int64, order placed) error {
+	params := order.bound.Params()
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("encode %s parameters: %w", order.verb, err)
+	}
+	if err := sqlitex.ExecuteTransient(conn, `
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line,
+			verb, actor_entity_id, input, params, fuel_spent
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
+		Args: []any{gameID, turn, factionID, order.sequence, order.line,
+			order.verb, nullableID(params.Actor()), params.Input(), string(encoded), order.bound.Fuel()},
+	}); err != nil {
+		return fmt.Errorf("insert %s order: %w", order.verb, err)
+	}
+	return nil
 }
 
 // errDiscarded forces a savepoint to roll back. It never reaches a caller.
@@ -193,7 +216,7 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 					warnings = append(warnings, Warning{Line: order.Line,
 						Message: outcome.Message + "; the order is kept in case that changes before the turn resolves"})
 				}
-				orders = append(orders, placed{sequence: sequence, line: order.Line, bound: bound})
+				orders = append(orders, placed{verb: order.Verb, sequence: sequence, line: order.Line, bound: bound})
 			}
 		}
 		if phase.Sweep == nil {

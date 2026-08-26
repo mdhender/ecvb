@@ -214,29 +214,84 @@ unit-specific rule.
 
 ## Orders
 
-Orders are stored in intent-specific tables. Each of `jump_order`,
-`move_order`, and `probe_order` identifies the game, turn, faction, source line,
-sequence, and ship. Their status
-is one of `pending`, `succeeded`, or `failed`.
+Every order a player writes is a row of `game_order`, whatever its verb.
 
-Resolved rows record the ship's complete location immediately before and after
-the order. A failed order also records an error message, and its final location
-equals its starting location.
+### `game_order`
 
-### `jump_order`
+| Column | Description |
+| --- | --- |
+| `game_id`, `turn`, `faction_id`, `sequence` | The order's identity. `sequence` is its place in the turn's resolution order. |
+| `source_line` | Its position in the submitted file. |
+| `verb` | Which order it is, lowercase: `move`, `jump`, `probe`. |
+| `actor_entity_id` | The entity the order acts on; null for an order that acts on none. |
+| `input` | The order rendered back in the words the player wrote. What the reports print and the engine log echoes. |
+| `params` | Everything else the order said, as JSON, in the words the player wrote. |
+| `fuel_spent` | The fuel the order would burn while it is pending, and the fuel it did burn once it resolved, which is zero for a failed order. |
+| `status` | `pending`, `succeeded`, or `failed`. |
+| `error_message` | Why a failed order failed. Null otherwise. |
 
-A jump order stores the requested X, Y, and Z coordinates and the resolved
-destination stellium ID. A successful jump clears the ship's system, planet,
-and ring.
+`params` never holds an id. A `move` stores `{"orbit": 6}` or
+`{"system": "B", "orbit": 4}`, a `jump` stores `{"x": 1, "y": 2, "z": 3}`, a
+`probe` stores `{"orbits": [4]}`. The engine resolves those names against the
+map again when the turn runs, so a name that no longer resolves is a failed
+order rather than a corrupt row, and there is no id in the JSON for the
+database to fail to enforce. The two ids worth enforcing are columns with
+foreign keys on them: the faction plays this game, and the actor belongs to
+that faction.
 
-### `probe_order`
+A CHECK ties the three statuses together: a failed order carries a non-empty
+error message and burned no fuel, and a pending or succeeded one carries no
+error message.
 
-A probe order names the entity that probes, which may be a ship or a colony,
-rather than a ship as `move_order` and `jump_order` do. It stores the requested
-orbit, the optional requested system, and, once resolved, the stellium and
-system the ship read from, the planet it read, and that planet's habitability.
-One row records one probed orbit, so an order naming several orbits stores
-several rows.
+### `order_movement`
+
+Where an order took its entity, for the orders that move one. Most do not and
+have no row. The row is written once, when the turn resolves, and records the
+complete location immediately before and after: stellium, and either a system,
+planet, and ring together or none of the three. A trigger refuses a row whose
+final location differs from its start when the order failed, because a failed
+order goes nowhere.
+
+A successful move to a planet places the ship in a ring drawn from 2 through
+99; the draw is seeded from `game.seed_high`, `game.seed_low`, the turn, and
+the order, so resolving a turn twice reaches the same rings. Distance inside a
+stellium is not stored: it takes one of three fixed values, which the engine
+reads off the start and destination systems, and fuel is the number a player
+sees. A successful jump clears the ship's system, planet, and ring, because a
+jump arrives in the destination's stellium orbit.
+
+Orbit 11 is the stellium orbit, which no planet occupies. It resolves to no
+system and no planet, and a move may not qualify it with a system letter.
+
+### `order_survey`
+
+What an order read, for the orders that read something. A probe writes one row
+naming the stellium and system it read from, the planet it read, and that
+planet's habitability. A probe that failed read nothing and has no row. One
+probe order reads one orbit, so a line naming several orbits becomes several
+orders and several rows.
+
+### Submitting and resolving
+
+Submission runs the turn against the database and rolls it back, then stores
+the orders that run bound. It atomically replaces every pending order for the
+faction and current turn, or stores nothing at all. Validation follows engine
+resolution order, and the stored sequence records it.
+
+Spending fuel deletes it from `inventory` and takes its mass off `entity.mass`,
+so an entity's mass stays the total of its population and inventory.
+
+Resolving a turn is atomic. The engine walks the turn's phases in order --
+probe, sensor, move, jump -- executing every order of one phase before any
+order of the next, updating entities and order outcomes, and changing the game
+from `open` to `resolved`. The turn number does not change until the gamemaster
+opens the next turn. Opening the next turn retains the most recently resolved
+order rows and purges older rows.
+
+## Findings
+
+What a faction has seen, recorded when it saw it. A finding is not an order and
+outlives the order that produced it within the turn.
 
 ### `sensor_survey` and `sensor_contact`
 
@@ -258,38 +313,3 @@ away later in the same turn and the entities it saw may move. `probe_contact`
 records every entity at the probed planet with its unit, ring, and exact mass.
 `probe_deposit` records every deposit with its resource and quantity. Reports
 render deposit quantities as approximate quantities.
-
-### `move_order`
-
-A move order stores the optional requested system letter, requested orbit, the
-resolved destination stellium, system, and planet IDs, and the fuel the move
-burns. A successful move to a planet places the ship in a ring drawn from 2
-through 99; the draw is seeded from `game.seed_high`, `game.seed_low`, the
-turn, and the order, so resolving a turn twice reaches the same rings. Distance
-inside a stellium is not stored: it takes one of three fixed values, which the
-engine reads off the start and destination systems, and fuel is the number a
-player sees.
-
-Requested orbit 11 is the stellium orbit, which no planet occupies. It resolves
-to a destination stellium with no system and no planet, and CHECK constraints
-tie the three together: orbit 11 exactly when the destination system is null,
-never qualified by a system letter, and a destination system and planet that
-are null together.
-
-`fuel_spent` on `move_order` and `jump_order` is the fuel the order would burn
-while it is pending, and the fuel it did burn once it resolves, which is zero
-for a failed order. Spending fuel deletes it from `inventory` and takes its
-mass off `entity.mass`, so an entity's mass stays the total of its population
-and inventory.
-
-Submission atomically replaces every kind of pending order for the faction and
-current turn. Semantic validation follows engine resolution order: all probes
-are validated, then all moves, then all jumps. The stored sequence records that resolution
-order; the source line records the order's position in the submitted file.
-
-Resolving a turn is atomic. The engine executes all probes, reads passive
-sensors, then executes all moves and all jumps, updates entities and order
-outcomes, and changes the game from `open` to
-`resolved`. The turn number does not change until the gamemaster opens the next
-turn. Opening the next turn retains the most recently resolved order rows and
-purges older rows.

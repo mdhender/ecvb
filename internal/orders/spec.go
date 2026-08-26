@@ -74,8 +74,17 @@ type Spec struct {
 	Syntax []string
 	// Phase is the stage of a turn the order resolves in.
 	Phase *Phase
+	// Movement says whether the order can move the entity it acts on, and so
+	// whether where that entity began and ended is worth recording. It is a
+	// property of the kind of order, not of how one went: an order that can
+	// move records that it stayed put when it failed.
+	Movement bool
 	// Parse reads the rest of the line, after the verb.
 	Parse func(line *Line) (Params, error)
+	// Decode is Parse's counterpart for an order read back out of the
+	// database: it rebuilds the parameters from the stored JSON and the actor,
+	// which is a column of its own rather than part of the JSON.
+	Decode func(actor int64, params string) (Params, error)
 }
 
 var registry = map[string]*Spec{}

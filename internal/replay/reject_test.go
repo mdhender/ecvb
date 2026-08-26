@@ -110,18 +110,16 @@ func TestSubmitRejects(t *testing.T) {
 // invalid file must leave the faction's existing order set exactly as it was.
 func assertNoStoredOrders(t *testing.T, conn *sqlite.Conn) {
 	t.Helper()
-	for _, table := range []string{"move_order", "jump_order", "probe_order"} {
-		var rows int
-		if err := sqlitex.ExecuteTransient(conn, "SELECT COUNT(*) FROM "+table+";", &sqlitex.ExecOptions{
-			ResultFunc: func(stmt *sqlite.Stmt) error {
-				rows = stmt.ColumnInt(0)
-				return nil
-			},
-		}); err != nil {
-			t.Fatalf("count %s: %v", table, err)
-		}
-		if rows != 0 {
-			t.Errorf("%s holds %d rows after a rejected submission; want none", table, rows)
-		}
+	var rows int
+	if err := sqlitex.ExecuteTransient(conn, "SELECT COUNT(*) FROM game_order;", &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rows = stmt.ColumnInt(0)
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("count game_order: %v", err)
+	}
+	if rows != 0 {
+		t.Errorf("game_order holds %d rows after a rejected submission; want none", rows)
 	}
 }

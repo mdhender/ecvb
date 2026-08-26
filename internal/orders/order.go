@@ -9,7 +9,6 @@ import (
 
 	"github.com/mdhender/ecvb/internal/fuel"
 	"github.com/mdhender/ecvb/internal/world"
-	"zombiezen.com/go/sqlite"
 )
 
 // An order is written twice and no more: once as Params, which is what the
@@ -33,9 +32,21 @@ import (
 // by doing the turn rather than by simulating it.
 
 // Params is one parsed order: what the player wrote, with nothing looked up.
+//
+// A Params is also how an order is stored. It marshals to the params column of
+// game_order, which holds the words the player used and never an id: the actor
+// is a column of its own with a foreign key on it, and everything else is
+// resolved again when the turn runs, so a name that stops resolving is a
+// failed order rather than a corrupt row. Every Params therefore tags its
+// actor field `json:"-"`, and its Spec's Decode puts the actor back.
 type Params interface {
-	// Actor is the entity the order acts on.
+	// Actor is the entity the order acts on, or 0 for an order that acts on
+	// none.
 	Actor() int64
+	// Input is the order rendered back in the words the player used. It is
+	// stored with the order, and it is what the reports print and what the
+	// engine log echoes.
+	Input() string
 	// Bind resolves the order's names into database ids and settles the
 	// legality the turn cannot change.
 	//
@@ -47,6 +58,10 @@ type Params interface {
 
 // Bound is an order whose names are ids and whose legality is settled.
 type Bound interface {
+	// Params is this one order as it will be stored: what the player wrote,
+	// narrowed to the single order it became. A probe line becomes one Bound
+	// per orbit, and each stores the one orbit it will read.
+	Params() Params
 	// Fuel is what the order burns if it succeeds. It is stored with the order
 	// so a player can see what a pending turn will cost.
 	Fuel() int64
@@ -54,10 +69,6 @@ type Bound interface {
 	// the turn goes on; an error is a database or state failure and rolls the
 	// whole turn back.
 	Apply(*Turn) (Outcome, error)
-	// store writes the order to the table its kind lives in. Step 4 of the
-	// order-pipeline rework replaces the three order tables with one, and this
-	// method with a JSON encoding of the order's parameters.
-	store(row) error
 }
 
 // Binder is what Bind consults: the world as it stands and the faction whose
@@ -85,18 +96,22 @@ const (
 
 // Outcome is what happened when an order was applied.
 type Outcome struct {
-	Status    string
-	Message   string
+	Status  string
+	Message string
+	// Start and Final are where the order found its actor and where it left
+	// it. Every order reports both, because the log records where an order
+	// happened; for an order that moves nothing they are the same place. Only
+	// an order whose Spec has Movement set records them in the database.
 	Start     world.Location
 	Final     world.Location
 	FuelSpent int64
-	// Result is what an order recorded beyond its status. A probe returns a
-	// ProbeResult naming what it read; a move or a jump returns nil.
-	Result any
+	// Survey is the planet the order read, for the orders that read one. An
+	// order that read nothing, or a probe that failed, leaves it nil.
+	Survey *Survey
 }
 
-// ProbeResult is what one probe read.
-type ProbeResult struct {
+// Survey is a planet an order read.
+type Survey struct {
 	StelliumID   int64
 	SystemID     int64
 	PlanetID     int64
@@ -111,17 +126,6 @@ func succeeded(start, final world.Location, burned int64) Outcome {
 // found it, so the start and the final location are the same.
 func failed(at world.Location, message string) Outcome {
 	return Outcome{Status: StatusFailed, Message: message, Start: at, Final: at}
-}
-
-// row is where a bound order is stored: which game, turn, and faction it
-// belongs to, its place in the file, and its place in the turn.
-type row struct {
-	conn      *sqlite.Conn
-	gameID    int64
-	turn      int
-	factionID int64
-	sequence  int
-	line      int
 }
 
 // actor finds the entity an order names and checks that the player may name it
@@ -194,13 +198,29 @@ func noun(entity *world.Entity) string {
 	return "colony"
 }
 
-// displaySystem names the system an order asked for. An order that named none
-// asked for the one its actor was already in.
+// displaySystem names the system an order asked for, in a message about what
+// went wrong with it. An order that named none asked for the one its actor was
+// already in.
 func displaySystem(letter string) string {
 	if letter == "" {
 		return "current"
 	}
 	return letter
+}
+
+// orbitInput renders an order that named orbits, in the words the player used.
+// An order that named no system asked for the one its actor was already in and
+// says so by leaving the system out.
+func orbitInput(system string, orbits ...int) string {
+	var out strings.Builder
+	if system != "" {
+		fmt.Fprintf(&out, "system %s ", system)
+	}
+	out.WriteString("orbit")
+	for _, orbit := range orbits {
+		fmt.Fprintf(&out, " %d", orbit)
+	}
+	return out.String()
 }
 
 // bindErrors is more than one thing wrong with a single line, such as a probe

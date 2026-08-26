@@ -51,9 +51,11 @@ reads `EC_GAME_SEED`, and so on.
 - `internal/database/migrations.go` is the single source of schema truth: an ordered
   `[...]string` of SQL, applied via `sqlitemigration`. `SchemaVersion` is derived from
   its length. **Add a migration by appending a new element; never edit an existing
-  one.** The last migration shows the house pattern for a destructive change — a guard
-  table plus trigger that aborts with an actionable message when live data would be
-  lost.
+  one.** The one exception is the baseline, which is currently the whole list: no
+  database anyone cares about has been built from it, so it is still cheap to
+  rewrite. **From the first live game onward the list is append-only without
+  exception.** A destructive migration follows the house pattern — a guard table plus
+  a trigger that aborts with an actionable message when live data would be lost.
 - Multi-step state changes (loading a game, adding a player with a kit, submitting
   orders, resolving a turn) run inside a single transaction and roll back whole.
 
@@ -179,10 +181,22 @@ the same table, so the reference cannot fall behind the engine.
    recently resolved turn, so the previous turn's outcomes stay readable via
    `ecrpt show orders --turn N`.
 
-Order tables carry both `sequence` (engine resolution order: earlier phases first) and
-`source_line` (position in the submitted file). The three-way status CHECK constraint
-on `jump_order`/`move_order` is what enforces the pending/succeeded/failed shape — new
-order kinds should follow the same table layout.
+Every order is a row of `game_order`, whatever its verb: `verb`, `actor_entity_id`,
+`input` (the order in the words the player wrote), and `params` (everything else it
+said, as JSON, also in the player's words and never as an id). It carries both
+`sequence` (engine resolution order: earlier phases first) and `source_line` (position
+in the submitted file). The three-way status CHECK is written once there.
+
+Two child tables hang off it, keyed on the same four columns, for the orders that
+record more than a status: `order_movement` (where the order took its actor — set
+`Movement: true` on the Spec) and `order_survey` (the planet it read). A new order kind
+needs neither unless it records that kind of thing.
+
+Because `params` holds no ids, SQLite no longer checks that a jump's destination is in
+this game. It does not have to: `Bind` resolves the coordinates against the game's own
+stellia when the turn runs, so a destination that is not there is a failed order rather
+than a corrupt row. The compound foreign keys that do fire — faction in game, actor
+belongs to faction — are still columns.
 
 Resolution writes one structured `slog` record per order to stderr; the runbook
 captures it as `2>reports/tN-engine.log`. `ec turn resolve --no-log-timestamps`

@@ -3,13 +3,13 @@
 package orders
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"github.com/mdhender/ecvb/internal/world"
-	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 // The orders the game understands. Each one lives here and nowhere else: its
@@ -21,10 +21,18 @@ var errExpectedActor = syntaxErr{message: "expected ship or colony"}
 
 func init() {
 	register(&Spec{
-		Verb:    "jump",
-		Summary: "send a ship to another stellium, within its drive's range",
-		Syntax:  []string{"jump ship SHIP-ID to (X,Y,Z)"},
-		Phase:   PhaseJump,
+		Verb:     "jump",
+		Summary:  "send a ship to another stellium, within its drive's range",
+		Syntax:   []string{"jump ship SHIP-ID to (X,Y,Z)"},
+		Phase:    PhaseJump,
+		Movement: true,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := JumpParams{ShipID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
 		Parse: func(line *Line) (Params, error) {
 			var order JumpParams
 			if err := line.expect("ship"); err != nil {
@@ -51,7 +59,15 @@ func init() {
 			"move ship SHIP-ID to orbit ORBIT",
 			"move ship SHIP-ID to system SYSTEM orbit ORBIT",
 		},
-		Phase: PhaseMove,
+		Phase:    PhaseMove,
+		Movement: true,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := MoveParams{ShipID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
 		Parse: func(line *Line) (Params, error) {
 			var order MoveParams
 			if err := line.expect("ship"); err != nil {
@@ -91,6 +107,13 @@ func init() {
 			"probe colony COLONY-ID system SYSTEM orbit ORBIT ...",
 		},
 		Phase: PhaseProbe,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := ProbeParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
 		Parse: func(line *Line) (Params, error) {
 			var order ProbeParams
 			kind, ok := line.keyword("ship", "colony")
@@ -125,13 +148,16 @@ func init() {
 // MoveParams is a MOVE as written: a ship and an orbit, which a system of the
 // ship's own stellium may qualify.
 type MoveParams struct {
-	ShipID int64
-	System string
-	Orbit  int
+	ShipID int64  `json:"-"`
+	System string `json:"system,omitempty"`
+	Orbit  int    `json:"orbit"`
 }
 
 // Actor is the ship the move carries.
 func (p MoveParams) Actor() int64 { return p.ShipID }
+
+// Input is the move as the player wrote it.
+func (p MoveParams) Input() string { return orbitInput(p.System, p.Orbit) }
 
 // Bind resolves the destination and measures the drive against the ship. Every
 // move inside a stellium is well within the range of any drive, so only the
@@ -193,6 +219,12 @@ type moveBound struct {
 	cost       int64
 }
 
+// Params is the move as it will be stored: the orbit asked for, and the system
+// only if the player named one.
+func (o *moveBound) Params() Params {
+	return MoveParams{ShipID: o.ship.ID, System: o.system, Orbit: o.orbit}
+}
+
 func (o *moveBound) Fuel() int64 { return o.cost }
 
 func (o *moveBound) Apply(t *Turn) (Outcome, error) {
@@ -221,32 +253,21 @@ func (o *moveBound) Apply(t *Turn) (Outcome, error) {
 	return succeeded(start, final, o.cost), nil
 }
 
-func (o *moveBound) store(at row) error {
-	if err := sqlitex.ExecuteTransient(at.conn, `
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			requested_system, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
-		Args: []any{at.gameID, at.turn, at.factionID, at.sequence, at.line, o.ship.ID,
-			nullableString(o.system), o.orbit,
-			o.stelliumID, nullableID(o.systemID), nullableID(o.planetID), o.cost},
-	}); err != nil {
-		return fmt.Errorf("insert move order: %w", err)
-	}
-	return nil
-}
-
 // JUMP ------------------------------------------------------------------
 
 // JumpParams is a JUMP as written: a ship and the point it is bound for.
 type JumpParams struct {
-	ShipID  int64
-	X, Y, Z int
+	ShipID int64 `json:"-"`
+	X      int   `json:"x"`
+	Y      int   `json:"y"`
+	Z      int   `json:"z"`
 }
 
 // Actor is the ship the jump carries.
 func (p JumpParams) Actor() int64 { return p.ShipID }
+
+// Input is the jump as the player wrote it.
+func (p JumpParams) Input() string { return fmt.Sprintf("(%d,%d,%d)", p.X, p.Y, p.Z) }
 
 // Bind finds the destination stellium and measures the jump against the drive.
 func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
@@ -283,6 +304,11 @@ type jumpBound struct {
 	cost          int64
 }
 
+// Params is the jump as it will be stored: the point it is bound for.
+func (o *jumpBound) Params() Params {
+	return JumpParams{ShipID: o.ship.ID, X: o.x, Y: o.y, Z: o.z}
+}
+
 func (o *jumpBound) Fuel() int64 { return o.cost }
 
 func (o *jumpBound) Apply(t *Turn) (Outcome, error) {
@@ -303,20 +329,6 @@ func (o *jumpBound) Apply(t *Turn) (Outcome, error) {
 	return succeeded(start, final, o.cost), nil
 }
 
-func (o *jumpBound) store(at row) error {
-	if err := sqlitex.ExecuteTransient(at.conn, `
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id, fuel_spent
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
-		Args: []any{at.gameID, at.turn, at.factionID, at.sequence, at.line, o.ship.ID,
-			o.x, o.y, o.z, o.destinationID, o.cost},
-	}); err != nil {
-		return fmt.Errorf("insert jump order: %w", err)
-	}
-	return nil
-}
-
 // PROBE -----------------------------------------------------------------
 
 // ProbeParams is a PROBE as written. Kind is the word the player used, "ship"
@@ -324,16 +336,19 @@ func (o *jumpBound) store(at row) error {
 // back out of the database carries no Kind, because which word was written was
 // settled when it was written.
 type ProbeParams struct {
-	Kind     string
-	EntityID int64
-	System   string
+	Kind     string `json:"-"`
+	EntityID int64  `json:"-"`
+	System   string `json:"system,omitempty"`
 	// Orbits holds every orbit the line named. One probe order probes one or
-	// more orbits and spends one probe on each.
-	Orbits []int
+	// more orbits and spends one probe on each, so a stored probe holds one.
+	Orbits []int `json:"orbits"`
 }
 
 // Actor is the entity whose sensors launch the probes.
 func (p ProbeParams) Actor() int64 { return p.EntityID }
+
+// Input is the probe as the player wrote it, however many orbits it named.
+func (p ProbeParams) Input() string { return orbitInput(p.System, p.Orbits...) }
 
 // Bind spends one probe from the entity's budget for each orbit it can read.
 // The budget is settled here rather than in Apply because it is fixed by the
@@ -394,6 +409,11 @@ type probeBound struct {
 	planet   world.Planet
 }
 
+// Params is one probe of one orbit, which is what a stored probe order is.
+func (o *probeBound) Params() Params {
+	return ProbeParams{EntityID: o.entity.ID, System: o.system, Orbits: []int{o.orbit}}
+}
+
 // Fuel is nothing: a probe is launched, not flown.
 func (o *probeBound) Fuel() int64 { return 0 }
 
@@ -406,20 +426,7 @@ func (o *probeBound) Apply(t *Turn) (Outcome, error) {
 		return Outcome{}, err
 	}
 	item := succeeded(at, at, 0)
-	item.Result = ProbeResult{StelliumID: at.StelliumID, SystemID: o.systemID,
+	item.Survey = &Survey{StelliumID: at.StelliumID, SystemID: o.systemID,
 		PlanetID: o.planet.ID, Habitability: o.planet.Habitability}
 	return item, nil
-}
-
-func (o *probeBound) store(at row) error {
-	if err := sqlitex.ExecuteTransient(at.conn, `
-		INSERT INTO probe_order (
-			game_id, turn, faction_id, sequence, source_line, entity_id, requested_system, requested_orbit
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
-		Args: []any{at.gameID, at.turn, at.factionID, at.sequence, at.line, o.entity.ID,
-			nullableString(o.system), o.orbit},
-	}); err != nil {
-		return fmt.Errorf("insert probe order: %w", err)
-	}
-	return nil
 }

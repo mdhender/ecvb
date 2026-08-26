@@ -31,38 +31,27 @@ func Orders(conn *sqlite.Conn, gameCode, email string, factionID int64, turn int
 	return rpt, nil
 }
 
+// addOrders reports every order but the probes, which get a section of their
+// own below because what a probe records is what it read rather than where it
+// went. Which orders belong in which section is a question about the shape of
+// the report now, not about the shape of the schema: they are all one table.
 func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
 	table := rpt.Table(heading, "SEQUENCE", "LINE", "ENTITY", "VERB", "INPUT", "FUEL", "STATUS", "START", "FINAL", "ERROR")
 	// Fuel is the one number that prices a move or a jump: what the order
 	// would burn while it is pending, and what it did burn once it resolves.
+	// An order that has not resolved has no movement row, and reads as "-".
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT sequence, source_line, ship_id, verb, input, fuel_spent, status, error_message,
-			start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
-			final_stellium_id, final_system_id, final_planet_id, final_planet_ring
-		FROM (
-			SELECT sequence, source_line, ship_id, 'move' AS verb,
-				CASE WHEN requested_system IS NULL
-					THEN printf('orbit %d', requested_orbit)
-					ELSE printf('system %s orbit %d', requested_system, requested_orbit)
-				END AS input,
-				fuel_spent,
-				status, error_message,
-				start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
-				final_stellium_id, final_system_id, final_planet_id, final_planet_ring
-			FROM move_order
-			WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
-			UNION ALL
-			SELECT sequence, source_line, ship_id, 'jump' AS verb,
-				printf('(%d,%d,%d)', destination_x, destination_y, destination_z) AS input,
-				fuel_spent,
-				status, error_message,
-				start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
-				final_stellium_id, final_system_id, final_planet_id, final_planet_ring
-			FROM jump_order
-			WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
-		)
-		ORDER BY sequence, verb;`, &sqlitex.ExecOptions{
-		Args: []any{gameCode, turn, factionID, gameCode, turn, factionID},
+		SELECT o.sequence, o.source_line, o.actor_entity_id, o.verb, o.input, o.fuel_spent, o.status, o.error_message,
+			m.start_stellium_id, m.start_system_id, m.start_planet_id, m.start_planet_ring,
+			m.final_stellium_id, m.final_system_id, m.final_planet_id, m.final_planet_ring
+		FROM game_order AS o
+		LEFT JOIN order_movement AS m
+			ON m.game_id = o.game_id AND m.turn = o.turn
+			AND m.faction_id = o.faction_id AND m.sequence = o.sequence
+		WHERE o.game_id = (SELECT id FROM game WHERE code = ?) AND o.turn = ? AND o.faction_id = ?
+			AND o.verb <> 'probe'
+		ORDER BY o.sequence;`, &sqlitex.ExecOptions{
+		Args: []any{gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			table.Row(
 				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
@@ -81,15 +70,15 @@ func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 func addProbes(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
 	table := rpt.Table("PROBES", "SEQUENCE", "LINE", "ENTITY", "INPUT", "STATUS", "SYSTEM", "PLANET", "HABITABILITY", "ERROR")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT sequence, source_line, entity_id,
-			CASE WHEN requested_system IS NULL
-				THEN printf('orbit %d', requested_orbit)
-				ELSE printf('system %s orbit %d', requested_system, requested_orbit)
-			END AS input,
-			status, stellium_id, system_id, planet_id, habitability, error_message
-		FROM probe_order
-		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
-		ORDER BY sequence;`, &sqlitex.ExecOptions{
+		SELECT o.sequence, o.source_line, o.actor_entity_id, o.input, o.status,
+			s.stellium_id, s.system_id, s.planet_id, s.habitability, o.error_message
+		FROM game_order AS o
+		LEFT JOIN order_survey AS s
+			ON s.game_id = o.game_id AND s.turn = o.turn
+			AND s.faction_id = o.faction_id AND s.sequence = o.sequence
+		WHERE o.game_id = (SELECT id FROM game WHERE code = ?) AND o.turn = ? AND o.faction_id = ?
+			AND o.verb = 'probe'
+		ORDER BY o.sequence;`, &sqlitex.ExecOptions{
 		Args: []any{gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			system, planet, habitability := "-", "-", "-"

@@ -162,15 +162,17 @@ func findGameID(conn *sqlite.Conn, code string) (id int64, found bool, err error
 	return id, found, nil
 }
 
+// gameHasData reports whether a game has been loaded already. Every order a
+// player has ever written is one table, so this asks about all of them rather
+// than about the ones somebody remembered to list.
 func gameHasData(conn *sqlite.Conn, gameID int64) (loaded bool, err error) {
 	err = sqlitex.ExecuteTransient(conn, `
 		SELECT EXISTS (
 			SELECT 1 FROM stellium WHERE game_id = ?
 			UNION ALL SELECT 1 FROM faction WHERE game_id = ?
-			UNION ALL SELECT 1 FROM move_order WHERE game_id = ?
-			UNION ALL SELECT 1 FROM jump_order WHERE game_id = ?
+			UNION ALL SELECT 1 FROM game_order WHERE game_id = ?
 		);`, &sqlitex.ExecOptions{
-		Args: []any{gameID, gameID, gameID, gameID},
+		Args: []any{gameID, gameID, gameID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			loaded = stmt.ColumnInt(0) != 0
 			return nil

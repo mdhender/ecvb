@@ -302,14 +302,11 @@ func createTestDatabase(t *testing.T) string {
 		INSERT INTO entity_population (entity_id, class, quantity) VALUES (501, 'SKW', 12), (502, 'USK', 20);
 		INSERT INTO work_group (id, entity_id, unit, sequence, deposit_id) VALUES (61, 502, 'MINE', 1, 1);
 		INSERT INTO work_group_units (work_group_id, tech_level, quantity) VALUES (61, 1, 4);
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
-		) VALUES (1, 3, 41, 2, 3, 501, 9, 13, -5, 79);
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
-		) VALUES (1, 3, 41, 1, 4, 501, 1, 79, 88, 871, 4);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
+		) VALUES
+			(1, 3, 41, 1, 4, 'move', 501, 'orbit 1', '{"orbit":1}', 4),
+			(1, 3, 41, 2, 3, 'jump', 501, '(9,13,-5)', '{"x":9,"y":13,"z":-5}', 0);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}

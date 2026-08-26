@@ -18,16 +18,12 @@ import (
 func TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes(t *testing.T) {
 	conn := openEngineTestDatabase(t)
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id
-		) VALUES (1, 3, 1, 1, 5, 40, 6, 10, 20, 31);
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 		) VALUES
-			(1, 3, 1, 2, 4, 40, 1, 2, 3, 11),
-			(1, 3, 1, 3, 6, 41, 1, 2, 3, 11);
+			(1, 3, 1, 1, 5, 'move', 40, 'orbit 6', '{"orbit":6}'),
+			(1, 3, 1, 2, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}'),
+			(1, 3, 1, 3, 6, 'jump', 41, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +62,7 @@ func TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes(t *testing.T) {
 
 	var jumpStartPlanet int64
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT start_planet_id FROM jump_order
+		SELECT start_planet_id FROM order_movement
 		WHERE game_id = 1 AND turn = 3 AND faction_id = 1 AND sequence = 2;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 		jumpStartPlanet = stmt.ColumnInt64(0)
 		return nil
@@ -80,8 +76,11 @@ func TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes(t *testing.T) {
 	var status, message string
 	var startPlanet, finalPlanet int64
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT status, error_message, start_planet_id, final_planet_id
-		FROM jump_order WHERE game_id = 1 AND turn = 3 AND faction_id = 1 AND sequence = 3;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+		SELECT o.status, o.error_message, m.start_planet_id, m.final_planet_id
+		FROM game_order AS o JOIN order_movement AS m
+			ON m.game_id = o.game_id AND m.turn = o.turn
+			AND m.faction_id = o.faction_id AND m.sequence = o.sequence
+		WHERE o.game_id = 1 AND o.turn = 3 AND o.faction_id = 1 AND o.sequence = 3;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 		status, message = stmt.ColumnText(0), stmt.ColumnText(1)
 		startPlanet, finalPlanet = stmt.ColumnInt64(2), stmt.ColumnInt64(3)
 		return nil
@@ -111,14 +110,18 @@ func TestOpenNextTurnRetainsLatestResolvedOrdersAndPurgesOlderOrders(t *testing.
 	conn := openEngineTestDatabase(t)
 	if err := sqlitex.ExecuteScript(conn, `
 		UPDATE game SET turn_state = 'resolved' WHERE id = 1;
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id,
-			status, start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, status
+		) VALUES
+			(1, 2, 1, 1, 3, 'jump', 40, '(0,0,0)', '{"x":0,"y":0,"z":0}', 'succeeded'),
+			(1, 3, 1, 1, 3, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 'succeeded');
+		INSERT INTO order_movement (
+			game_id, turn, faction_id, sequence,
+			start_stellium_id, start_system_id, start_planet_id, start_planet_ring,
 			final_stellium_id, final_system_id, final_planet_id, final_planet_ring
 		) VALUES
-			(1, 2, 1, 1, 3, 40, 0, 0, 0, 10, 'succeeded', 10, 20, 30, 64, 10, NULL, NULL, NULL),
-			(1, 3, 1, 1, 3, 40, 1, 2, 3, 11, 'succeeded', 10, 20, 30, 64, 11, NULL, NULL, NULL);
+			(1, 2, 1, 1, 10, 20, 30, 64, 10, NULL, NULL, NULL),
+			(1, 3, 1, 1, 10, 20, 30, 64, 11, NULL, NULL, NULL);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +136,7 @@ func TestOpenNextTurnRetainsLatestResolvedOrdersAndPurgesOlderOrders(t *testing.
 	var rows, turn int
 	var state string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT (SELECT count(*) FROM jump_order WHERE game_id = 1), turn, turn_state
+		SELECT (SELECT count(*) FROM game_order WHERE game_id = 1), turn, turn_state
 		FROM game WHERE id = 1;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 		rows, turn, state = stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnText(2)
 		return nil
@@ -201,10 +204,9 @@ func TestResolveFailsJumpsBeyondDriveRangeAndCapacity(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := openEngineTestDatabase(t)
 			if err := sqlitex.ExecuteScript(conn, tc.setup+`
-				INSERT INTO jump_order (
-					game_id, turn, faction_id, sequence, source_line, ship_id,
-					destination_x, destination_y, destination_z, destination_stellium_id
-				) VALUES (1, 3, 1, 1, 4, 40, 1, 2, 3, 11);
+				INSERT INTO game_order (
+					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+				) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 			`, nil); err != nil {
 				t.Fatal(err)
 			}
@@ -218,9 +220,9 @@ func TestResolveFailsJumpsBeyondDriveRangeAndCapacity(t *testing.T) {
 			var status, message string
 			var stelliumID int64
 			if err := sqlitex.ExecuteTransient(conn, `
-				SELECT j.status, j.error_message, e.stellium_id
-				FROM jump_order AS j JOIN entity AS e ON e.id = j.ship_id
-				WHERE j.ship_id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+				SELECT o.status, o.error_message, e.stellium_id
+				FROM game_order AS o JOIN entity AS e ON e.id = o.actor_entity_id
+				WHERE o.actor_entity_id = 40 AND o.verb = 'jump';`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 				status, message, stelliumID = stmt.ColumnText(0), stmt.ColumnText(1), stmt.ColumnInt64(2)
 				return nil
 			}}); err != nil {
@@ -241,10 +243,9 @@ func TestResolveAllowsJumpExactlyAtDriveLimits(t *testing.T) {
 	// Range 4 reaches the distance of 4, and the drive propels exactly the mass.
 	if err := sqlitex.ExecuteScript(conn, `
 		UPDATE entity SET mass = 4180 WHERE id = 40;
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
-		) VALUES (1, 3, 1, 1, 4, 40, 1, 2, 3, 11);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -263,12 +264,11 @@ func TestResolveProbesBeforeMovesAndRecordsFindings(t *testing.T) {
 	// carries the ship out of the system, so the finding has to survive the
 	// ship leaving.
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO probe_order (game_id, turn, faction_id, sequence, source_line, entity_id, requested_orbit)
-			VALUES (1, 3, 1, 1, 4, 40, 4);
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
-		) VALUES (1, 3, 1, 2, 5, 40, 1, 2, 3, 11);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES
+			(1, 3, 1, 1, 4, 'probe', 40, 'orbit 4', '{"orbits":[4]}'),
+			(1, 3, 1, 2, 5, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +284,11 @@ func TestResolveProbesBeforeMovesAndRecordsFindings(t *testing.T) {
 	var planetID int64
 	var habitability int
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT status, planet_id, habitability FROM probe_order WHERE sequence = 1;`, &sqlitex.ExecOptions{
+		SELECT o.status, s.planet_id, s.habitability
+		FROM game_order AS o JOIN order_survey AS s
+			ON s.game_id = o.game_id AND s.turn = o.turn
+			AND s.faction_id = o.faction_id AND s.sequence = o.sequence
+		WHERE o.sequence = 1;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			status, planetID, habitability = stmt.ColumnText(0), stmt.ColumnInt64(1), stmt.ColumnInt(2)
 			return nil
@@ -320,10 +324,9 @@ func TestResolveReadsPassiveSensorsBeforeAnythingMoves(t *testing.T) {
 	// stellium 11. Its sensors fire first, so this turn's survey is of
 	// stellium 10; stellium 11 is only surveyed next turn.
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
-		) VALUES (1, 3, 1, 1, 4, 40, 1, 2, 3, 11);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -410,8 +413,10 @@ func TestResolveFailsProbesTheSensorsCannotSupport(t *testing.T) {
 			}
 			for i, orbit := range tc.orbits {
 				if err := sqlitex.ExecuteTransient(conn, `
-					INSERT INTO probe_order (game_id, turn, faction_id, sequence, source_line, entity_id, requested_orbit)
-					VALUES (1, 3, 1, ?, 4, 40, ?);`, &sqlitex.ExecOptions{Args: []any{i + 1, orbit}}); err != nil {
+					INSERT INTO game_order (
+						game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+					) VALUES (1, 3, 1, ?, 4, 'probe', 40, printf('orbit %d', ?), printf('{"orbits":[%d]}', ?));`,
+					&sqlitex.ExecOptions{Args: []any{i + 1, orbit, orbit}}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -424,7 +429,7 @@ func TestResolveFailsProbesTheSensorsCannotSupport(t *testing.T) {
 			}
 			var message string
 			if err := sqlitex.ExecuteTransient(conn, `
-				SELECT error_message FROM probe_order WHERE status = 'failed';`, &sqlitex.ExecOptions{
+				SELECT error_message FROM game_order WHERE status = 'failed';`, &sqlitex.ExecOptions{
 				ResultFunc: func(stmt *sqlite.Stmt) error {
 					message = stmt.ColumnText(0)
 					return nil
@@ -445,8 +450,11 @@ func TestResolveProbesANamedSystemFromStelliumOrbit(t *testing.T) {
 	// stellium 10 still reads planet 30 in orbit 4.
 	if err := sqlitex.ExecuteScript(conn, `
 		UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;
-		INSERT INTO probe_order (game_id, turn, faction_id, sequence, source_line, entity_id, requested_system, requested_orbit)
-			VALUES (1, 3, 1, 1, 4, 40, 'A', 4), (1, 3, 1, 2, 5, 40, 'C', 4);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES
+			(1, 3, 1, 1, 4, 'probe', 40, 'system A orbit 4', '{"system":"A","orbits":[4]}'),
+			(1, 3, 1, 2, 5, 'probe', 40, 'system C orbit 4', '{"system":"C","orbits":[4]}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -460,9 +468,9 @@ func TestResolveProbesANamedSystemFromStelliumOrbit(t *testing.T) {
 	var planetID, systemID int64
 	var message string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT (SELECT planet_id FROM probe_order WHERE sequence = 1),
-			(SELECT system_id FROM probe_order WHERE sequence = 1),
-			(SELECT error_message FROM probe_order WHERE sequence = 2);`, &sqlitex.ExecOptions{
+		SELECT (SELECT planet_id FROM order_survey WHERE sequence = 1),
+			(SELECT system_id FROM order_survey WHERE sequence = 1),
+			(SELECT error_message FROM game_order WHERE sequence = 2);`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			planetID, systemID, message = stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnText(2)
 			return nil
@@ -483,8 +491,11 @@ func TestResolveProbesFromAColony(t *testing.T) {
 	// Colony 41 is a COPN on planet 30 with one SNSR-1, so it launches one
 	// probe. A colony never leaves its planet, so it always has a system.
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO probe_order (game_id, turn, faction_id, sequence, source_line, entity_id, requested_orbit)
-			VALUES (1, 3, 1, 1, 4, 41, 6), (1, 3, 1, 2, 5, 41, 4);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES
+			(1, 3, 1, 1, 4, 'probe', 41, 'orbit 6', '{"orbits":[6]}'),
+			(1, 3, 1, 2, 5, 'probe', 41, 'orbit 4', '{"orbits":[4]}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -498,8 +509,8 @@ func TestResolveProbesFromAColony(t *testing.T) {
 	var planetID int64
 	var message string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT (SELECT planet_id FROM probe_order WHERE sequence = 1),
-			(SELECT error_message FROM probe_order WHERE sequence = 2);`, &sqlitex.ExecOptions{
+		SELECT (SELECT planet_id FROM order_survey WHERE sequence = 1),
+			(SELECT error_message FROM game_order WHERE sequence = 2);`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			planetID, message = stmt.ColumnInt64(0), stmt.ColumnText(1)
 			return nil
@@ -520,12 +531,11 @@ func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
 	// Ship 40 starts at planet 30 in system A. It crosses to planet 31 of the
 	// same system, then leaves the planets for the stellium orbit.
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 		) VALUES
-			(1, 3, 1, 1, 4, 40, 6, 10, 20, 31),
-			(1, 3, 1, 2, 5, 40, 11, 10, NULL, NULL);
+			(1, 3, 1, 1, 4, 'move', 40, 'orbit 6', '{"orbit":6}'),
+			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -540,9 +550,12 @@ func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
 	var rows []string
 	var arrivalRing int
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT printf('%d|%s|%d|%s', sequence, status, fuel_spent,
-			coalesce(final_system_id, '-')), final_planet_ring
-		FROM move_order WHERE ship_id = 40 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		SELECT printf('%d|%s|%d|%s', o.sequence, o.status, o.fuel_spent,
+			coalesce(m.final_system_id, '-')), m.final_planet_ring
+		FROM game_order AS o JOIN order_movement AS m
+			ON m.game_id = o.game_id AND m.turn = o.turn
+			AND m.faction_id = o.faction_id AND m.sequence = o.sequence
+		WHERE o.actor_entity_id = 40 AND o.verb = 'move' ORDER BY o.sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			rows = append(rows, stmt.ColumnText(0))
 			if !stmt.ColumnIsNull(1) {
@@ -597,10 +610,9 @@ func TestResolveFailsMovesTheDriveCannotMake(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := openEngineTestDatabase(t)
 			if err := sqlitex.ExecuteScript(conn, tc.setup+`
-				INSERT INTO move_order (
-					game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-					destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
-				) VALUES (1, 3, 1, 1, 4, 40, 6, 10, 20, 31, 4);
+				INSERT INTO game_order (
+					game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
+				) VALUES (1, 3, 1, 1, 4, 'move', 40, 'orbit 6', '{"orbit":6}', 4);
 			`, nil); err != nil {
 				t.Fatal(err)
 			}
@@ -615,9 +627,9 @@ func TestResolveFailsMovesTheDriveCannotMake(t *testing.T) {
 			// the planet it started from.
 			var row string
 			if err := sqlitex.ExecuteTransient(conn, `
-				SELECT printf('%s|%s|%d|%d', m.status, m.error_message, m.fuel_spent, e.planet_id)
-				FROM move_order AS m JOIN entity AS e ON e.id = m.ship_id
-				WHERE m.ship_id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+				SELECT printf('%s|%s|%d|%d', o.status, o.error_message, o.fuel_spent, e.planet_id)
+				FROM game_order AS o JOIN entity AS e ON e.id = o.actor_entity_id
+				WHERE o.actor_entity_id = 40 AND o.verb = 'move';`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 				row = stmt.ColumnText(0)
 				return nil
 			}}); err != nil {
@@ -635,16 +647,12 @@ func TestResolveBurnsFuelAndFailsAnOrderTheShipCannotPayFor(t *testing.T) {
 	// Ship 40 has one HDRV-4 and 500 FUEL. Two moves burn 1 * 0.1 * 40 each,
 	// and the 4-unit jump burns 1 * 4 * 40, leaving 332.
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
 		) VALUES
-			(1, 3, 1, 1, 4, 40, 6, 10, 20, 31, 4),
-			(1, 3, 1, 2, 5, 40, 11, 10, NULL, NULL, 4);
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id, fuel_spent
-		) VALUES (1, 3, 1, 3, 6, 40, 1, 2, 3, 11, 160);
+			(1, 3, 1, 1, 4, 'move', 40, 'orbit 6', '{"orbit":6}', 4),
+			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}', 4),
+			(1, 3, 1, 3, 6, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 160);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -669,10 +677,9 @@ func TestResolveFailsAMoveTheShipCannotFuel(t *testing.T) {
 	// One HDRV-4 burns 4 FUEL crossing a system. Three units is not enough.
 	if err := sqlitex.ExecuteScript(conn, `
 		UPDATE inventory SET quantity = 3 WHERE entity_id = 40 AND unit = 'FUEL';
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
-		) VALUES (1, 3, 1, 1, 4, 40, 6, 10, 20, 31, 4);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
+		) VALUES (1, 3, 1, 1, 4, 'move', 40, 'orbit 6', '{"orbit":6}', 4);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -687,9 +694,9 @@ func TestResolveFailsAMoveTheShipCannotFuel(t *testing.T) {
 	// where it started.
 	var row string
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT printf('%s|%s|%d|%d', m.status, m.error_message, m.fuel_spent, e.planet_id)
-		FROM move_order AS m JOIN entity AS e ON e.id = m.ship_id
-		WHERE m.ship_id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+		SELECT printf('%s|%s|%d|%d', o.status, o.error_message, o.fuel_spent, e.planet_id)
+		FROM game_order AS o JOIN entity AS e ON e.id = o.actor_entity_id
+		WHERE o.actor_entity_id = 40 AND o.verb = 'move';`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 		row = stmt.ColumnText(0)
 		return nil
 	}}); err != nil {
@@ -736,10 +743,9 @@ func TestResolveChargesAMoveToTheSamePlanetAndRerollsTheRing(t *testing.T) {
 	// already in is not free: it breaks orbit and settles again.
 	if err := sqlitex.ExecuteScript(conn, `
 		UPDATE entity SET planet_ring = 64 WHERE id = 40;
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
-		) VALUES (1, 3, 1, 1, 4, 40, 4, 10, 20, 30, 4);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
+		) VALUES (1, 3, 1, 1, 4, 'move', 40, 'orbit 4', '{"orbit":4}', 4);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -780,12 +786,11 @@ func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
 	// Ship 40 is sent to the stellium orbit and then ordered there again. The
 	// second move has nowhere to go: no fuel, no change.
 	if err := sqlitex.ExecuteScript(conn, `
-		INSERT INTO move_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, fuel_spent
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
 		) VALUES
-			(1, 3, 1, 1, 4, 40, 11, 10, NULL, NULL, 4),
-			(1, 3, 1, 2, 5, 40, 11, 10, NULL, NULL, 0);
+			(1, 3, 1, 1, 4, 'move', 40, 'orbit 11', '{"orbit":11}', 4),
+			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}', 0);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -799,7 +804,7 @@ func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
 	var rows []string
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT printf('%d|%s|%d', sequence, status, fuel_spent)
-		FROM move_order WHERE ship_id = 40 ORDER BY sequence;`, &sqlitex.ExecOptions{
+		FROM game_order WHERE actor_entity_id = 40 AND verb = 'move' ORDER BY sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			rows = append(rows, stmt.ColumnText(0))
 			return nil

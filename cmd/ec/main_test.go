@@ -201,10 +201,9 @@ func TestRunResolveAndOpenTurn(t *testing.T) {
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(40, 'component', 'HDRV', 4, 1), (40, 'cargo', 'FUEL', 0, 500);
 		UPDATE entity SET mass = 4000 WHERE id = 40;
-		INSERT INTO jump_order (
-			game_id, turn, faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id
-		) VALUES (1, 0, 1, 1, 3, 40, 1, 2, 3, 11);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 0, 1, 1, 3, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
