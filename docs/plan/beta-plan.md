@@ -481,7 +481,10 @@ rather than syntax:
 - **SURVEY / SPY / BROADCAST** -- survey has a form. Spy and broadcast have
   examples and no grammar line at all, so their verbs are not settled: the spy
   examples read as five different verbs (`report`, `obtain`, `convert`,
-  `incite`, `attack`), not as one `spy` verb with five objects.
+  `incite`, `attack`), not as one `spy` verb with five objects. Three of them
+  act on rebels; `REBL` is a percentage of an entity's population, 0 through 99
+  (`docs/units.md`), and no column holds it. Rebellion is stages 17 and 18 of
+  the turn sequence and is a system that does not exist.
 - **CONTROL / RELEASE / GRANT / REFUSE** -- forms given; what control confers,
   and what a trade or colonize permission permits, are not.
 - **COMBAT (attack / invade / raid / support)** -- forms given, effects not.

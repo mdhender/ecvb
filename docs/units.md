@@ -25,6 +25,10 @@ mass or volume of its own. The cadres are `CWKR`, `LABR`, `PLCF`, `SPCF`, and
 reader looks one up. `CWKR` is required to execute an `assemble`. What the other
 four permit, and which population may be assigned to each, is not settled.
 
+`REBL` is neither a unit nor a cadre, and is listed below for the same reason
+the cadres are. It is a percentage rather than a quantity, and nothing in the
+schema holds it yet.
+
 ## `CNGD`
 
 An inventory unit stored as cargo in the starting kit.
@@ -168,6 +172,14 @@ in farms, mines, or factories.
 ## `PLCF`
 
 **Police Force cadre.** What it permits is not settled.
+
+## `REBL`
+
+**Rebels.** The percentage of an entity's population that is discontent with the
+faction controlling it and may engage in acts of rebellion. It runs from 0 to
+99, so an entity is never wholly in rebellion. `docs/turn-sequence.md` puts
+rebellion at stage 17 and rebel increases at stage 18, and three of the
+espionage orders act on rebels.
 
 ## `SDRV`
 
