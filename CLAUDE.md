@@ -61,16 +61,16 @@ reads `EC_GAME_SEED`, and so on.
 
 ## Domain model
 
-Read `model.md` first; it is the authoritative description of the schema and is kept in
+Read `docs/model.md` first; it is the authoritative description of the schema and is kept in
 sync with the migrations. Supporting docs:
 
-- `entity-location.md` — the location rules encoded as CHECK constraints on `entity`
+- `docs/entity-location.md` — the location rules encoded as CHECK constraints on `entity`
   (`SHIP` may sit at stellium level or at a planet in ring 1–99; `COPN`/`CSFC` are ring
   0; `CORB` is ring 1). Any code that moves an entity must satisfy these.
-- `units.md` — unit-code glossary plus the provisional mass/volume formulas the kit
+- `docs/units.md` — unit-code glossary plus the provisional mass/volume formulas the kit
   loader uses.
-- `orders.md` — the order file format and check/submit semantics.
-- `gamemaster-turn.md` — the operator runbook for resolving a turn.
+- `docs/orders.md` — the order file format and check/submit semantics.
+- `docs/gamemaster-turn.md` — the operator runbook for resolving a turn.
 - `distance_map.md` — design note on stellium distance; the decision is to keep
   squared-distance comparisons in SQL and skip `sqrt()`.
 
@@ -105,7 +105,7 @@ matched the shape of its order returns a `syntaxErr` (every `expect` does), and
 the player is shown that verb's `Syntax`. A field that was read and found wrong
 returns a plain error, which is reported as written.
 
-`ec orders help [ORDER]` prints the registry, and a test fails if `orders.md`
+`ec orders help [ORDER]` prints the registry, and a test fails if `docs/orders.md`
 does not document every registered form.
 
 ### Bind and Apply
@@ -164,7 +164,7 @@ the same table, so the reference cannot fall behind the engine.
 
 `docs/accepted-orders.md` is the accepted order set the game is heading for and
 `docs/turn-sequence.md` the twenty-one stages it resolves in. Neither is the
-spec of what exists: `orders.md` is what is actually built, and a test fails
+spec of what exists: `docs/orders.md` is what is actually built, and a test fails
 when a registered form is missing from it. The accepted doc writes every order
 subject first -- `ship 18 jump to (-1,2,3)`, and `we` for the orders no ship
 carries out -- and gives `create` multiple lines terminated by `end`. The built

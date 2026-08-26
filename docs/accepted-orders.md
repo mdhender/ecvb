@@ -2,8 +2,9 @@
 
 ## Definitions
 
-_cadre_ is one of the cadre unit codes: `CWKR` construction worker, `PLCF` police force,
-`SPCF` special forces, and `TRNE` trainees and recruits.
+_cadre_ is one of the cadre codes: `CWKR` construction worker, `LABR` laborer,
+`PLCF` police force, `SPCF` special forces, and `TRNE` trainees and recruits.
+A cadre is a temporary assignment of population, not a unit.
 
 _commission_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 

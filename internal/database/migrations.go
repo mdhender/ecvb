@@ -95,7 +95,7 @@ CREATE TABLE deposit (
 
 -- Where an entity may stand is a rule of the unit it is: a ship sits at
 -- stellium level or in ring 1 through 99 of a planet, a surface colony or
--- factory in ring 0, an orbital colony in ring 1. See entity-location.md.
+-- factory in ring 0, an orbital colony in ring 1. See docs/entity-location.md.
 CREATE TABLE entity (
     id INTEGER PRIMARY KEY,
     unit TEXT NOT NULL CHECK (unit IN ('SHIP', 'COPN', 'CSFC', 'CORB')),

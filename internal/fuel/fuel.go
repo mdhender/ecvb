@@ -16,7 +16,7 @@ import (
 const Unit = "FUEL"
 
 // UnitMass is the mass in MU of one FUEL unit. FUEL is a bulk resource, so it
-// masses 1 MU like the other three. See units.md.
+// masses 1 MU like the other three. See docs/units.md.
 const UnitMass = 1
 
 // drawOrder is the order the sections are emptied in. Fuel that is already

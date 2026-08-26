@@ -18,10 +18,12 @@ The loader currently uses provisional mass and volume values for testing:
   volumes are independent values, currently 2 VU each.
 - One population unit represents 100 persons in census reports.
 
-The cadres -- `CWKR`, `PLCF`, `SPCF`, and `TRNE` -- are named by
-`docs/accepted-orders.md` and are not yet specified. What they are made of,
-whether they are population, and their mass and volume are all open, and
-`entity_population.class` does not admit them.
+A **cadre** is not a unit. It is a temporary assignment of population that lets
+the assigned units carry out orders they otherwise could not, so a cadre has no
+mass or volume of its own. The cadres are `CWKR`, `LABR`, `PLCF`, `SPCF`, and
+`TRNE`; they are listed below with the other codes because that is where a
+reader looks one up. `CWKR` is required to execute an `assemble`. What the other
+four permit, and which population may be assigned to each, is not settled.
 
 ## `CNGD`
 
@@ -46,8 +48,8 @@ enclosed-space efficiency is 0.2.
 
 ## `CWKR`
 
-**Construction Worker cadre.** A cadre without a technology level. Every
-`create` order names a quantity of `CWKR`.
+**Construction Worker cadre.** Required to execute an `assemble` order, and so
+named by every `create` order, because a create assembles what it is given.
 
 ## `FACT`
 
@@ -132,6 +134,10 @@ A move or jump fails when the ship cannot pay. `orders check` and `orders
 submit` only warn, because fuel may still reach the ship before the turn
 resolves; the engine decides.
 
+## `LABR`
+
+**Laborer cadre.** What it permits is not settled.
+
 ## `LFSU`
 
 A technology-level component unit used by colonies and ships in the starting
@@ -161,7 +167,7 @@ in farms, mines, or factories.
 
 ## `PLCF`
 
-**Police Force cadre.** A cadre without a technology level.
+**Police Force cadre.** What it permits is not settled.
 
 ## `SDRV`
 
@@ -214,7 +220,7 @@ defend entities.
 
 ## `SPCF`
 
-**Special Forces cadre.** A cadre without a technology level.
+**Special Forces cadre.** What it permits is not settled.
 
 ## `STRC`
 
@@ -234,7 +240,7 @@ starting kit.
 
 ## `TRNE`
 
-**Trainee cadre.** Trainees and recruits. A cadre without a technology level.
+**Trainee cadre.** Trainees and recruits. What it permits is not settled.
 
 ## `USK`
 

@@ -57,7 +57,7 @@ the pipeline needs to know it exists. Shared field readers live on `*Line` in
 `token.go`. Errors split: a line that never matched its order's *shape* gets
 that verb's syntax; a field read and found *wrong* reports itself. Added `#`
 comments, spacing-insensitive coordinates, rejection of trailing words,
-`ec orders help [ORDER]`, and a test that fails if `orders.md` omits a
+`ec orders help [ORDER]`, and a test that fails if `docs/orders.md` omits a
 registered form.
 
 ### Decisions taken while executing (these changed the original plan)
@@ -161,7 +161,7 @@ var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump}
   being the dry run step 2 made it. Measured cost on the seven-turn CLAUDE-01
   replay: none (4.05s before, 4.05s after).
 - `ec orders help` opens with the phase list and tags each order with its
-  phase, printed from the same table the engine walks; `orders.md` carries it
+  phase, printed from the same table the engine walks; `docs/orders.md` carries it
   as a table rather than a sentence kept in step by hand.
 - New tests: `TestTheTurnIsItsPhaseTable`,
   `TestEveryOrderResolvesInAPhaseTheTurnHas`,
@@ -280,7 +280,7 @@ Done in step 2: `simulate` and `engine.resolve` are each one loop over
 Left to do: the passive sensor snapshot still runs from a hardcoded
 `if phase == orders.PhaseProbe` in `engine.resolve`; it wants to be
 `PhaseSensor`, a phase whose resolution is a function rather than a per-order
-loop. Combat needs structure *inside* a phase (`orders.md:5` speaks
+loop. Combat needs structure *inside* a phase (`docs/orders.md:5` speaks
 of phase, segment, step), so model that as a phase whose resolution is a
 function rather than a per-order loop.
 
@@ -341,7 +341,7 @@ Collapses: one DELETE and one INSERT in `Submit`; one `loadOrders` and one
 `docs/accepted-orders.md` specifies naming completely, so it went in as the
 first order since the rework: five forms, a new `faction_name` table, and a
 `naming` phase last in the turn where `docs/turn-sequence.md` puts it at stage
-19. It cost one `Spec`, a section in `orders.md`, and tests -- no SQL in
+19. It cost one `Spec`, a section in `docs/orders.md`, and tests -- no SQL in
 `Submit` or the engine, no new pass in either loop.
 
 Two gaps the pipeline had never been asked about turned up and were closed: an
@@ -422,9 +422,9 @@ of a new order`.
 **The corpora.** 168 order lines across 73 files (`games/claude/orders` x70,
 `games/beta/orders` x1, `internal/replay/testdata/orders` x3), rewritten by
 script: move the subject behind the verb, prefix the place-naming lines with
-`we`. `orders.md` moves with them, and `doc_test.go` fails until it does.
+`we`. `docs/orders.md` moves with them, and `doc_test.go` fails until it does.
 
-`units.md` and `model.md` specify the nouns completely -- the four inventory
+`docs/units.md` and `docs/model.md` specify the nouns completely -- the four inventory
 sections, per-unit mass and volume in each, enclosed volume from assembled
 `STRC`/`STRL` at \(t^2\) VU, the efficiencies (COPN 1, CSFC 0.2, CORB and
 SHIP 0.1), the 1.1x excess-space rule, bulk resources in external depots. They
@@ -494,16 +494,16 @@ rather than syntax:
   75%`) and espionage (`colony 24 attack faction 1 spies using 11 spies`). Same
   subject shape, same verb, different grammar and different phase. One `Spec`
   has to carry both, or one has to be renamed.
-- **The cadres are named but not specified.** `CWKR`, `PLCF`, `SPCF`, and
-  `TRNE` now have `units.md` entries, but nothing says what they are made of or
-  what they mass, `entity_population.class` still admits only `USK`, `SKW`,
-  `SOL`, and `NAS` (`migrations.go:134`), and no starting kit carries one.
-  `CWKR` is required by every `create`.
+- **The cadres are named but not specified.** `CWKR`, `LABR`, `PLCF`, `SPCF`,
+  and `TRNE` have `docs/units.md` entries. A cadre is a temporary assignment of
+  population rather than a unit, so it needs no row in `entity_population`, but
+  nothing models an assignment at all yet. Only `CWKR`'s effect is known: it is
+  required to execute an `assemble`, which is why every `create` names one.
 
 ## Step 5 — add the orders
 
 A new order becomes: one `Spec` (parse + bind + apply), a section in
-`orders.md`, and tests.
+`docs/orders.md`, and tests.
 
 The accepted doc carries thirty verbs. Four are built -- `move`, `jump`,
 `probe`, `name` -- and `name` needs reworking for the faction subject. Twenty-six
@@ -541,7 +541,7 @@ them.
 - `zombiezen.com/go/sqlite` direct, `ff/v4`, no ORM, no JSON API.
 - The `internal/<mechanic>` package template (`fuel`, `jumpdrive`, `sensors`).
 - `entity`, `inventory`, `work_group`, `entity_population` and the location
-  CHECK constraints in `entity-location.md`.
+  CHECK constraints in `docs/entity-location.md`.
 - The findings tables and the sensor snapshot semantics.
 - The order file format players write, apart from `#` comments.
 
@@ -572,11 +572,11 @@ NULL `error_message`).
 
 ## Docs to update as you go
 
-`orders.md` (per-order sections — a test enforces this), `model.md` (kept in
+`docs/orders.md` (per-order sections — a test enforces this), `docs/model.md` (kept in
 sync with the migrations), `CLAUDE.md` (the turn lifecycle, the migration rule,
 new `internal/` packages), `AGENTS.md` for the migration-baseline rule, and
-`gamemaster-turn.md` if the report shape changes. `docs/accepted-orders.md` is
-accepted rather than a draft, so a change to it is a decision: bring `orders.md`
+`docs/gamemaster-turn.md` if the report shape changes. `docs/accepted-orders.md` is
+accepted rather than a draft, so a change to it is a decision: bring `docs/orders.md`
 and the code to it rather than the other way round. `docs/turn-sequence.md` is
 still the 1978 text and has not been reconciled with it.
 
