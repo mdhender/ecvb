@@ -2,9 +2,9 @@
 
 ## Context
 
-Three orders exist (`MOVE`, `JUMP`, `PROBE`). About 25 remain, spanning inventory
-& cargo, entity lifecycle, production & labor, and diplomacy & combat — then the
-production system and the combat system. The 1978 rules are being discovered by
+Four orders exist (`MOVE`, `JUMP`, `PROBE`, `NAME`). Twenty-six remain, spanning
+inventory & cargo, entities & groups, population, market, information, control &
+diplomacy, and combat — then the production system and the combat system. The 1978 rules are being discovered by
 playing, so orders get reworked after they land, not just added.
 
 Adding one order used to touch ~33 places across 18 files (measured from
@@ -14,8 +14,9 @@ this plan removes them before adding the orders.
 **Status: steps 0 through 4 are done. Step 5 has begun: NAME is built
 (`e3eada9`) and `docs/accepted-orders.md` is now accepted rather than proposed.
 It specifies a surface the built parser cannot read, so the parser rewrite comes
-first; the rest of step 5 is still waiting on rules the doc does not settle --
-see "What step 5 needs" below.**
+first, and mapping the accepted verbs onto `docs/turn-sequence.md` comes before
+the order batches. The rest of step 5 is still waiting on rules the doc does not
+settle -- see "What step 5 needs" below.**
 
 ---
 
@@ -430,23 +431,29 @@ SHIP 0.1), the 1.1x excess-space rule, bulk resources in external depots. They
 say nothing about what the batch-1 verbs *do*. Writing them would be authoring
 rules, not implementing them, so the user is supplying the 1978 text.
 
-`docs/turn-sequence.md` already places three of the six: disassembly is stage
-5, transfers stage 8, assembly stage 9 -- so disassembly resolves before
-transfers, which resolve before assembly. Load, unload, and jettison are not in
-the twenty-one stages at all, which may mean they are not separate orders.
+### The turn sequence and the accepted doc no longer name the same orders
 
-What the code still has to be told. `docs/accepted-orders.md` gives the surface
-forms for most of these, so what is missing is now semantics rather than
-syntax:
+`docs/turn-sequence.md` is still the 1978 twenty-one stages, and the accepted
+doc has moved. Three of its stages name orders that no longer exist -- set up
+(4), build change (6), mining change (7); `retool` replaced build change, and a
+mine group is now moved by taking it down and building it again. The accepted
+doc has orders the sequence never names: `create` and its four kinds, the group
+variants (`add`, `remove`, `idle`, `activate`), `disband`, and
+`grant`/`refuse colonize`. Mapping the accepted verbs onto stages -- and
+deciding which stages are sweeps rather than orders -- is the next piece of
+work, and it settles the `phases` table in `spec.go` that the engine loops over.
 
-- **ASSEMBLE / DISASSEMBLE** -- which sections it moves between; which units may
-  be assembled and into which section; whether it costs labour, time, or a
-  resource; any per-turn limit per entity; whether disassembly is lossless; what
-  happens when disassembling `STRC` would drop enclosed space below what is
-  occupied.
-- **LOAD / UNLOAD** -- between what (entity and entity, or entity and a planet
-  depot); what co-location is required; which section the cargo lands in; any
-  rate limit beyond volume.
+### What the code still has to be told
+
+The accepted doc gives the surface forms, so what is missing is semantics
+rather than syntax:
+
+- **ASSEMBLE / UNASSEMBLE** -- the doc says assembly usually increases a unit's
+  volume and that unassembling optionally stows to cargo. Open: which sections
+  it moves between; which units may be assembled and into which section; whether
+  it costs labour, time, or a resource; any per-turn limit per entity; whether
+  unassembling is lossless; what happens when unassembling `STRC` would drop
+  enclosed space below what is occupied.
 - **TRANSFER** -- the accepted form is `ship 18 transfer 4,500 GOLD, 18,000
   FOOD to colony 24`, and the doc now settles co-location (the order fails if
   the two entities are not in the same place), that the units must be in cargo
@@ -454,32 +461,78 @@ syntax:
   it. Still open: which inventory sections the units leave and arrive in, and
   whether it crosses factions. Population moves too: `500 SOL`. This is the
   closest of the lot to buildable.
-- **JETTISON** -- destroyed or recoverable; which sections it may draw from;
-  whether population can be jettisoned. Not in the twenty-one stages, so it may
-  not be a separate order at all.
-- **SURVEY, DRAFT, DISBAND, PAY, RATION, CONTROL, RELEASE, SPY, BROADCAST,
-  MARKET, BUILD CHANGE, MINING CHANGE, SET UP, COMBAT** -- forms given, effects
-  not. Most also need a system that does not exist yet (production, market,
-  combat, rebellion).
+- **CREATE** -- the doc gives the form, the `end` terminator, that the units are
+  assembled automatically, and that a trade station is an orbital colony. Open:
+  where the new entity appears and in which ring; what the `CWKR` cadre does and
+  whether it is consumed; what the creating entity must be near; what happens
+  when the units named are short.
+- **GROUPS (add / remove / idle / activate / retool)** -- the doc settles the
+  work-in-progress rules: a mine group has none, a farm group has some, retool
+  drains the line before spending a turn, and an immediate retool discards it.
+  Open: what a group produces per turn, what labour it needs, and how the farm
+  table's `HN x 100,000` cap is applied.
+- **MARKET (buy / sell)** -- the doc gives both forms, prices in `GOLD` or
+  `CNGD`, whole-`GOLD` tech levels 1 through 10, the transport rules, and that
+  every sale pays a commission. Open: who the counterparty is, how offers are
+  matched, where the default commission comes from, and what a bought tech level
+  does.
+- **DRAFT / DISBAND / PAY / RATIONS** -- forms given, effects not. All four need
+  a population system that does not exist.
+- **SURVEY / SPY / BROADCAST** -- survey has a form. Spy and broadcast have
+  examples and no grammar line at all, so their verbs are not settled: the spy
+  examples read as five different verbs (`report`, `obtain`, `convert`,
+  `incite`, `attack`), not as one `spy` verb with five objects.
+- **CONTROL / RELEASE / GRANT / REFUSE** -- forms given; what control confers,
+  and what a trade or colonize permission permits, are not.
+- **COMBAT (attack / invade / raid / support)** -- forms given, effects not.
+  Needs a combat system, and `support ... defending` now carries what used to be
+  a separate defend order.
+
+### Two things in the accepted doc to settle before they reach code
+
+- **`attack` names two different orders**: combat (`colony 24 attack ship 18
+  75%`) and espionage (`colony 24 attack faction 1 spies using 11 spies`). Same
+  subject shape, same verb, different grammar and different phase. One `Spec`
+  has to carry both, or one has to be renamed.
+- **The cadres are not units.** `CWKR`, `PLCF`, `SPCF`, and `TRNE` are defined
+  in the accepted doc and appear in no `units.md` entry, no migration, and no
+  kit. `CWKR` is required by every `create`.
 
 ## Step 5 — add the orders
 
 A new order becomes: one `Spec` (parse + bind + apply), a section in
-`orders.md`, and tests. Batch by phase, each exercising what the next needs:
+`orders.md`, and tests.
 
-1. **Inventory & cargo** — assemble/disassemble, load/unload, transfer,
-   jettison. Establishes `World`'s inventory mutations.
-2. **Entity lifecycle** — found, abandon, name, scrap, board. Establishes
-   `CreateEntity`/`DestroyEntity` and forces `World` to handle entities
-   appearing mid-turn.
-3. **Production & labor** — assign, retool, mine, farm, manufacture, recruit.
-   New mechanic packages on the `internal/fuel` / `jumpdrive` / `sensors`
-   template.
-4. **Diplomacy** — declare, gift, trade, message. First orders naming another
-   faction's entities; `findEntity`'s hardcoded owner check (`orders.go:587`)
-   becomes per-Spec policy.
-5. **Combat** — the phase-with-internal-structure case. Reuse the deterministic
-   seeding already in place (`seed.ringFor` / `mix`, `engine.go:314-336`).
+The accepted doc carries thirty verbs. Four are built -- `move`, `jump`,
+`probe`, `name` -- and `name` needs reworking for the faction subject. Twenty-six
+remain, batched so that each exercises what the next needs:
+
+1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. Establishes
+   `World`'s inventory mutations, which everything below moves units through.
+2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
+   `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
+   first batch to exercise a multi-line order end to end.
+3. **Population & upkeep** — `draft`, `disband`, `pay`, `rations`. A population
+   system on the `internal/fuel` / `jumpdrive` / `sensors` package template.
+4. **Market** — `buy`, `sell`, for units and for tech levels. Currency,
+   commission, and the first order whose counterparty is the game rather than a
+   faction.
+5. **Information** — `survey`, the espionage verbs, `broadcast`. Cheap and
+   largely independent of the four above; blocked on grammar rather than on
+   rules.
+6. **Control & diplomacy** — `control`, `release`, `grant`, `refuse`, and the
+   `name` rework. First orders naming another faction's entities;
+   `findEntity`'s hardcoded owner check (`orders.go:587`) becomes per-Spec
+   policy, and `we` becomes a real subject.
+7. **Combat** — `attack`, `invade`, `raid`, `support`. The
+   phase-with-internal-structure case. Reuse the deterministic seeding already
+   in place (`seed.ringFor` / `mix`, `engine.go:314-336`).
+
+Load, unload, jettison, set up, build change, and mining change were in earlier
+drafts of this plan and are not in the accepted doc. Found, abandon, scrap,
+board, declare, gift, trade, message, assign, mine, farm, manufacture, and
+recruit were guesses at verb names before the doc existed; the doc names none of
+them.
 
 ## What deliberately does not change
 
@@ -520,7 +573,10 @@ NULL `error_message`).
 `orders.md` (per-order sections — a test enforces this), `model.md` (kept in
 sync with the migrations), `CLAUDE.md` (the turn lifecycle, the migration rule,
 new `internal/` packages), `AGENTS.md` for the migration-baseline rule, and
-`gamemaster-turn.md` if the report shape changes.
+`gamemaster-turn.md` if the report shape changes. `docs/accepted-orders.md` is
+accepted rather than a draft, so a change to it is a decision: bring `orders.md`
+and the code to it rather than the other way round. `docs/turn-sequence.md` is
+still the 1978 text and has not been reconciled with it.
 
 This file is the plan of record. It began outside the repo, under
 `~/.claude/plans/`; that copy is superseded.
