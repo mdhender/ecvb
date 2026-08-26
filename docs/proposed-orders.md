@@ -2,7 +2,9 @@
 
 2026/08/25 - draft
 
-## Combat orders
+## Definitions
+
+_commission_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 
 _commitment_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 
@@ -11,15 +13,29 @@ Interior ASCII spaces or tabs are ignored.
 
 _depositNo_ is the sequence number of a deposit on the planet the entity is at, 1 through 45.
 
+_goldPrice_ is a positive integer followed by `GOLD`, written with commas the same way as _quantity_.
+For example, 800,000 GOLD.
+
 _groupNo_ is the sequence number of a factory, farm, or mine group, starting at 1.
 
 _payRate_ is an integer percentage amount, at least 0, followed by a `%`.
 
+_price_ is a positive number followed by either `GOLD` or `CNGD`.
+It must include at least one digit before the decimal, if there is a decimal amount.
+The digits before the decimal point are written with commas the same way as _quantity_.
+For example, 1.0 GOLD, 3 CNGD, 0.1 GOLD, 25,600 CNGD.
+
 _rationRate_ is an integer percentage amount, at least 0, followed by a `%`.
 
-_quantity_ is an integer, greater than 0, and must include commas if greater than 999.
+_quantity_ is an integer, greater than 0.
+A quantity greater than 999 must separate every three digits with a comma: 5,000 is accepted and 5000 is rejected.
+
+_techLevel_ is a technology level, written `TL`, a hyphen, and the level, 1 through 10.
+For example, TL-4.
 
 _unitCode_ is a unit code with an optional technology level (e.g., GOLD or LFSU-7).
+
+## Combat orders
 
 ### Attack orders
 
@@ -55,10 +71,14 @@ _unitCode_ is a unit code with an optional technology level (e.g., GOLD or LFSU-
 
 ## Create Orders
 
+Every create order assembles the units it is given automatically.
+They do not have to be assembled first.
+
 ## Ship and Colony Creation
 
 (`ship` | `colony`) `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?) `using` _quantity_ _unit_ (`,` _quantity_ _unit_) `transfering` _quantity_ _unit_ (`,` _quantity_ _unit_) `with` _quantity_ `CWKR`
 
+> # line breaks and spacing do not matter in this order
 > ship 18 create ship
 >   using 60 STRC-8,
 >         61 HDRV-1, 5 SDRV-1
@@ -81,16 +101,17 @@ Only colonies are permitted to create factory groups.
 > colony 24 create factory-group with 54,000 FACT-6 making CNGD
 
 Units within a factory group may have different tech-levels.
-The units used to create the factory group do not have to be assembled first.
 
-`colony` _id_ `add` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `to` `factory-group` _groupNo_ (`and` `stow`)?
+`colony` _id_ `add` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `to` `factory-group` _groupNo_
 
 > colony 24 add 63 FACT-9 to factory-group 3
 
-`colony` _id_ `remove` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `from` `factory-group` _groupNo_
+`colony` _id_ `remove` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `from` `factory-group` _groupNo_ (`and` `stow`)?
+
+> colony 24 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow
 
 Units removed from the factory group will be unassembled and optionally moved to cargo.
-There are rules about the work in progress - the engine will salvage what it can and recyle what it can't.
+There are rules about the work in progress - the engine will salvage what it can and recycle what it can't.
 
 `colony` _id_ `idle` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `in` `factory-group` _groupNo_
 
@@ -126,10 +147,10 @@ The inputs are entity type and orbit number.
 | ------ | ------- | --------------------- | ----- |
 | COPN   | 1 .. 5  | FARM-1                | Limited to Habitability Number (HN) x 100,000 per planet |
 | COPN   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
-| CENC   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
+| CSFC   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
 | CORB   | 1 .. 5  | FARM-2 .. FARM-5      | Hydroponic, solar-powered, consumes no fuel              |
 | COPN   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
-| CENC   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
+| CSFC   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
 | CORB   | 6 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
 | SHIP   | 1 .. 10 | FARM-6 .. FARM-10     | Hydroponic, artificial lights                            |
 
@@ -137,13 +158,71 @@ TODO: this table belongs in the rules reference, but is included here because th
 
 All units within a farm group must have the same tech-level.
 
+(`ship` | `colony`) _id_ `add` _quantity_ _unitCode_ `to` `farm-group` _groupNo_
+
+> ship 18 add 250,000 FARM-6 to farm-group 2
+
+The units added must be at the group's tech-level.
+
+(`ship` | `colony`) _id_ `remove` _quantity_ _unitCode_ `from` `farm-group` _groupNo_ (`and` `stow`)?
+
+> colony 24 remove 40,000 FARM-3 from farm-group 1 and stow
+
+Units removed from the farm group will be unassembled and optionally moved to cargo.
+There are rules about the work in progress - the engine will salvage what it can and recycle what it can't.
+
+(`ship` | `colony`) _id_ `idle` _quantity_ _unitCode_ `in` `farm-group` _groupNo_
+
+> ship 18 idle 50,000 FARM-6 in farm-group 2
+
+Units in the farm group will be idled but left in the group.
+They will remain active until the work in progress is drained from them.
+
+(`ship` | `colony`) _id_ `activate` _quantity_ _unitCode_ `in` `farm-group` _groupNo_
+
+> ship 18 activate 50,000 FARM-6 in farm-group 2
+
+Idle units in the farm group will be activated.
+Production in them will resume immediately.
+
 ### Mine Group Creation
 
 Only surface colonies are permitted to create mine groups.
 
-`colony` _id_ `create` `mine-group` `with` _quantity_ _unitCode_ `working` _depositNo_
+`colony` _id_ `create` `mine-group` `with` _quantity_ _unitCode_ `working` `deposit` _depositNo_
+
+> colony 83 create mine-group with 25,680 MINE-2 working deposit 18
 
 All units within a mine group must have the same tech-level.
+
+A mine group works the deposit it was created with and no order changes that.
+To work a different deposit, remove the group and create a new one at the new deposit.
+
+`colony` _id_ `add` _quantity_ _unitCode_ `to` `mine-group` _groupNo_
+
+> colony 83 add 5,000 MINE-2 to mine-group 4
+
+The units added must be at the group's tech-level.
+
+`colony` _id_ `remove` _quantity_ _unitCode_ `from` `mine-group` _groupNo_ (`and` `stow`)?
+
+> colony 83 remove 5,000 MINE-2 from mine-group 4 and stow
+
+Units removed from the mine group will be unassembled and optionally moved to cargo.
+
+`colony` _id_ `idle` _quantity_ _unitCode_ `in` `mine-group` _groupNo_
+
+> colony 83 idle 10,000 MINE-2 in mine-group 4
+
+Units in the mine group will be idled but left in the group.
+A mine group has no work in progress, so they idle immediately.
+
+`colony` _id_ `activate` _quantity_ _unitCode_ `in` `mine-group` _groupNo_
+
+> colony 83 activate 10,000 MINE-2 in mine-group 4
+
+Idle units in the mine group will be activated.
+Production in them will resume immediately.
 
 ## Assemble Orders
 Assembly turns unassembled units into working ones.
@@ -184,11 +263,42 @@ Units must be in cargo to be transferred and will be automatically stowed by the
 
 ## Market Order
 
-(`ship` | `colony`) _id_ `purchase` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
+(`ship` | `colony`) _id_ `buy` _quantity_ _unitCode_ _price_ (`,` _quantity_ _unitCode_ _price_)* _commission_?
 
+(`ship` | `colony`) _id_ `sell` _quantity_ _unitCode_ _price_ (`,` _quantity_ _unitCode_ _price_)* _commission_?
+
+Units to be bought and sold must be unassembled.
 Purchased units will automatically be stowed by the receiving entity.
 
-Warning: if there are not enough transports available for the entire load, the excess will be permanently lost.
+The entity must have enough transports available for the amount bought or sold.
+If there is a shortage when buying, the excess will be permanently lost.
+If there is a shortage when selling, the entire order will be cancelled.
+
+Every successful sale pays a commission to the market and there is no way to sell without paying one.
+The default commission is set by the market, so an order that names none pays the default.
+Sellers may offer a higher commission to increase the chances of their offer being accepted.
+The commission is a percentage of the transaction amount and will automatically be deducted.
+
+Buyers may offer an additional commission to increase the chances of their offer being accepted.
+When they do, they are responsible for paying the extra fees.
+The commission is a percentage of the transaction amount and will automatically be deducted.
+
+The market will prefer to execute the transactions that return the highest commission to them.
+
+A technology level is bought and sold in the same market, but it is not cargo.
+It is paid for in `GOLD`, never `CNGD`, and the price is always a whole number.
+It needs no transports, so the shortage rules above do not apply to it.
+Selling one pays a commission like any other sale.
+
+(`ship` | `colony`) _id_ `buy` `tech-level` _techLevel_ _goldPrice_ _commission_?
+
+> ship 18 buy tech-level TL-6 1,000,000 GOLD
+
+(`ship` | `colony`) _id_ `sell` `tech-level` _techLevel_ _goldPrice_ _commission_?
+
+> colony 24 sell tech-level TL-4 800,000 GOLD 5%
+
+A tech level order names no quantity, because a technology level is bought once.
 
 ## Survey Orders
 
