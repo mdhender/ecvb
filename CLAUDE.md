@@ -163,13 +163,23 @@ world the later phases see.
 the same table, so the reference cannot fall behind the engine.
 
 `docs/accepted-orders.md` is the accepted order set the game is heading for and
-`docs/turn-sequence.md` the twenty-one stages it resolves in. Neither is the
+`docs/turn-sequence.md` the twenty-two stages it resolves in. Neither is the
 spec of what exists: `docs/orders.md` is what is actually built, and a test fails
 when a registered form is missing from it. The accepted doc writes every order
 subject first -- `ship 18 jump to (-1,2,3)`, and `we` for the orders no ship
 carries out -- and gives `create` multiple lines terminated by `end`. The built
 parser reads neither, so the parser rewrite comes before the rest of the orders;
 `docs/plan/beta-plan.md` carries the design.
+
+The two docs are reconciled: every accepted verb lands on a step of a stage, and
+`docs/turn-sequence.md` is the authority on *when* an order takes effect. Its
+twenty-two stages are forty-two phases, because a stage's lettered steps run in
+their letter order and a step is exactly a `Phase`. Six stages are pure sweeps;
+four are orders *and* a sweep -- combat, the market, espionage, the news service
+-- where the orders declare intent and one sweep settles all of them against
+each other. Two orders will outlive the turn that carries them, `create` and a
+reworked `jump`, which the three-way `status` CHECK and `ec turn open`'s purge
+have to learn about first.
 
 ## Turn lifecycle
 

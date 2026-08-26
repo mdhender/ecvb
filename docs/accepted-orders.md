@@ -82,6 +82,13 @@ or granting a permission, and it takes no id because the file header already nam
 Every create order assembles the units it is given automatically.
 They do not have to be assembled first.
 
+An `add` order assembles the units it puts into a group the same way, so those
+do not have to be assembled first either.
+
+Assembly is what both orders need construction workers for. Only the ship and
+colony create form names a `CWKR` cadre today; where the construction workers
+for a group create, and for an `add`, are drawn from is not yet settled.
+
 ## Ship and Colony Creation
 
 (`ship` | `colony`) _id_ `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?)) `using` _quantity_ _unit_ (`,` _quantity_ _unit_) `transfering` _quantity_ _unit_ (`,` _quantity_ _unit_) `with` _quantity_ `CWKR`
@@ -324,9 +331,9 @@ A tech level order names no quantity, because a technology level is bought once.
 
 ## Spy Orders
 
-> colony 24 report on rebels using 1 spies
+> colony 24 assess rebels using 1 spies
 
-> colony 24 report on spies using 4 spies
+> colony 24 detect spies using 4 spies
 
 > colony 24 obtain information from ship 18 using 200 spies
 
@@ -334,7 +341,7 @@ A tech level order names no quantity, because a technology level is bought once.
 
 > colony 24 incite rebels using 21 spies
 
-> colony 24 attack faction 1 spies using 11 spies
+> colony 24 neutralize faction 1 spies using 11 spies
 
 ## News Release
 

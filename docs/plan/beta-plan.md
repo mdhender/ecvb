@@ -14,9 +14,10 @@ this plan removes them before adding the orders.
 **Status: steps 0 through 4 are done. Step 5 has begun: NAME is built
 (`e3eada9`) and `docs/accepted-orders.md` is now accepted rather than proposed.
 It specifies a surface the built parser cannot read, so the parser rewrite comes
-first, and mapping the accepted verbs onto `docs/turn-sequence.md` comes before
-the order batches. The rest of step 5 is still waiting on rules the doc does not
-settle -- see "What step 5 needs" below.**
+first. The accepted verbs are now mapped onto `docs/turn-sequence.md`, which is
+twenty-two stages and forty-two phases -- see "The turn sequence and the
+accepted doc are reconciled" below. The rest of step 5 is still waiting on rules
+the docs do not settle.**
 
 ---
 
@@ -29,7 +30,7 @@ settle -- see "What step 5 needs" below.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 25 orders | **in progress** | `e3eada9` (NAME) |
+| 5 — add the 31 orders | **in progress** | `e3eada9` (NAME) |
 
 ### What step 0 built
 
@@ -341,7 +342,7 @@ Collapses: one DELETE and one INSERT in `Submit`; one `loadOrders` and one
 `docs/accepted-orders.md` specifies naming completely, so it went in as the
 first order since the rework: five forms, a new `faction_name` table, and a
 `naming` phase last in the turn where `docs/turn-sequence.md` puts it at stage
-19. It cost one `Spec`, a section in `docs/orders.md`, and tests -- no SQL in
+20. It cost one `Spec`, a section in `docs/orders.md`, and tests -- no SQL in
 `Submit` or the engine, no new pass in either loop.
 
 Two gaps the pipeline had never been asked about turned up and were closed: an
@@ -431,17 +432,51 @@ SHIP 0.1), the 1.1x excess-space rule, bulk resources in external depots. They
 say nothing about what the batch-1 verbs *do*. Writing them would be authoring
 rules, not implementing them, so the user is supplying the 1978 text.
 
-### The turn sequence and the accepted doc no longer name the same orders
+### The turn sequence and the accepted doc are reconciled
 
-`docs/turn-sequence.md` is still the 1978 twenty-one stages, and the accepted
-doc has moved. Three of its stages name orders that no longer exist -- set up
-(4), build change (6), mining change (7); `retool` replaced build change, and a
-mine group is now moved by taking it down and building it again. The accepted
-doc has orders the sequence never names: `create` and its four kinds, the group
-variants (`add`, `remove`, `idle`, `activate`), `disband`, and
-`grant`/`refuse colonize`. Mapping the accepted verbs onto stages -- and
-deciding which stages are sweeps rather than orders -- is the next piece of
-work, and it settles the `phases` table in `spec.go` that the engine loops over.
+`docs/turn-sequence.md` was the 1978 twenty-one stages and the accepted doc had
+moved away from it. It is now twenty-two stages and forty-two phases, with every
+accepted verb landing on a step and every step saying whether it is orders, a
+sweep, or both. That table is what `phases` in `spec.go` grows into.
+
+What moved on the sequence's side: production split into three stages -- mining,
+farming, factory. *Set up* (old 4) became **creation** and holds every `create`
+form. *Build change* (old 6) became **retool**, which is what it always meant.
+*Mining change* (old 7) became **group change** and widened to `add`, `remove`,
+`idle`, and `activate` over all three group kinds, because a mine group's
+deposit is fixed for its life. Trade and colonize permissions both resolve in
+the naming-and-control stage rather than in the market, which keeps one phase
+per verb and makes a permission granted this turn take effect next turn.
+
+What moved on the accepted doc's side, because a `Spec` carries one verb and one
+phase: the espionage `attack` became **`neutralize`** (it spends spies rather
+than committing a percentage of an entity, so it never belonged in combat), and
+`report on rebels` / `report on spies` became **`assess`** and **`detect`** --
+one verb across two steps that the engine allocates separately for. The
+alternative was moving `Phase` off `Spec` onto the bound order; renaming two
+words was smaller than making every other order pay for one order's grammar.
+
+Three shapes came out of it that the engine has to be built for. Six stages are
+pure sweeps; four are **orders and a sweep** -- combat, the market, espionage,
+and the news service -- where orders declare intent and one sweep settles all of
+them against each other. That third shape is not just combat: matching market
+offers by commission is structurally the same problem as a battle between the
+fleets that met.
+
+### Two orders outlive the turn that carries them
+
+`create` may take several turns to finish, which is why it pre-allocates its
+`CWKR` cadre and holds it for the duration, and `jump` is to become the same --
+a pending change to a *built* order, due when the engine is next worked on.
+
+Nothing in the pipeline knows about such an order. `game_order.status` is a
+three-way CHECK -- `pending`, `succeeded`, `failed` -- where `pending` means
+submitted and not yet resolved, and `ec turn open` purges rows older than the
+most recently resolved turn. An order still running when its turn resolves is a
+fourth thing: resolved, not failed, not done. **The status column and the purge
+have to learn about it before batch 2 (`create`) or the `jump` rework can be
+built**, which makes it a prerequisite of two batches rather than a detail
+inside one.
 
 ### What the code still has to be told
 
@@ -462,15 +497,18 @@ rather than syntax:
   whether it crosses factions. Population moves too: `500 SOL`. This is the
   closest of the lot to buildable.
 - **CREATE** -- the doc gives the form, the `end` terminator, that the units are
-  assembled automatically, and that a trade station is an orbital colony. Open:
-  where the new entity appears and in which ring; what the `CWKR` cadre does and
-  whether it is consumed; what the creating entity must be near; what happens
-  when the units named are short.
+  assembled automatically, and that a trade station is an orbital colony. The
+  `CWKR` cadre is pre-allocated and reserved for as long as the order runs,
+  which may be several turns. Open: where the new entity appears and in which
+  ring; whether the cadre is consumed or released; what the creating entity must
+  be near; what happens when the units named are short.
 - **GROUPS (add / remove / idle / activate / retool)** -- the doc settles the
   work-in-progress rules: a mine group has none, a farm group has some, retool
   drains the line before spending a turn, and an immediate retool discards it.
-  Open: what a group produces per turn, what labour it needs, and how the farm
-  table's `HN x 100,000` cap is applied.
+  `add` assembles what it puts into a group, the way `create` does, and the
+  engine allocates the construction workers for it. Open: what a group produces
+  per turn, what labour it needs, and how the farm table's `HN x 100,000` cap is
+  applied.
 - **MARKET (buy / sell)** -- the doc gives both forms, prices in `GOLD` or
   `CNGD`, whole-`GOLD` tech levels 1 through 10, the transport rules, and that
   every sale pays a commission. Open: who the counterparty is, how offers are
@@ -478,12 +516,12 @@ rather than syntax:
   does.
 - **DRAFT / DISBAND / PAY / RATIONS** -- forms given, effects not. All four need
   a population system that does not exist.
-- **SURVEY / SPY / BROADCAST** -- survey has a form. Spy and broadcast have
-  examples and no grammar line at all, so their verbs are not settled: the spy
-  examples read as five different verbs (`report`, `obtain`, `convert`,
-  `incite`, `attack`), not as one `spy` verb with five objects. Three of them
+- **SURVEY / SPY / BROADCAST** -- survey has a form. Spy and broadcast still
+  have examples and no grammar line, but the verbs are settled: six of them --
+  `assess`, `detect`, `obtain`, `convert`, `incite`, `neutralize` -- each its
+  own step of stage 14, because the engine allocates resources per step. Three
   act on rebels; `REBL` is a percentage of an entity's population, 0 through 99
-  (`docs/units.md`), and no column holds it. Rebellion is stages 17 and 18 of
+  (`docs/units.md`), and no column holds it. Rebellion is stages 18 and 19 of
   the turn sequence and is a system that does not exist.
 - **CONTROL / RELEASE / GRANT / REFUSE** -- forms given; what control confers,
   and what a trade or colonize permission permits, are not.
@@ -491,47 +529,52 @@ rather than syntax:
   Needs a combat system, and `support ... defending` now carries what used to be
   a separate defend order.
 
-### Two things in the accepted doc to settle before they reach code
+### The cadres are named but still not specified
 
-- **`attack` names two different orders**: combat (`colony 24 attack ship 18
-  75%`) and espionage (`colony 24 attack faction 1 spies using 11 spies`). Same
-  subject shape, same verb, different grammar and different phase. One `Spec`
-  has to carry both, or one has to be renamed.
-- **The cadres are named but not specified.** `CWKR`, `LABR`, `PLCF`, `SPCF`,
-  and `TRNE` have `docs/units.md` entries. A cadre is a temporary assignment of
-  population rather than a unit, so it needs no row in `entity_population`, but
-  nothing models an assignment at all yet. Only `CWKR`'s effect is known: it is
-  required to execute an `assemble`, which is why every `create` names one.
+`CWKR`, `LABR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
+is a temporary assignment of population rather than a unit, so it needs no row
+in `entity_population`, but nothing models an assignment at all yet.
+
+`CWKR` is the one whose effect is known, and the merge settled how it is
+obtained: the engine allocates it for an `add` and for a bare `assemble`,
+without being told to, and drafting enough to cover the turn's expected work is
+the faction's job. `create` is the exception that names its own, because it is
+the only assembly that may need transports and the only one that may run for
+several turns. What a construction worker costs, and what happens when a faction
+has not drafted enough, are unwritten.
 
 ## Step 5 — add the orders
 
 A new order becomes: one `Spec` (parse + bind + apply), a section in
 `docs/orders.md`, and tests.
 
-The accepted doc carries thirty verbs. Four are built -- `move`, `jump`,
-`probe`, `name` -- and `name` needs reworking for the faction subject. Twenty-six
-remain, batched so that each exercises what the next needs:
+The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
+`probe`, `name` -- and two of those need reworking: `name` for the faction
+subject, and `jump` for taking more than one turn. Thirty-one remain, batched so
+that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. Establishes
    `World`'s inventory mutations, which everything below moves units through.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
-   first batch to exercise a multi-line order end to end.
+   first batch to exercise a multi-line order end to end. Blocked on the
+   outlives-its-turn work above, which the `jump` rework also needs.
 3. **Population & upkeep** — `draft`, `disband`, `pay`, `rations`. A population
    system on the `internal/fuel` / `jumpdrive` / `sensors` package template.
 4. **Market** — `buy`, `sell`, for units and for tech levels. Currency,
    commission, and the first order whose counterparty is the game rather than a
    faction.
-5. **Information** — `survey`, the espionage verbs, `broadcast`. Cheap and
-   largely independent of the four above; blocked on grammar rather than on
-   rules.
+5. **Information** — `survey`, the six espionage verbs, `broadcast`. Cheap and
+   largely independent of the four above. The verbs are settled now; what is
+   missing is `REBL` and what a spy costs.
 6. **Control & diplomacy** — `control`, `release`, `grant`, `refuse`, and the
    `name` rework. First orders naming another faction's entities;
    `findEntity`'s hardcoded owner check (`orders.go:587`) becomes per-Spec
    policy, and `we` becomes a real subject.
 7. **Combat** — `attack`, `invade`, `raid`, `support`. The
-   phase-with-internal-structure case. Reuse the deterministic seeding already
-   in place (`seed.ringFor` / `mix`, `engine.go:314-336`).
+   orders-and-a-sweep case, which the market and espionage share. Reuse the
+   deterministic seeding already in place (`seed.ringFor` / `mix`,
+   `engine.go:314-336`).
 
 Load, unload, jettison, set up, build change, and mining change were in earlier
 drafts of this plan and are not in the accepted doc. Found, abandon, scrap,
@@ -581,7 +624,7 @@ new `internal/` packages), `AGENTS.md` for the migration-baseline rule, and
 `docs/gamemaster-turn.md` if the report shape changes. `docs/accepted-orders.md` is
 accepted rather than a draft, so a change to it is a decision: bring `docs/orders.md`
 and the code to it rather than the other way round. `docs/turn-sequence.md` is
-still the 1978 text and has not been reconciled with it.
+reconciled with it and is the authority on *when* an order takes effect.
 
 This file is the plan of record. It began outside the repo, under
 `~/.claude/plans/`; that copy is superseded.

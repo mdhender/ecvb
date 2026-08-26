@@ -178,7 +178,7 @@ in farms, mines, or factories.
 **Rebels.** The percentage of an entity's population that is discontent with the
 faction controlling it and may engage in acts of rebellion. It runs from 0 to
 99, so an entity is never wholly in rebellion. `docs/turn-sequence.md` puts
-rebellion at stage 17 and rebel increases at stage 18, and three of the
+rebellion at stage 18 and rebel increases at stage 19, and three of the
 espionage orders act on rebels.
 
 ## `SDRV`
