@@ -85,6 +85,25 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 		return nil, fmt.Errorf("query entities: %w", err)
 	}
 
+	// What this faction calls things. A name is its own: nobody else's report
+	// shows it, and a place may be named without ever being visited.
+	names := rpt.Table("NAMES", "SUBJECT", "ID", "NAME")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT CASE
+				WHEN stellium_id IS NOT NULL THEN 'stellium'
+				WHEN system_id IS NOT NULL THEN 'system'
+				WHEN planet_id IS NOT NULL THEN 'planet'
+				ELSE 'entity'
+			END AS subject,
+			coalesce(stellium_id, system_id, planet_id, entity_id) AS id,
+			name
+		FROM faction_name WHERE faction_id = ?
+		ORDER BY subject, id;`, reportRows(factionID, func(stmt *sqlite.Stmt) {
+		names.Row(stmt.ColumnText(0), stmt.ColumnInt64(1), stmt.ColumnText(2))
+	})); err != nil {
+		return nil, fmt.Errorf("query names: %w", err)
+	}
+
 	census := rpt.Table("CENSUS", "ENTITY", "CLASS", "PEOPLE")
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT ep.entity_id, ep.class, ep.quantity * 100

@@ -232,6 +232,35 @@ func (w *World) RecordProbe(turn int, factionID, planetID int64) error {
 	return nil
 }
 
+// Subject is the kind of thing a faction can give a name to.
+type Subject string
+
+// The things a faction can name.
+const (
+	NamedStellium Subject = "stellium"
+	NamedSystem   Subject = "system"
+	NamedPlanet   Subject = "planet"
+	NamedEntity   Subject = "entity"
+)
+
+// column is where a subject's id is stored.
+func (s Subject) column() string { return string(s) + "_id" }
+
+// SetName is what a faction calls something, replacing whatever it called it
+// before. The name is the faction's own: naming a ship does not change what
+// anybody else's report calls it, and naming a stellium takes no visit.
+func (w *World) SetName(factionID int64, of Subject, id int64, name string) error {
+	if err := sqlitex.ExecuteTransient(w.conn, `
+		INSERT INTO faction_name (game_id, faction_id, `+of.column()+`, name) VALUES (?, ?, ?, ?)
+		ON CONFLICT (faction_id, `+of.column()+`) WHERE `+of.column()+` IS NOT NULL
+		DO UPDATE SET name = excluded.name;`, &sqlitex.ExecOptions{
+		Args: []any{w.game.ID, factionID, id, name},
+	}); err != nil {
+		return fmt.Errorf("name %s %d: %w", of, id, err)
+	}
+	return nil
+}
+
 // RecordSensors snapshots what every sensor-equipped entity reads from where it
 // stands. The reading is stored rather than derived at report time because the
 // entity may move or jump later in the turn, and what it saw is what it saw.

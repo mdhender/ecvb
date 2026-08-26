@@ -14,6 +14,7 @@ order they happen:
 | 2 | sensor | every assembled `SNSR` reads the sky from where it stands; no order is given for it |
 | 3 | move | every `MOVE` order |
 | 4 | jump | every `JUMP` order |
+| 5 | naming | every `NAME` order |
 
 Probes and passive sensors both read where things stood when the turn began, so
 both settle before anything moves; a ship that jumps this turn reports its new
@@ -258,6 +259,41 @@ Each probe reports, for the planet it reads:
 
 A probe does not move its ship, and its findings are recorded as of the moment
 it read the planet.
+
+## NAME
+
+```text
+name ship SHIP-ID "NAME"
+name colony COLONY-ID "NAME"
+name (X,Y,Z) "NAME"
+name (X,Y,Z) system SYSTEM "NAME"
+name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"
+```
+
+Examples:
+
+```text
+name ship 18 "Jalopy"
+name colony 24 "Jingo"
+name (-1,2,3) "Stellium Joe"
+name (-1,2,3) system A "Alpha Sur"
+name (-1,2,3) system A orbit 8 "Headly's Gate"
+```
+
+A name is yours. Naming your ship does not change what anybody else's report
+calls it, and a stellium, system, or planet may be named without ever having
+been visited -- though it has to exist. Naming something again renames it.
+
+The entity forms name a ship or colony your faction owns. The coordinate forms
+name a place: the stellium at those coordinates, or one of its systems, or the
+planet in an orbit of one of its systems. An orbit may only follow a system,
+because only a system holds planets.
+
+A name is quoted text of at most 24 characters, counting spaces. It may not be
+empty, may not begin or end with a space, may not hold two spaces in a row, and
+may not hold control characters.
+
+Names resolve in the naming phase, which is the last phase of the turn.
 
 ## Checking and submitting
 

@@ -88,6 +88,46 @@ func TestSubmitRejects(t *testing.T) {
 			order: "move ship 101 to orbit 6",
 			want:  "entity 101 is a COPN, not a ship",
 		},
+		{
+			name:  "a name longer than a name may be",
+			order: `name ship 100 "twenty five characters!!!"`,
+			want:  `a name may be 24 characters and "twenty five characters!!!" is 25`,
+		},
+		{
+			name:  "a name that begins with a space",
+			order: `name ship 100 " Bellerophon"`,
+			want:  "a name may not begin or end with a space",
+		},
+		{
+			name:  "a name with a gap in it",
+			order: `name ship 100 "Bell  erophon"`,
+			want:  "a name may not hold two spaces in a row",
+		},
+		{
+			name:  "a name with nothing in it",
+			order: `name ship 100 ""`,
+			want:  "a name cannot be empty",
+		},
+		{
+			name:  "naming a stellium that is not there",
+			order: `name (9,9,9) "Nowhere"`,
+			want:  `game "GOLD-01" has no stellium at (9,9,9)`,
+		},
+		{
+			name:  "naming a system the stellium does not hold",
+			order: `name (0,0,0) system E "Elsewhere"`,
+			want:  "the stellium at (0,0,0) has no system E",
+		},
+		{
+			name:  "naming a planet that is not in that orbit",
+			order: `name (0,0,0) system A orbit 9 "Empty"`,
+			want:  "system A has no planet in orbit 9",
+		},
+		{
+			name:  "naming another faction's ship",
+			order: `name ship 200 "Easy Target"`,
+			want:  "ship 200 does not belong to faction 1",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := testdb.New(t)

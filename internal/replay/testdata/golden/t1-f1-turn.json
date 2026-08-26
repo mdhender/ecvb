@@ -142,6 +142,31 @@
       ]
     },
     {
+      "name": "NAMES",
+      "columns": [
+        "SUBJECT",
+        "ID",
+        "NAME"
+      ],
+      "rows": [
+        [
+          "entity",
+          "100",
+          "Bellerophon"
+        ],
+        [
+          "planet",
+          "33",
+          "Landfall"
+        ],
+        [
+          "stellium",
+          "11",
+          "Near"
+        ]
+      ]
+    },
+    {
       "name": "CENSUS",
       "columns": [
         "ENTITY",
@@ -435,6 +460,42 @@
           "succeeded",
           "11/22/33/67",
           "11/-/-/-",
+          "-"
+        ],
+        [
+          "4",
+          "7",
+          "100",
+          "name",
+          "ship 100 \"Bellerophon\"",
+          "0",
+          "succeeded",
+          "-",
+          "-",
+          "-"
+        ],
+        [
+          "5",
+          "8",
+          "-",
+          "name",
+          "(1,2,2) \"Near\"",
+          "0",
+          "succeeded",
+          "-",
+          "-",
+          "-"
+        ],
+        [
+          "6",
+          "9",
+          "-",
+          "name",
+          "(1,2,2) system A orbit 1 \"Landfall\"",
+          "0",
+          "succeeded",
+          "-",
+          "-",
           "-"
         ]
       ]

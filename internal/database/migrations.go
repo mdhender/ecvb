@@ -339,6 +339,34 @@ CREATE INDEX entity_faction_id_idx ON entity(faction_id);
 CREATE INDEX work_group_deposit_id_idx ON work_group(deposit_id);
 CREATE INDEX game_order_actor_entity_id_idx ON game_order(actor_entity_id);
 `,
+	`
+-- What a faction calls things.
+--
+-- A name is a label its owner reads, not a property of the thing named: a
+-- player may name a stellium they have never visited, and naming their own
+-- ship does not change what anybody else's report calls it. So a name belongs
+-- to a faction and a subject, and exactly one kind of subject at a time.
+CREATE TABLE faction_name (
+    game_id INTEGER NOT NULL,
+    faction_id INTEGER NOT NULL,
+    stellium_id INTEGER REFERENCES stellium(id),
+    system_id INTEGER REFERENCES system(id),
+    planet_id INTEGER REFERENCES planet(id),
+    entity_id INTEGER REFERENCES entity(id),
+    name TEXT NOT NULL
+        CHECK (name = trim(name) AND name <> '' AND length(name) <= 24 AND instr(name, '  ') = 0),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
+    FOREIGN KEY (stellium_id, game_id) REFERENCES stellium(id, game_id),
+    CHECK ((stellium_id IS NOT NULL) + (system_id IS NOT NULL)
+        + (planet_id IS NOT NULL) + (entity_id IS NOT NULL) = 1)
+);
+
+-- One name per faction per thing: naming something again renames it.
+CREATE UNIQUE INDEX faction_name_stellium_idx ON faction_name(faction_id, stellium_id) WHERE stellium_id IS NOT NULL;
+CREATE UNIQUE INDEX faction_name_system_idx ON faction_name(faction_id, system_id) WHERE system_id IS NOT NULL;
+CREATE UNIQUE INDEX faction_name_planet_idx ON faction_name(faction_id, planet_id) WHERE planet_id IS NOT NULL;
+CREATE UNIQUE INDEX faction_name_entity_idx ON faction_name(faction_id, entity_id) WHERE entity_id IS NOT NULL;
+`,
 }
 
 // SchemaVersion is the latest database schema version.

@@ -71,6 +71,15 @@
       ]
     },
     {
+      "name": "NAMES",
+      "columns": [
+        "SUBJECT",
+        "ID",
+        "NAME"
+      ],
+      "rows": []
+    },
+    {
       "name": "CENSUS",
       "columns": [
         "ENTITY",

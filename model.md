@@ -282,11 +282,26 @@ Spending fuel deletes it from `inventory` and takes its mass off `entity.mass`,
 so an entity's mass stays the total of its population and inventory.
 
 Resolving a turn is atomic. The engine walks the turn's phases in order --
-probe, sensor, move, jump -- executing every order of one phase before any
+probe, sensor, move, jump, naming -- executing every order of one phase before any
 order of the next, updating entities and order outcomes, and changing the game
 from `open` to `resolved`. The turn number does not change until the gamemaster
 opens the next turn. Opening the next turn retains the most recently resolved
 order rows and purges older rows.
+
+### `faction_name`
+
+What a faction calls things.
+
+| Column | Description |
+| --- | --- |
+| `game_id`, `faction_id` | Whose name it is. |
+| `stellium_id`, `system_id`, `planet_id`, `entity_id` | What is named. A CHECK requires exactly one of the four. |
+| `name` | At most 24 characters, trimmed, with no run of two spaces and nothing empty. |
+
+A name is a label its owner reads, not a property of the thing named: naming a
+ship does not change what anybody else's report calls it, and a place may be
+named without ever having been visited. A partial unique index per subject kind
+means one name per faction per thing, so naming something again renames it.
 
 ## Findings
 

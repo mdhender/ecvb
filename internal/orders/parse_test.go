@@ -151,6 +151,76 @@ probe ship 2 orbit 1
 	}
 }
 
+// A mistyped verb is told which orders exist, so the list has to hold every
+// registered one rather than a remembered few.
+func TestParseNamesEveryOrderWhenTheVerbIsUnknown(t *testing.T) {
+	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nattak ship 2\n"))
+	if err == nil {
+		t.Fatal("Parse succeeded; want an error")
+	}
+	if want := `unknown order "attak"`; !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %v; want it to contain %q", err, want)
+	}
+	for _, spec := range Specs() {
+		if !strings.Contains(err.Error(), spec.Verb) {
+			t.Errorf("error = %v; want it to name the %s order", err, spec.Verb)
+		}
+	}
+}
+
+func TestParseNameOrders(t *testing.T) {
+	input := `game "TEST" turn 3
+id faction 1
+
+name ship 18 "Jalopy"
+name (-1,2,3) "Stellium Joe"
+name (-1,2,3) system A "Alpha Sur"
+name (-1,2,3) system A orbit 8 "Headly's Gate"
+`
+	submission, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		`ship 18 "Jalopy"`,
+		`(-1,2,3) "Stellium Joe"`,
+		`(-1,2,3) system A "Alpha Sur"`,
+		`(-1,2,3) system A orbit 8 "Headly's Gate"`,
+	}
+	if len(submission.Orders) != len(want) {
+		t.Fatalf("orders = %d; want %d", len(submission.Orders), len(want))
+	}
+	for i, order := range submission.Orders {
+		if order.Verb != "name" {
+			t.Errorf("order %d verb = %q; want name", i, order.Verb)
+		}
+		// A name order reads back as the line the player wrote, which is what
+		// gets stored and what the reports print.
+		if got := order.Params.Input(); got != want[i] {
+			t.Errorf("order %d input = %q; want %q", i, got, want[i])
+		}
+	}
+	// Naming a place is an order with no actor at all.
+	if got := submission.Orders[1].Params.Actor(); got != 0 {
+		t.Errorf("naming a stellium acts on entity %d; want none", got)
+	}
+	if got := submission.Orders[0].Params.Actor(); got != 18 {
+		t.Errorf("naming a ship acts on entity %d; want 18", got)
+	}
+}
+
+// An orbit belongs to a system, so a name may not reach for one without
+// naming the system it is in.
+func TestParseRejectsAnOrbitWithoutASystem(t *testing.T) {
+	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nname (1,2,3) orbit 8 \"Nope\"\n"))
+	if err == nil {
+		t.Fatal("Parse succeeded; want an error")
+	}
+	if want := `name (X,Y,Z) "NAME"`; !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %v; want it to show %q", err, want)
+	}
+}
+
 // A `#` inside quotes is part of the value, not the start of a comment.
 func TestParseKeepsAHashInsideQuotes(t *testing.T) {
 	submission, err := Parse(strings.NewReader("game \"BETA#1\" turn 0\nid faction 1\n"))
@@ -168,11 +238,6 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 		input string
 		want  string
 	}{
-		{
-			name:  "unknown verb names the orders that exist",
-			input: "attak ship 2",
-			want:  `unknown order "attak"; expected jump, move, or probe`,
-		},
 		{
 			name:  "a move that does not parse reports only move's forms",
 			input: "move ship 2 to planet 6",

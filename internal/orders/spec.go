@@ -36,12 +36,13 @@ var (
 	PhaseSensor = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
 	PhaseMove   = &Phase{Name: "move"}
 	PhaseJump   = &Phase{Name: "jump"}
+	PhaseNaming = &Phase{Name: "naming"}
 )
 
 // phases is the turn, in the order it happens. Probes and passive sensors both
 // read where things stood when the turn began, so both come before anything
 // moves; a ship that jumps this turn reports its new stellium next turn.
-var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump}
+var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseNaming}
 
 func init() {
 	for i, phase := range phases {

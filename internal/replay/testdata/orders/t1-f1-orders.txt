@@ -4,3 +4,6 @@ id faction 1
 probe ship 100 system A orbit 1
 move ship 100 to system A orbit 1
 move ship 100 to orbit 11
+name ship 100 "Bellerophon"
+name (1,2,2) "Near"
+name (1,2,2) system A orbit 1 "Landfall"

@@ -93,7 +93,9 @@ func Resolve(ctx context.Context, logger *slog.Logger, conn *sqlite.Conn, gameCo
 			locationAttr("start", item.start),
 			locationAttr("final", item.final),
 		}
-		if item.orderType != "probe" {
+		// The orders that move something are the orders that burn fuel to do
+		// it; the rest have no fuel to report.
+		if item.movement {
 			attrs = append(attrs, slog.Int64("fuel_spent", item.fuelSpent))
 		}
 		if item.message != "" {
@@ -176,11 +178,17 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 // out from under -- a drive disassembled, a map edited -- and it fails without
 // stopping the turn.
 func execute(conn *sqlite.Conn, loaded *world.World, turn int, order storedOrder) (outcome, error) {
+	// An order that acts on no entity -- naming a stellium, say -- has no
+	// actor to find.
 	actorID := order.params.Actor()
-	actor := loaded.Entity(actorID)
-	if actor == nil {
-		return outcome{}, fmt.Errorf("%s order faction %d sequence %d references missing entity %d",
-			order.verb, order.factionID, order.sequence, actorID)
+	var at world.Location
+	if actorID != 0 {
+		actor := loaded.Entity(actorID)
+		if actor == nil {
+			return outcome{}, fmt.Errorf("%s order faction %d sequence %d references missing entity %d",
+				order.verb, order.factionID, order.sequence, actorID)
+		}
+		at = actor.Location
 	}
 	item := outcome{
 		orderType: order.verb, factionID: order.factionID, sequence: order.sequence,
@@ -191,7 +199,7 @@ func execute(conn *sqlite.Conn, loaded *world.World, turn int, order storedOrder
 	switch {
 	case err != nil:
 		item.status, item.message = orders.StatusFailed, orders.Problem(err)
-		item.start, item.final = actor.Location, actor.Location
+		item.start, item.final = at, at
 	case len(bounds) != 1:
 		return outcome{}, fmt.Errorf("%s order faction %d sequence %d bound to %d orders; want exactly one",
 			order.verb, order.factionID, order.sequence, len(bounds))
@@ -395,15 +403,25 @@ func nullableMessage(message string) any {
 }
 
 // actorAttr names the entity an order acted on. Moves and jumps are always
-// ship orders; a probe may be issued by a colony.
+// ship orders; a probe may be issued by a colony; an order that acts on no
+// entity says nothing.
 func actorAttr(item outcome) slog.Attr {
-	if item.orderType == "probe" {
+	switch {
+	case item.actorID == 0:
+		return slog.Attr{}
+	case item.orderType == "move" || item.orderType == "jump":
+		return slog.Int64("ship_id", item.actorID)
+	default:
 		return slog.Int64("entity_id", item.actorID)
 	}
-	return slog.Int64("ship_id", item.actorID)
 }
 
+// locationAttr says where an order happened. An order with no actor happened
+// nowhere in particular and reports no location.
 func locationAttr(name string, at world.Location) slog.Attr {
+	if at.StelliumID == 0 {
+		return slog.Attr{}
+	}
 	values := []any{"stellium_id", at.StelliumID}
 	if at.SystemID != 0 {
 		values = append(values, "system_id", at.SystemID, "planet_id", at.PlanetID, "ring", at.Ring)

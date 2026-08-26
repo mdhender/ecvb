@@ -54,7 +54,7 @@ func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 		Args: []any{gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			table.Row(
-				stmt.ColumnInt(0), stmt.ColumnInt(1), stmt.ColumnInt64(2), stmt.ColumnText(3),
+				stmt.ColumnInt(0), stmt.ColumnInt(1), actor(stmt, 2), stmt.ColumnText(3),
 				stmt.ColumnText(4), stmt.ColumnInt64(5), stmt.ColumnText(6),
 				orderLocation(stmt, 8), orderLocation(stmt, 12), nullableText(stmt, 7))
 			return nil
@@ -100,6 +100,15 @@ func addProbes(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 		return fmt.Errorf("query probe orders: %w", err)
 	}
 	return nil
+}
+
+// actor is the entity an order acted on. An order that acted on none -- naming
+// a stellium, say -- reads as a dash.
+func actor(stmt *sqlite.Stmt, column int) any {
+	if stmt.ColumnIsNull(column) {
+		return "-"
+	}
+	return stmt.ColumnInt64(column)
 }
 
 func orderLocation(stmt *sqlite.Stmt, column int) string {

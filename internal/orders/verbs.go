@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"github.com/mdhender/ecvb/internal/sensors"
@@ -91,6 +94,60 @@ func init() {
 				return nil, err
 			}
 			if order.Orbit, err = line.number("orbit"); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+	})
+
+	register(&Spec{
+		Verb:    "name",
+		Summary: "give a place or one of your ships or colonies a name only you see",
+		Syntax: []string{
+			`name ship SHIP-ID "NAME"`,
+			`name colony COLONY-ID "NAME"`,
+			`name (X,Y,Z) "NAME"`,
+			`name (X,Y,Z) system SYSTEM "NAME"`,
+			`name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"`,
+		},
+		Phase: PhaseNaming,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := NameParams{Entity: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(line *Line) (Params, error) {
+			var order NameParams
+			var err error
+			// A name is given either to a place, which opens with its
+			// coordinates, or to an entity, which opens with what kind it is.
+			if kind, ok := line.keyword("ship", "colony"); ok {
+				order.Kind = kind
+				if order.Entity, err = line.entityID(kind); err != nil {
+					return nil, err
+				}
+			} else {
+				place := &Place{}
+				if place.X, place.Y, place.Z, err = line.coordinates(); err != nil {
+					return nil, err
+				}
+				if _, ok := line.keyword("system"); ok {
+					if place.System, err = line.systemLetter(); err != nil {
+						return nil, err
+					}
+					// Only a system can hold a planet, so an orbit may only
+					// follow one.
+					if _, ok := line.keyword("orbit"); ok {
+						if place.Orbit, err = line.number("orbit"); err != nil {
+							return nil, err
+						}
+					}
+				}
+				order.Place = place
+			}
+			if order.Name, err = line.quoted("name"); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -429,4 +486,149 @@ func (o *probeBound) Apply(t *Turn) (Outcome, error) {
 	item.Survey = &Survey{StelliumID: at.StelliumID, SystemID: o.systemID,
 		PlanetID: o.planet.ID, Habitability: o.planet.Habitability}
 	return item, nil
+}
+
+// NAME ------------------------------------------------------------------
+
+// LongestName is how long a name may be, counted in characters and counting
+// the spaces.
+const LongestName = 24
+
+// NameParams is a NAME as written. A name is given to an entity -- the ship or
+// colony in Entity -- or to a place, and never to both.
+type NameParams struct {
+	// Entity is the ship or colony being named, and is 0 when a place is being
+	// named instead. It is the order's actor, so it is a column rather than
+	// part of the stored parameters.
+	Entity int64 `json:"-"`
+	// Kind is the word the player wrote, "ship" or "colony". An order read
+	// back out of the database carries none, because which word was written
+	// was settled when it was written.
+	Kind string `json:"-"`
+	// Place is the thing being named when it is not an entity: a stellium, or
+	// a system or planet of one.
+	Place *Place `json:"place,omitempty"`
+	Name  string `json:"name"`
+}
+
+// Place is a stellium, or a system or a planet of one, as an order named it.
+type Place struct {
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	Z      int    `json:"z"`
+	System string `json:"system,omitempty"`
+	Orbit  int    `json:"orbit,omitzero"`
+}
+
+// Actor is the entity being named, or 0 when the order names a place. A place
+// belongs to nobody, so naming one is an order with no actor at all.
+func (p NameParams) Actor() int64 { return p.Entity }
+
+// Input is the name order as the player wrote it.
+func (p NameParams) Input() string {
+	if p.Place == nil {
+		return fmt.Sprintf("%s %d %q", p.Kind, p.Entity, p.Name)
+	}
+	var out strings.Builder
+	fmt.Fprintf(&out, "(%d,%d,%d)", p.Place.X, p.Place.Y, p.Place.Z)
+	if p.Place.System != "" {
+		fmt.Fprintf(&out, " system %s", p.Place.System)
+	}
+	if p.Place.Orbit != 0 {
+		fmt.Fprintf(&out, " orbit %d", p.Place.Orbit)
+	}
+	fmt.Fprintf(&out, " %q", p.Name)
+	return out.String()
+}
+
+// Bind checks the name and finds what it is for. Everything a NAME settles is
+// settled here: nothing about naming can change during a turn, so Apply only
+// writes the label down.
+func (p NameParams) Bind(b *Binder) ([]Bound, error) {
+	if err := checkName(p.Name); err != nil {
+		return nil, err
+	}
+	if p.Place == nil {
+		entity, err := b.actor(p.Entity, p.Kind)
+		if err != nil {
+			return nil, err
+		}
+		return []Bound{&nameBound{params: p, of: world.NamedEntity, id: entity.ID}}, nil
+	}
+	stelliumID := b.World.StelliumAt(p.Place.X, p.Place.Y, p.Place.Z)
+	if stelliumID == 0 {
+		return nil, fmt.Errorf("game %q has no stellium at (%d,%d,%d)",
+			b.World.Game().Code, p.Place.X, p.Place.Y, p.Place.Z)
+	}
+	if p.Place.System == "" {
+		return []Bound{&nameBound{params: p, of: world.NamedStellium, id: stelliumID}}, nil
+	}
+	systemID, err := b.World.System(stelliumID, p.Place.System)
+	if err != nil {
+		return nil, err
+	}
+	if systemID == 0 {
+		return nil, fmt.Errorf("the stellium at (%d,%d,%d) has no system %s",
+			p.Place.X, p.Place.Y, p.Place.Z, p.Place.System)
+	}
+	if p.Place.Orbit == 0 {
+		return []Bound{&nameBound{params: p, of: world.NamedSystem, id: systemID}}, nil
+	}
+	planet, exists, err := b.World.Planet(systemID, p.Place.Orbit)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("system %s has no planet in orbit %d", p.Place.System, p.Place.Orbit)
+	}
+	return []Bound{&nameBound{params: p, of: world.NamedPlanet, id: planet.ID}}, nil
+}
+
+// checkName is what a name may be: printable, no longer than LongestName,
+// and spaced the way the player would read it back.
+func checkName(name string) error {
+	if name == "" {
+		return errors.New("a name cannot be empty")
+	}
+	if count := utf8.RuneCountInString(name); count > LongestName {
+		return fmt.Errorf("a name may be %d characters and %q is %d", LongestName, name, count)
+	}
+	if strings.TrimSpace(name) != name {
+		return fmt.Errorf("a name may not begin or end with a space")
+	}
+	if strings.Contains(name, "  ") {
+		return fmt.Errorf("a name may not hold two spaces in a row")
+	}
+	for _, r := range name {
+		if r != ' ' && !unicode.IsPrint(r) {
+			return fmt.Errorf("a name may not hold control characters")
+		}
+	}
+	return nil
+}
+
+type nameBound struct {
+	params NameParams
+	of     world.Subject
+	id     int64
+}
+
+// Params is the name order as it will be stored.
+func (o *nameBound) Params() Params { return o.params }
+
+// Fuel is nothing: naming something costs no fuel.
+func (o *nameBound) Fuel() int64 { return 0 }
+
+// Apply writes the name down. Nothing about a name can fail once it is bound.
+func (o *nameBound) Apply(t *Turn) (Outcome, error) {
+	if err := t.World.SetName(t.FactionID, o.of, o.id, o.params.Name); err != nil {
+		return Outcome{}, err
+	}
+	// A name moves nothing, so the order happened wherever its actor stands; a
+	// place has no actor and no location at all.
+	at := world.Location{}
+	if entity := t.World.Entity(o.params.Entity); entity != nil {
+		at = entity.Location
+	}
+	return succeeded(at, at, 0), nil
 }
