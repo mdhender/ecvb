@@ -78,14 +78,16 @@ compare squared distances so no floating point enters the query.
 
 ## Adding an order
 
-An order registers one `Spec` in `internal/orders/verbs.go` and nowhere else:
+An order lives in `internal/orders/verbs.go` and nowhere else. It is three
+things: a `Spec`, a `Params` type, and a `Bound` type.
 
 ```go
 register(&Spec{
     Verb:    "move",
     Summary: "move a ship inside its stellium, to a planet or to the stellium orbit",
     Syntax:  []string{"move ship SHIP-ID to orbit ORBIT", ...},
-    Parse:   func(line *Line) (Order, error) { ... },
+    Phase:   PhaseMove,
+    Parse:   func(line *Line) (Params, error) { ... },
 })
 ```
 
@@ -93,34 +95,69 @@ The parser tokenizes a line once and dispatches on its verb, so a line is only
 ever measured against the forms of the order it names, and a mistyped verb is
 told which orders exist. `Parse` consumes from a `*Line` using the shared field
 readers in `token.go` -- `entityID`, `number`, `systemLetter`, `coordinates`,
-`orbitList`, `quoted` -- rather than a regex per surface form.
+`orbitList`, `quoted` -- rather than a regex per surface form, and returns the
+order's own `Params` type, so a field belongs to the one order that has it.
 
-Errors are of two kinds and are treated differently. A line that never matched
-the shape of its order returns a `syntaxErr` (every `expect` does), and the
-player is shown that verb's `Syntax`. A field that was read and found wrong
+Syntax errors are of two kinds and are treated differently. A line that never
+matched the shape of its order returns a `syntaxErr` (every `expect` does), and
+the player is shown that verb's `Syntax`. A field that was read and found wrong
 returns a plain error, which is reported as written.
 
 `ec orders help [ORDER]` prints the registry, and a test fails if `orders.md`
 does not document every registered form.
 
+### Bind and Apply
+
+Every game rule is written once, and which of the two halves it belongs in is
+the only design question an order asks:
+
+- **`Params.Bind`** settles what a turn cannot change -- ownership, the kind of
+  entity, a destination that exists, a drive's range and capacity -- and turns
+  names into ids. A `Bind` failure **rejects the whole order file**, because it
+  will still be a failure when the turn resolves. It reports every reason, not
+  the first, so a player fixing a file sees the list.
+- **`Bound.Apply`** executes against live turn state, for what *can* change:
+  fuel on hand, a budget another order spent, somewhere another faction reached
+  first. An `Apply` failure is a **warning** at submission -- the order is kept
+  -- and a `failed` order row when the turn resolves. A returned *error*, by
+  contrast, is a database or state failure and rolls the whole turn back.
+
+Both run in check, submit, and resolve. `Check` and `Submit` run them inside a
+savepoint that is always rolled back (`discard`, `orders.go`), so a player's
+file is measured by *doing* the turn rather than by simulating it; `Submit`
+then stores the orders the rolled-back run bound. The test
+`TestCheckPutsTheWorldBackTheWayItFoundIt` is what holds that rollback honest.
+
+The engine binds a stored order again before applying it. That is not a second
+implementation: the row carries the parameters the player wrote, not the ids
+they resolved to, so `loadOrders` rebuilds `Params` and the same `Bind` runs.
+
+`internal/world` is what both halves are written against: one game's entities,
+stellia, systems, and planets, with mutations (`Move`, `BurnFuel`,
+`RecordProbe`, `SpendProbe`) that write through to SQLite and keep the loaded
+copy in step. That is what makes the second order of a turn measure a ship as
+the first order left it.
+
 ## Turn lifecycle
 
 `game.turn_state` is `open` or `resolved`.
 
-1. Players submit orders. `internal/orders` parses (`Parse`), validates against the
-   database, and `Submit` atomically replaces that faction's pending `move_order` and
-   `jump_order` rows for the current turn. `Check` does the same validation with no
-   writes.
-2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction: **all MOVE
-   orders resolve before any JUMP order**. Expected game-rule failures are recorded on
-   the order row (`status = 'failed'` plus `error_message`, final location equal to
-   start location) and do not abort the turn; database/state errors roll the turn back.
-   State flips `open → resolved`; the turn number does not change.
+1. Players submit orders. `internal/orders` parses (`Parse`), binds and applies
+   them against a `world.World` inside a savepoint it rolls back, and `Submit`
+   then atomically replaces that faction's pending order rows for the current
+   turn. `Check` runs exactly the same thing and keeps nothing.
+2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
+   `orders.Phases()` in order: **every order of one phase resolves before any
+   order of the next**, today probe, then move, then jump. Expected game-rule
+   failures are recorded on the order row (`status = 'failed'` plus
+   `error_message`, final location equal to start location) and do not abort the
+   turn; database/state errors roll the turn back. State flips
+   `open → resolved`; the turn number does not change.
 3. `ec turn open` advances the turn number and purges order rows older than the most
    recently resolved turn, so the previous turn's outcomes stay readable via
    `ecrpt show orders --turn N`.
 
-Order tables carry both `sequence` (engine resolution order: moves before jumps) and
+Order tables carry both `sequence` (engine resolution order: earlier phases first) and
 `source_line` (position in the submitted file). The three-way status CHECK constraint
 on `jump_order`/`move_order` is what enforces the pending/succeeded/failed shape — new
 order kinds should follow the same table layout.

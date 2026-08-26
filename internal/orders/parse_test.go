@@ -25,13 +25,16 @@ func TestParseShipOrders(t *testing.T) {
 	if len(submission.Orders) != 3 {
 		t.Fatalf("orders = %d; want 3", len(submission.Orders))
 	}
-	if got := submission.Orders[0]; got.Line != 4 || got.Verb != "move" || got.ShipID != 2 || got.Orbit != 6 || got.System != "" {
+	if got := submission.Orders[0]; got.Line != 4 || got.Verb != "move" ||
+		got.Params != (MoveParams{ShipID: 2, Orbit: 6}) {
 		t.Fatalf("first order = %+v", got)
 	}
-	if got := submission.Orders[1]; got.Line != 5 || got.Verb != "jump" || got.X != 6 || got.Y != -9 || got.Z != 8 {
+	if got := submission.Orders[1]; got.Line != 5 || got.Verb != "jump" ||
+		got.Params != (JumpParams{ShipID: 2, X: 6, Y: -9, Z: 8}) {
 		t.Fatalf("second order = %+v", got)
 	}
-	if got := submission.Orders[2]; got.Line != 6 || got.System != "B" || got.Orbit != 4 {
+	if got := submission.Orders[2]; got.Line != 6 ||
+		got.Params != (MoveParams{ShipID: 2, System: "B", Orbit: 4}) {
 		t.Fatalf("third order = %+v", got)
 	}
 }
@@ -67,14 +70,25 @@ PROBE SHIP 2 ORBIT 1 2 3 4 5 8 9 10
 	if len(submission.Orders) != 2 {
 		t.Fatalf("orders = %d; want 2", len(submission.Orders))
 	}
-	one := submission.Orders[0]
-	if one.Verb != "probe" || one.ShipID != 2 || len(one.Orbits) != 1 || one.Orbits[0] != 6 {
+	one := probeParams(t, submission.Orders[0])
+	if one.Kind != "ship" || one.EntityID != 2 || !slices.Equal(one.Orbits, []int{6}) {
 		t.Errorf("order = %+v; want a probe of orbit 6", one)
 	}
-	many := submission.Orders[1]
+	many := probeParams(t, submission.Orders[1])
 	if want := []int{1, 2, 3, 4, 5, 8, 9, 10}; !slices.Equal(many.Orbits, want) {
 		t.Errorf("orbits = %v; want %v", many.Orbits, want)
 	}
+}
+
+// probeParams is the parsed order's own type. Every order carries its own
+// parameters, so reading one means naming which order it is.
+func probeParams(t *testing.T, order Order) ProbeParams {
+	t.Helper()
+	params, ok := order.Params.(ProbeParams)
+	if !ok {
+		t.Fatalf("order = %+v; want a probe", order)
+	}
+	return params
 }
 
 func TestParseRejectsProbeWithoutOrbits(t *testing.T) {
@@ -98,8 +112,8 @@ probe ship 4 system a orbit 1 2 3
 	if err != nil {
 		t.Fatal(err)
 	}
-	order := submission.Orders[0]
-	if order.Verb != "probe" || order.ShipID != 4 || order.System != "A" {
+	order := probeParams(t, submission.Orders[0])
+	if order.EntityID != 4 || order.System != "A" {
 		t.Errorf("order = %+v; want a probe of system A", order)
 	}
 	if want := []int{1, 2, 3}; !slices.Equal(order.Orbits, want) {
@@ -209,8 +223,8 @@ func TestParseAcceptsAnySpacingInCoordinates(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Parse(%q): %v", form, err)
 		}
-		if got := submission.Orders[0]; got.X != 6 || got.Y != -9 || got.Z != 8 {
-			t.Errorf("Parse(%q) = (%d,%d,%d); want (6,-9,8)", form, got.X, got.Y, got.Z)
+		if got := submission.Orders[0].Params; got != (JumpParams{ShipID: 2, X: 6, Y: -9, Z: 8}) {
+			t.Errorf("Parse(%q) = %+v; want a jump to (6,-9,8)", form, got)
 		}
 	}
 }

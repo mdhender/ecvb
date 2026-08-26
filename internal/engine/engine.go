@@ -7,12 +7,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"math/rand/v2"
-	"slices"
 
-	"github.com/mdhender/ecvb/internal/fuel"
-	"github.com/mdhender/ecvb/internal/jumpdrive"
-	"github.com/mdhender/ecvb/internal/sensors"
+	"github.com/mdhender/ecvb/internal/orders"
+	"github.com/mdhender/ecvb/internal/world"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -32,25 +29,19 @@ type OpenResult struct {
 	Turn     int
 }
 
-type location struct {
-	stelliumID int64
-	systemID   int64
-	planetID   int64
-	ring       int
-}
-
-type entity struct {
-	unit      string
+// storedOrder is one submitted order read back out of the database. It carries
+// the parameters the player wrote rather than the ids they resolved to, so the
+// engine binds and applies the order with the same code that checked it.
+type storedOrder struct {
+	verb      string
 	factionID int64
-	location  location
-	mass      int64
-	fuel      int64
-	drive     jumpdrive.Drive
-	sensors   sensors.Array
-}
-
-type point struct {
-	x, y, z int
+	sequence  int
+	line      int
+	// request is how the order is echoed back in the engine log. It is built
+	// from the stored row rather than from the bound order, so an order that
+	// fails to bind still says what it asked for.
+	request string
+	params  orders.Params
 }
 
 type outcome struct {
@@ -58,54 +49,23 @@ type outcome struct {
 	factionID int64
 	sequence  int
 	line      int
-	shipID    int64
+	actorID   int64
 	request   string
 	status    string
 	message   string
-	start     location
-	final     location
+	start     world.Location
+	final     world.Location
 	// fuelSpent is the FUEL the drive burned. An order that failed burned
 	// none. Probes do not burn fuel.
 	fuelSpent int64
+	// result is what the order recorded beyond its status. Only a probe has
+	// one today.
+	result any
 }
 
-type moveOrder struct {
-	factionID             int64
-	sequence              int
-	line                  int
-	shipID                int64
-	requestedSystem       string
-	requestedOrbit        int
-	destinationStelliumID int64
-	// A destination system and planet of zero is the stellium orbit, which
-	// orbit 11 names.
-	destinationSystemID int64
-	destinationPlanetID int64
-}
-
-type probeOrder struct {
-	factionID       int64
-	sequence        int
-	line            int
-	entityID        int64
-	requestedSystem string
-	orbit           int
-}
-
-type jumpOrder struct {
-	factionID             int64
-	sequence              int
-	line                  int
-	shipID                int64
-	x                     int
-	y                     int
-	z                     int
-	destinationStelliumID int64
-}
-
-// Resolve resolves an open turn. All MOVE orders resolve before any JUMP
-// order. Expected game-rule failures are recorded on the order and do not stop
-// the turn; database and state errors roll back the entire turn.
+// Resolve resolves an open turn. Every order of one phase resolves before any
+// order of the next. Expected game-rule failures are recorded on the order and
+// do not stop the turn; database and state errors roll back the entire turn.
 func Resolve(ctx context.Context, logger *slog.Logger, conn *sqlite.Conn, gameCode string, turn int) (Result, error) {
 	if logger == nil {
 		return Result{}, fmt.Errorf("logger is required")
@@ -153,67 +113,47 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 	}
 	defer end(&err)
 
-	gameID, gameSeed, err := requireGameTurn(conn, gameCode, turn, "open")
+	loaded, err := requireGameTurn(conn, gameCode, turn, "open")
 	if err != nil {
 		return Result{}, nil, err
 	}
-	entities, err := loadEntities(conn, gameID)
-	if err != nil {
-		return Result{}, nil, err
-	}
-	stellia, err := loadStellia(conn, gameID)
-	if err != nil {
-		return Result{}, nil, err
-	}
-	moves, err := loadMoveOrders(conn, gameID, turn)
-	if err != nil {
-		return Result{}, nil, err
-	}
-	probes, err := loadProbeOrders(conn, gameID, turn)
-	if err != nil {
-		return Result{}, nil, err
-	}
-	jumps, err := loadJumpOrders(conn, gameID, turn)
+	game := loaded.Game()
+	submitted, count, err := loadOrders(conn, game.ID, turn)
 	if err != nil {
 		return Result{}, nil, err
 	}
 
-	result = Result{GameCode: gameCode, Turn: turn, Orders: len(moves) + len(probes) + len(jumps)}
-	// Probes and passive sensors both read the turn's starting positions, so
-	// they resolve before anything moves. A ship that jumps this turn reports
-	// its new stellium in the next turn's report, not this one's.
-	spent := make(map[int64]int64)
-	for _, order := range probes {
-		item, err := executeProbe(conn, gameID, turn, entities, spent, order)
-		if err != nil {
-			return Result{}, nil, err
+	result = Result{GameCode: gameCode, Turn: turn, Orders: count}
+	for _, phase := range orders.Phases() {
+		for _, order := range submitted[phase] {
+			if err := ctx.Err(); err != nil {
+				return Result{}, nil, err
+			}
+			item, err := execute(conn, loaded, turn, order)
+			if err != nil {
+				return Result{}, nil, err
+			}
+			outcomes = append(outcomes, item)
+			if item.status == orders.StatusSucceeded {
+				result.Succeeded++
+			} else {
+				result.Failed++
+			}
 		}
-		outcomes = append(outcomes, item)
-		countOutcome(&result, item)
-	}
-	if err := recordPassiveSensors(conn, gameID, turn, entities); err != nil {
-		return Result{}, nil, err
-	}
-	for _, order := range moves {
-		item, err := executeMove(conn, gameID, turn, gameSeed, entities, order)
-		if err != nil {
-			return Result{}, nil, err
+		if phase == orders.PhaseProbe {
+			// Probes and passive sensors both read the turn's starting
+			// positions, so the survey is taken once every probe has fired and
+			// before anything moves. A ship that jumps this turn reports its
+			// new stellium in the next turn's report, not this one's.
+			if err := recordPassiveSensors(conn, game.ID, turn, loaded); err != nil {
+				return Result{}, nil, err
+			}
 		}
-		outcomes = append(outcomes, item)
-		countOutcome(&result, item)
-	}
-	for _, order := range jumps {
-		item, err := executeJump(conn, gameID, turn, entities, stellia, order)
-		if err != nil {
-			return Result{}, nil, err
-		}
-		outcomes = append(outcomes, item)
-		countOutcome(&result, item)
 	}
 	if err := sqlitex.ExecuteTransient(conn, `
 		UPDATE game SET turn_state = 'resolved'
 		WHERE id = ? AND turn = ? AND turn_state = 'open';`, &sqlitex.ExecOptions{
-		Args: []any{gameID, turn},
+		Args: []any{game.ID, turn},
 	}); err != nil {
 		return Result{}, nil, fmt.Errorf("mark game %q turn %d resolved: %w", gameCode, turn, err)
 	}
@@ -221,6 +161,50 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 		return Result{}, nil, fmt.Errorf("game %q turn %d changed while it was resolving", gameCode, turn)
 	}
 	return result, outcomes, nil
+}
+
+// execute binds a stored order against the world as the turn found it and
+// applies it.
+//
+// Binding again is not a second implementation of the rules but the same one:
+// what Bind settles cannot change during a turn, so an order that bound at
+// submission binds again here. An order that does not is one the world moved
+// out from under -- a drive disassembled, a map edited -- and it fails without
+// stopping the turn.
+func execute(conn *sqlite.Conn, loaded *world.World, turn int, order storedOrder) (outcome, error) {
+	actorID := order.params.Actor()
+	actor := loaded.Entity(actorID)
+	if actor == nil {
+		return outcome{}, fmt.Errorf("%s order faction %d sequence %d references missing entity %d",
+			order.verb, order.factionID, order.sequence, actorID)
+	}
+	item := outcome{
+		orderType: order.verb, factionID: order.factionID, sequence: order.sequence,
+		line: order.line, actorID: actorID, request: order.request, status: orders.StatusSucceeded,
+	}
+	bounds, err := order.params.Bind(&orders.Binder{World: loaded, FactionID: order.factionID})
+	switch {
+	case err != nil:
+		item.status, item.message = orders.StatusFailed, orders.Problem(err)
+		item.start, item.final = actor.Location, actor.Location
+	case len(bounds) != 1:
+		return outcome{}, fmt.Errorf("%s order faction %d sequence %d bound to %d orders; want exactly one",
+			order.verb, order.factionID, order.sequence, len(bounds))
+	default:
+		applied, err := bounds[0].Apply(&orders.Turn{
+			World: loaded, Number: turn, FactionID: order.factionID, Sequence: order.sequence,
+		})
+		if err != nil {
+			return outcome{}, err
+		}
+		item.status, item.message = applied.Status, applied.Message
+		item.start, item.final = applied.Start, applied.Final
+		item.fuelSpent, item.result = applied.FuelSpent, applied.Result
+	}
+	if err := updateOutcome(conn, loaded.Game().ID, turn, item); err != nil {
+		return outcome{}, err
+	}
+	return item, nil
 }
 
 // OpenNextTurn advances a resolved game to its next open turn. It retains the
@@ -238,10 +222,11 @@ func OpenNextTurn(ctx context.Context, conn *sqlite.Conn, gameCode string, resol
 	}
 	defer end(&err)
 
-	gameID, _, err := requireGameTurn(conn, gameCode, resolvedTurn, "resolved")
+	loaded, err := requireGameTurn(conn, gameCode, resolvedTurn, "resolved")
 	if err != nil {
 		return OpenResult{}, err
 	}
+	gameID := loaded.Game().ID
 	for _, table := range []string{"move_order", "jump_order", "probe_order", "probe_contact", "probe_deposit",
 		"sensor_survey", "sensor_contact"} {
 		if err := sqlitex.ExecuteTransient(conn,
@@ -263,458 +248,133 @@ func OpenNextTurn(ctx context.Context, conn *sqlite.Conn, gameCode string, resol
 	return OpenResult{GameCode: gameCode, Turn: resolvedTurn + 1}, nil
 }
 
-func requireGameTurn(conn *sqlite.Conn, code string, turn int, state string) (int64, seed, error) {
-	var gameID int64
-	var currentTurn int
-	var currentState string
-	var gameSeed seed
-	found := false
-	if err := sqlitex.ExecuteTransient(conn, "SELECT id, turn, turn_state, seed_high, seed_low FROM game WHERE code = ?;", &sqlitex.ExecOptions{
-		Args: []any{code},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			gameID, currentTurn, currentState = stmt.ColumnInt64(0), stmt.ColumnInt(1), stmt.ColumnText(2)
-			gameSeed = seed{high: stmt.ColumnInt64(3), low: stmt.ColumnInt64(4)}
-			found = true
-			return nil
-		},
-	}); err != nil {
-		return 0, seed{}, fmt.Errorf("find game %q: %w", code, err)
+// requireGameTurn loads a game and insists it is on the turn and in the state
+// the caller expects.
+func requireGameTurn(conn *sqlite.Conn, code string, turn int, state string) (*world.World, error) {
+	loaded, found, err := world.Load(conn, code)
+	if err != nil {
+		return nil, err
 	}
 	if !found {
-		return 0, seed{}, fmt.Errorf("game %q does not exist", code)
+		return nil, fmt.Errorf("game %q does not exist", code)
 	}
-	if currentTurn != turn {
-		return 0, seed{}, fmt.Errorf("game %q is on turn %d, not turn %d", code, currentTurn, turn)
+	game := loaded.Game()
+	if game.Turn != turn {
+		return nil, fmt.Errorf("game %q is on turn %d, not turn %d", code, game.Turn, turn)
 	}
-	if currentState != state {
-		return 0, seed{}, fmt.Errorf("game %q turn %d is %s, not %s", code, turn, currentState, state)
+	if game.State != state {
+		return nil, fmt.Errorf("game %q turn %d is %s, not %s", code, turn, game.State, state)
 	}
-	return gameID, gameSeed, nil
+	return loaded, nil
 }
 
-// seed is a game's random seed. Everything the engine decides at random is
-// drawn from it and from the identity of the order being resolved, so
-// re-resolving a turn reaches the same answers.
-type seed struct {
-	high, low int64
-}
-
-// Rings a ship may settle into around a planet. Ring 0 is the surface and ring
-// 1 belongs to orbital colonies, so a ship arriving under its own power takes
-// one of the rings above them.
-const (
-	MinShipRing = 2
-	MaxShipRing = 99
-)
-
-// ringFor picks the ring a ship settles into when it moves to a planet. The
-// draw is seeded from the game and the identity of the order rather than from
-// a global source, so the same turn resolved twice puts the ship in the same
-// ring, and no two orders share a stream.
-func (s seed) ringFor(turn int, factionID int64, sequence int) int {
-	rng := rand.New(rand.NewPCG(
-		mix(uint64(s.high), uint64(turn), uint64(factionID)),
-		mix(uint64(s.low), uint64(sequence), 0x9e3779b97f4a7c15),
-	))
-	return MinShipRing + rng.IntN(MaxShipRing-MinShipRing+1)
-}
-
-// mix folds several values into one well-distributed seed word using the
-// SplitMix64 finalizer, so that seeds differing in one small field still start
-// unrelated streams.
-func mix(values ...uint64) uint64 {
-	var state uint64
-	for _, value := range values {
-		state += value + 0x9e3779b97f4a7c15
-		state ^= state >> 30
-		state *= 0xbf58476d1ce4e5b9
-		state ^= state >> 27
-		state *= 0x94d049bb133111eb
-		state ^= state >> 31
+// loadOrders reads a turn's submitted orders, grouped by the phase they
+// resolve in. Step 4 of the order-pipeline rework replaces the three tables
+// and these three queries with one.
+func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[orders.Phase][]storedOrder, int, error) {
+	byPhase := make(map[orders.Phase][]storedOrder)
+	count := 0
+	add := func(order storedOrder) {
+		phase := orders.PhaseOf(order.verb)
+		byPhase[phase] = append(byPhase[phase], order)
+		count++
 	}
-	return state
-}
-
-func loadEntities(conn *sqlite.Conn, gameID int64) (map[int64]*entity, error) {
-	entities := make(map[int64]*entity)
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring, e.mass
-		FROM entity AS e
-		JOIN faction AS f ON f.id = e.faction_id
-		WHERE f.game_id = ?;`, &sqlitex.ExecOptions{
-		Args: []any{gameID},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			entities[stmt.ColumnInt64(0)] = &entity{
-				unit: stmt.ColumnText(1), factionID: stmt.ColumnInt64(2),
-				location: readLocation(stmt, 3), mass: stmt.ColumnInt64(7),
-			}
-			return nil
-		},
-	}); err != nil {
-		return nil, fmt.Errorf("load entities: %w", err)
-	}
-	drives, err := jumpdrive.LoadAll(conn, gameID)
-	if err != nil {
-		return nil, err
-	}
-	for id, drive := range drives {
-		if item, ok := entities[id]; ok {
-			item.drive = drive
-		}
-	}
-	arrays, err := sensors.LoadAll(conn, gameID)
-	if err != nil {
-		return nil, err
-	}
-	for id, array := range arrays {
-		if item, ok := entities[id]; ok {
-			item.sensors = array
-		}
-	}
-	quantities, err := fuel.AvailableAll(conn, gameID)
-	if err != nil {
-		return nil, err
-	}
-	for id, quantity := range quantities {
-		if item, ok := entities[id]; ok {
-			item.fuel = quantity
-		}
-	}
-	return entities, nil
-}
-
-func loadStellia(conn *sqlite.Conn, gameID int64) (map[int64]point, error) {
-	stellia := make(map[int64]point)
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT id, x, y, z FROM stellium WHERE game_id = ?;`, &sqlitex.ExecOptions{
-		Args: []any{gameID},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			stellia[stmt.ColumnInt64(0)] = point{x: stmt.ColumnInt(1), y: stmt.ColumnInt(2), z: stmt.ColumnInt(3)}
-			return nil
-		},
-	}); err != nil {
-		return nil, fmt.Errorf("load stellia: %w", err)
-	}
-	return stellia, nil
-}
-
-func loadMoveOrders(conn *sqlite.Conn, gameID int64, turn int) ([]moveOrder, error) {
-	var orders []moveOrder
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT faction_id, sequence, source_line, ship_id, requested_system, requested_orbit,
-			destination_stellium_id, destination_system_id, destination_planet_id, status
-		FROM move_order WHERE game_id = ? AND turn = ?
-		ORDER BY faction_id, sequence;`, &sqlitex.ExecOptions{
-		Args: []any{gameID, turn},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			if status := stmt.ColumnText(9); status != "pending" {
-				return fmt.Errorf("move order for faction %d sequence %d is already %s", stmt.ColumnInt64(0), stmt.ColumnInt(1), status)
-			}
-			order := moveOrder{
-				factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2), shipID: stmt.ColumnInt64(3),
-				requestedSystem: nullableText(stmt, 4), requestedOrbit: stmt.ColumnInt(5),
-				destinationStelliumID: stmt.ColumnInt64(6),
-			}
-			if !stmt.ColumnIsNull(7) {
-				order.destinationSystemID, order.destinationPlanetID = stmt.ColumnInt64(7), stmt.ColumnInt64(8)
-			}
-			orders = append(orders, order)
-			return nil
-		},
-	}); err != nil {
-		return nil, fmt.Errorf("load move orders: %w", err)
-	}
-	return orders, nil
-}
-
-func loadProbeOrders(conn *sqlite.Conn, gameID int64, turn int) ([]probeOrder, error) {
-	var orders []probeOrder
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT faction_id, sequence, source_line, entity_id, requested_system, requested_orbit, status
 		FROM probe_order WHERE game_id = ? AND turn = ?
 		ORDER BY faction_id, sequence;`, &sqlitex.ExecOptions{
 		Args: []any{gameID, turn},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			if status := stmt.ColumnText(6); status != "pending" {
-				return fmt.Errorf("probe order for faction %d sequence %d is already %s", stmt.ColumnInt64(0), stmt.ColumnInt(1), status)
+			if err := requirePending(stmt, "probe", 6); err != nil {
+				return err
 			}
-			orders = append(orders, probeOrder{
-				factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2),
-				entityID: stmt.ColumnInt64(3), requestedSystem: nullableText(stmt, 4), orbit: stmt.ColumnInt(5),
+			system, orbit := nullableText(stmt, 4), stmt.ColumnInt(5)
+			// The stored order carries no "ship" or "colony": which word the
+			// player wrote was settled when they wrote it, and a probe is the
+			// one order either may be given.
+			add(storedOrder{
+				verb: "probe", factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2),
+				request: probeRequest(system, orbit),
+				params: orders.ProbeParams{
+					EntityID: stmt.ColumnInt64(3), System: system, Orbits: []int{orbit},
+				},
 			})
 			return nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("load probe orders: %w", err)
+		return nil, 0, fmt.Errorf("load probe orders: %w", err)
 	}
-	return orders, nil
-}
-
-func loadJumpOrders(conn *sqlite.Conn, gameID int64, turn int) ([]jumpOrder, error) {
-	var orders []jumpOrder
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT faction_id, sequence, source_line, ship_id, requested_system, requested_orbit, status
+		FROM move_order WHERE game_id = ? AND turn = ?
+		ORDER BY faction_id, sequence;`, &sqlitex.ExecOptions{
+		Args: []any{gameID, turn},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			if err := requirePending(stmt, "move", 6); err != nil {
+				return err
+			}
+			system, orbit := nullableText(stmt, 4), stmt.ColumnInt(5)
+			add(storedOrder{
+				verb: "move", factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2),
+				request: fmt.Sprintf("system %s orbit %d", displaySystem(system), orbit),
+				params:  orders.MoveParams{ShipID: stmt.ColumnInt64(3), System: system, Orbit: orbit},
+			})
+			return nil
+		},
+	}); err != nil {
+		return nil, 0, fmt.Errorf("load move orders: %w", err)
+	}
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT faction_id, sequence, source_line, ship_id,
-			destination_x, destination_y, destination_z, destination_stellium_id, status
+			destination_x, destination_y, destination_z, status
 		FROM jump_order WHERE game_id = ? AND turn = ?
 		ORDER BY faction_id, sequence;`, &sqlitex.ExecOptions{
 		Args: []any{gameID, turn},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			if status := stmt.ColumnText(8); status != "pending" {
-				return fmt.Errorf("jump order for faction %d sequence %d is already %s", stmt.ColumnInt64(0), stmt.ColumnInt(1), status)
+			if err := requirePending(stmt, "jump", 7); err != nil {
+				return err
 			}
-			orders = append(orders, jumpOrder{
-				factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2), shipID: stmt.ColumnInt64(3),
-				x: stmt.ColumnInt(4), y: stmt.ColumnInt(5), z: stmt.ColumnInt(6), destinationStelliumID: stmt.ColumnInt64(7),
+			x, y, z := stmt.ColumnInt(4), stmt.ColumnInt(5), stmt.ColumnInt(6)
+			add(storedOrder{
+				verb: "jump", factionID: stmt.ColumnInt64(0), sequence: stmt.ColumnInt(1), line: stmt.ColumnInt(2),
+				request: fmt.Sprintf("(%d,%d,%d)", x, y, z),
+				params:  orders.JumpParams{ShipID: stmt.ColumnInt64(3), X: x, Y: y, Z: z},
 			})
 			return nil
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("load jump orders: %w", err)
+		return nil, 0, fmt.Errorf("load jump orders: %w", err)
 	}
-	return orders, nil
+	return byPhase, count, nil
 }
 
-func executeMove(conn *sqlite.Conn, gameID int64, turn int, gameSeed seed, entities map[int64]*entity, order moveOrder) (outcome, error) {
-	item := outcome{
-		orderType: "move", factionID: order.factionID, sequence: order.sequence,
-		line: order.line, shipID: order.shipID, request: fmt.Sprintf("system %s orbit %d", displaySystem(order.requestedSystem), order.requestedOrbit),
-		status: "succeeded",
+// requirePending refuses an order that has already been resolved, so a turn
+// cannot be resolved twice.
+func requirePending(stmt *sqlite.Stmt, kind string, column int) error {
+	if status := stmt.ColumnText(column); status != "pending" {
+		return fmt.Errorf("%s order for faction %d sequence %d is already %s",
+			kind, stmt.ColumnInt64(0), stmt.ColumnInt(1), status)
 	}
-	ship := entities[order.shipID]
-	if ship == nil {
-		return outcome{}, fmt.Errorf("move order faction %d sequence %d references missing ship %d", order.factionID, order.sequence, order.shipID)
-	}
-	item.start = ship.location
-	// A ship that moves to a planet settles into a ring the game picks; a ship
-	// ordered to the stellium orbit has no ring at all.
-	item.final = destination(order, gameSeed.ringFor(turn, order.factionID, order.sequence))
-	kind := jumpdrive.KindOfMove(item.start.systemID, item.final.systemID)
-	cost := ship.drive.FuelForMove(kind)
-	if ship.factionID != order.factionID {
-		item.status, item.message, item.final = "failed", fmt.Sprintf("ship %d does not belong to faction %d", order.shipID, order.factionID), item.start
-	} else if ship.unit != "SHIP" {
-		item.status, item.message, item.final = "failed", fmt.Sprintf("entity %d is a %s, not a ship", order.shipID, ship.unit), item.start
-	} else if ship.location.stelliumID != order.destinationStelliumID {
-		item.status, item.message, item.final = "failed", "destination system is not in the ship's current stellium", item.start
-	} else if message := checkMoveDrive(ship, order); message != "" {
-		item.status, item.message, item.final = "failed", message, item.start
-	} else if message := checkFuel(order.shipID, "move", cost, ship.fuel); message != "" {
-		item.status, item.message, item.final = "failed", message, item.start
-	}
-	if item.status == "succeeded" {
-		if kind == jumpdrive.MoveNowhere {
-			// The ship is already in the stellium orbit and stays exactly as
-			// it was: nothing to burn, nothing to write.
-			item.final = item.start
-		} else {
-			item.fuelSpent = cost
-			if err := burnFuel(conn, ship, order.shipID, cost); err != nil {
-				return outcome{}, err
-			}
-			ship.location = item.final
-			if err := updateEntityLocation(conn, order.shipID, item.final); err != nil {
-				return outcome{}, err
-			}
-		}
-	}
-	if err := updateMoveOutcome(conn, gameID, turn, order, item); err != nil {
-		return outcome{}, err
-	}
-	return item, nil
-}
-
-// destination is where a move order sends its ship. Orbit 11 resolves to no
-// system and no planet, which is the stellium orbit; every other orbit places
-// the ship in the given ring around its planet.
-func destination(order moveOrder, ring int) location {
-	if order.destinationSystemID == 0 {
-		return location{stelliumID: order.destinationStelliumID}
-	}
-	return location{stelliumID: order.destinationStelliumID, systemID: order.destinationSystemID,
-		planetID: order.destinationPlanetID, ring: ring}
-}
-
-// checkMoveDrive returns the reason a ship cannot move inside its stellium, or
-// an empty string when it can. The same HDRV units that jump a ship between
-// stellia move it between planets, but every move inside a stellium is well
-// within the range of any drive, so only the drive's presence and the mass it
-// propels matter.
-func checkMoveDrive(ship *entity, order moveOrder) string {
-	if !ship.drive.Installed() {
-		return fmt.Sprintf("ship %d has no assembled %s and cannot move", order.shipID, jumpdrive.Unit)
-	}
-	if !ship.drive.CanPropel(ship.mass) {
-		return fmt.Sprintf("ship %d masses %d MU and its drive propels %d MU",
-			order.shipID, ship.mass, ship.drive.Capacity)
-	}
-	return ""
-}
-
-func executeJump(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*entity, stellia map[int64]point, order jumpOrder) (outcome, error) {
-	item := outcome{
-		orderType: "jump", factionID: order.factionID, sequence: order.sequence,
-		line: order.line, shipID: order.shipID, request: fmt.Sprintf("(%d,%d,%d)", order.x, order.y, order.z),
-		status: "succeeded",
-	}
-	ship := entities[order.shipID]
-	if ship == nil {
-		return outcome{}, fmt.Errorf("jump order faction %d sequence %d references missing ship %d", order.factionID, order.sequence, order.shipID)
-	}
-	item.start = ship.location
-	item.final = location{stelliumID: order.destinationStelliumID}
-	start := stellia[ship.location.stelliumID]
-	cost := ship.drive.FuelForJump(jumpdrive.Distance(start.x, start.y, start.z, order.x, order.y, order.z))
-	if ship.factionID != order.factionID {
-		item.status, item.message, item.final = "failed", fmt.Sprintf("ship %d does not belong to faction %d", order.shipID, order.factionID), item.start
-	} else if ship.unit != "SHIP" {
-		item.status, item.message, item.final = "failed", fmt.Sprintf("entity %d is a %s, not a ship", order.shipID, ship.unit), item.start
-	} else if message := checkDrive(ship, start, order); message != "" {
-		item.status, item.message, item.final = "failed", message, item.start
-	} else if message := checkFuel(order.shipID, "jump", cost, ship.fuel); message != "" {
-		item.status, item.message, item.final = "failed", message, item.start
-	}
-	if item.status == "succeeded" {
-		item.fuelSpent = cost
-		if err := burnFuel(conn, ship, order.shipID, cost); err != nil {
-			return outcome{}, err
-		}
-		ship.location = item.final
-		if err := updateEntityLocation(conn, order.shipID, item.final); err != nil {
-			return outcome{}, err
-		}
-	}
-	if err := updateJumpOutcome(conn, gameID, turn, order, item); err != nil {
-		return outcome{}, err
-	}
-	return item, nil
-}
-
-// checkDrive returns the reason a ship cannot make a jump, or an empty string
-// when the jump is within its drive's range and capacity.
-func checkDrive(ship *entity, start point, order jumpOrder) string {
-	if !ship.drive.Installed() {
-		return fmt.Sprintf("ship %d has no assembled %s and cannot jump", order.shipID, jumpdrive.Unit)
-	}
-	if !ship.drive.CanPropel(ship.mass) {
-		return fmt.Sprintf("ship %d masses %d MU and its jump drive propels %d MU",
-			order.shipID, ship.mass, ship.drive.Capacity)
-	}
-	if !ship.drive.Reaches(jumpdrive.SquaredDistance(start.x, start.y, start.z, order.x, order.y, order.z)) {
-		return fmt.Sprintf("jump of %d units exceeds ship %d jump range of %d units",
-			jumpdrive.Distance(start.x, start.y, start.z, order.x, order.y, order.z), order.shipID, ship.drive.Range)
-	}
-	return ""
-}
-
-// checkFuel returns the reason a ship cannot pay for an order, or an empty
-// string when it can. The submission warned about this when the order was
-// written, but fuel may have reached the ship since, so the engine decides.
-func checkFuel(shipID int64, verb string, cost, held int64) string {
-	if held >= cost {
-		return ""
-	}
-	return fmt.Sprintf("ship %d needs %d %s to %s and holds %d", shipID, cost, fuel.Unit, verb, held)
-}
-
-// burnFuel draws an order's fuel and keeps the loaded entity in step with the
-// database. Burned fuel leaves the ship, so its mass falls and a later order
-// in the same turn measures its drive against the lighter ship.
-func burnFuel(conn *sqlite.Conn, ship *entity, shipID, cost int64) error {
-	if err := fuel.Spend(conn, shipID, cost); err != nil {
-		return err
-	}
-	ship.fuel -= cost
-	ship.mass -= cost * fuel.UnitMass
 	return nil
-}
-
-// executeProbe resolves one probe of one orbit. A probe reads the planet in
-// that orbit of the ship's current system and records what it finds, so the
-// finding survives the ship jumping away later in the same turn.
-func executeProbe(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*entity, spent map[int64]int64, order probeOrder) (outcome, error) {
-	item := outcome{
-		orderType: "probe", factionID: order.factionID, sequence: order.sequence,
-		line: order.line, shipID: order.entityID, request: probeRequest(order),
-		status: "succeeded",
-	}
-	ship := entities[order.entityID]
-	if ship == nil {
-		return outcome{}, fmt.Errorf("probe order faction %d sequence %d references missing entity %d", order.factionID, order.sequence, order.entityID)
-	}
-	item.start, item.final = ship.location, ship.location
-
-	probedSystemID, planetID := int64(0), int64(0)
-	habitability := 0
-	switch {
-	case ship.factionID != order.factionID:
-		item.status, item.message = "failed", fmt.Sprintf("entity %d does not belong to faction %d", order.entityID, order.factionID)
-	case !ship.sensors.Installed():
-		item.status, item.message = "failed", fmt.Sprintf("entity %d has no assembled %s and cannot probe", order.entityID, sensors.Unit)
-	case spent[order.entityID] >= ship.sensors.Probes:
-		item.status, item.message = "failed", fmt.Sprintf("entity %d has only %d probes this turn", order.entityID, ship.sensors.Probes)
-	default:
-		// A probe that names a system reads any system of the ship's stellium.
-		// A probe that does not reads the system the ship is in.
-		systemID := ship.location.systemID
-		if order.requestedSystem != "" {
-			found, err := findSystemInStellium(conn, ship.location.stelliumID, order.requestedSystem)
-			if err != nil {
-				return outcome{}, err
-			}
-			if found == 0 {
-				item.status, item.message = "failed", fmt.Sprintf("current stellium has no system %s", order.requestedSystem)
-				break
-			}
-			systemID = found
-		} else if systemID == 0 {
-			item.status, item.message = "failed", fmt.Sprintf("entity %d is orbiting the stellium; name a system to probe", order.entityID)
-			break
-		}
-		found, hab, err := findPlanetInOrbit(conn, systemID, order.orbit)
-		if err != nil {
-			return outcome{}, err
-		}
-		if found == 0 {
-			item.status, item.message = "failed", fmt.Sprintf("system %s has no planet in orbit %d", displaySystem(order.requestedSystem), order.orbit)
-			break
-		}
-		probedSystemID, planetID, habitability = systemID, found, hab
-		spent[order.entityID]++
-	}
-
-	if item.status == "succeeded" {
-		if err := recordProbeFindings(conn, gameID, turn, order.factionID, planetID); err != nil {
-			return outcome{}, err
-		}
-	}
-	if err := updateProbeOutcome(conn, gameID, turn, order, item, probedSystemID, planetID, habitability); err != nil {
-		return outcome{}, err
-	}
-	return item, nil
 }
 
 // recordPassiveSensors snapshots what every sensor-equipped entity reads from
 // where it stands at the start of the turn. The reading is stored rather than
 // derived at report time because the entity may move or jump later in the turn.
-func recordPassiveSensors(conn *sqlite.Conn, gameID int64, turn int, entities map[int64]*entity) error {
-	ids := make([]int64, 0, len(entities))
-	for id, item := range entities {
-		if item.sensors.Installed() {
-			ids = append(ids, id)
+func recordPassiveSensors(conn *sqlite.Conn, gameID int64, turn int, loaded *world.World) error {
+	for _, entity := range loaded.Entities() {
+		if !entity.Sensors.Installed() {
+			continue
 		}
-	}
-	slices.Sort(ids)
-	for _, id := range ids {
-		item := entities[id]
 		if err := sqlitex.ExecuteTransient(conn, `
 			INSERT OR REPLACE INTO sensor_survey (game_id, turn, faction_id, entity_id, stellium_id, system_id, systems)
 			VALUES (?, ?, ?, ?, ?, ?, (SELECT count(*) FROM system WHERE stellium_id = ?));`, &sqlitex.ExecOptions{
-			Args: []any{gameID, turn, item.factionID, id, item.location.stelliumID,
-				nullableID(item.location.systemID), item.location.stelliumID},
+			Args: []any{gameID, turn, entity.FactionID, entity.ID, entity.Location.StelliumID,
+				nullableID(entity.Location.SystemID), entity.Location.StelliumID},
 		}); err != nil {
-			return fmt.Errorf("record sensor survey for entity %d: %w", id, err)
+			return fmt.Errorf("record sensor survey for entity %d: %w", entity.ID, err)
 		}
-		if item.location.systemID == 0 {
+		if entity.Location.SystemID == 0 {
 			continue
 		}
 		// At a planet the sensors also read every ship and orbital colony
@@ -725,152 +385,81 @@ func recordPassiveSensors(conn *sqlite.Conn, gameID int64, turn int, entities ma
 			FROM entity AS c
 			JOIN planet AS p ON p.id = c.planet_id
 			WHERE p.system_id = ? AND c.unit IN ('SHIP', 'CORB');`, &sqlitex.ExecOptions{
-			Args: []any{gameID, turn, item.factionID, id, item.location.systemID},
+			Args: []any{gameID, turn, entity.FactionID, entity.ID, entity.Location.SystemID},
 		}); err != nil {
-			return fmt.Errorf("record sensor contacts for entity %d: %w", id, err)
+			return fmt.Errorf("record sensor contacts for entity %d: %w", entity.ID, err)
 		}
 	}
 	return nil
 }
 
-func findPlanetInOrbit(conn *sqlite.Conn, systemID int64, orbit int) (planetID int64, habitability int, err error) {
-	if err := sqlitex.ExecuteTransient(conn, "SELECT id, habitability FROM planet WHERE system_id = ? AND orbit = ?;", &sqlitex.ExecOptions{
-		Args: []any{systemID, orbit},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			planetID, habitability = stmt.ColumnInt64(0), stmt.ColumnInt(1)
-			return nil
-		},
-	}); err != nil {
-		return 0, 0, fmt.Errorf("find planet in orbit %d: %w", orbit, err)
+// updateOutcome records what an order did on the row it was submitted as.
+// Step 4 replaces the three tables with one and these three statements with
+// one.
+func updateOutcome(conn *sqlite.Conn, gameID int64, turn int, item outcome) error {
+	if item.orderType == "probe" {
+		return updateProbeOutcome(conn, gameID, turn, item)
 	}
-	return planetID, habitability, nil
-}
-
-// recordProbeFindings snapshots everything at a planet. Probing the same planet
-// twice in one turn re-reads it rather than failing on the recorded finding.
-func recordProbeFindings(conn *sqlite.Conn, gameID int64, turn int, factionID, planetID int64) error {
-	if err := sqlitex.ExecuteTransient(conn, `
-		INSERT OR REPLACE INTO probe_contact (game_id, turn, faction_id, planet_id, entity_id, unit, planet_ring, mass)
-		SELECT ?, ?, ?, ?, e.id, e.unit, e.planet_ring, e.mass
-		FROM entity AS e WHERE e.planet_id = ?;`, &sqlitex.ExecOptions{
-		Args: []any{gameID, turn, factionID, planetID, planetID},
-	}); err != nil {
-		return fmt.Errorf("record probe contacts at planet %d: %w", planetID, err)
+	table := "move_order"
+	if item.orderType == "jump" {
+		table = "jump_order"
 	}
 	if err := sqlitex.ExecuteTransient(conn, `
-		INSERT OR REPLACE INTO probe_deposit (game_id, turn, faction_id, planet_id, deposit_id, resource, quantity)
-		SELECT ?, ?, ?, ?, d.id, d.resource, d.current_qty
-		FROM deposit AS d WHERE d.planet_id = ?;`, &sqlitex.ExecOptions{
-		Args: []any{gameID, turn, factionID, planetID, planetID},
-	}); err != nil {
-		return fmt.Errorf("record probe deposits at planet %d: %w", planetID, err)
+		UPDATE `+table+` SET status = ?, error_message = ?,
+			start_stellium_id = ?, start_system_id = ?, start_planet_id = ?, start_planet_ring = ?,
+			final_stellium_id = ?, final_system_id = ?, final_planet_id = ?, final_planet_ring = ?,
+			fuel_spent = ?
+		WHERE game_id = ? AND turn = ? AND faction_id = ? AND sequence = ? AND status = 'pending';`,
+		&sqlitex.ExecOptions{Args: []any{
+			item.status, nullableMessage(item.message),
+			item.start.StelliumID, nullableID(item.start.SystemID), nullableID(item.start.PlanetID), nullableRing(item.start),
+			item.final.StelliumID, nullableID(item.final.SystemID), nullableID(item.final.PlanetID), nullableRing(item.final),
+			item.fuelSpent, gameID, turn, item.factionID, item.sequence,
+		}}); err != nil {
+		return fmt.Errorf("record %s order faction %d sequence %d outcome: %w",
+			item.orderType, item.factionID, item.sequence, err)
+	}
+	if conn.Changes() != 1 {
+		return fmt.Errorf("record %s order faction %d sequence %d outcome: order changed",
+			item.orderType, item.factionID, item.sequence)
 	}
 	return nil
 }
 
-func probeRequest(order probeOrder) string {
-	if order.requestedSystem == "" {
-		return fmt.Sprintf("orbit %d", order.orbit)
-	}
-	return fmt.Sprintf("system %s orbit %d", order.requestedSystem, order.orbit)
-}
-
-func findSystemInStellium(conn *sqlite.Conn, stelliumID int64, sequence string) (systemID int64, err error) {
-	if err := sqlitex.ExecuteTransient(conn, "SELECT id FROM system WHERE stellium_id = ? AND sequence = ?;", &sqlitex.ExecOptions{
-		Args: []any{stelliumID, sequence},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			systemID = stmt.ColumnInt64(0)
-			return nil
-		},
-	}); err != nil {
-		return 0, fmt.Errorf("find system %s: %w", sequence, err)
-	}
-	return systemID, nil
-}
-
-func updateProbeOutcome(conn *sqlite.Conn, gameID int64, turn int, order probeOrder, item outcome, systemID, planetID int64, habitability int) error {
+func updateProbeOutcome(conn *sqlite.Conn, gameID int64, turn int, item outcome) error {
 	args := []any{item.status, nullableMessage(item.message)}
-	if item.status == "succeeded" {
-		args = append(args, item.start.stelliumID, systemID, planetID, habitability)
+	if read, ok := item.result.(orders.ProbeResult); ok {
+		args = append(args, read.StelliumID, read.SystemID, read.PlanetID, read.Habitability)
 	} else {
 		args = append(args, nil, nil, nil, nil)
 	}
-	args = append(args, gameID, turn, order.factionID, order.sequence)
+	args = append(args, gameID, turn, item.factionID, item.sequence)
 	if err := sqlitex.ExecuteTransient(conn, `
 		UPDATE probe_order
 		SET status = ?, error_message = ?, stellium_id = ?, system_id = ?, planet_id = ?, habitability = ?
-		WHERE game_id = ? AND turn = ? AND faction_id = ? AND sequence = ?;`, &sqlitex.ExecOptions{Args: args}); err != nil {
-		return fmt.Errorf("update probe order faction %d sequence %d: %w", order.factionID, order.sequence, err)
+		WHERE game_id = ? AND turn = ? AND faction_id = ? AND sequence = ?;`,
+		&sqlitex.ExecOptions{Args: args}); err != nil {
+		return fmt.Errorf("update probe order faction %d sequence %d: %w", item.factionID, item.sequence, err)
 	}
 	if conn.Changes() != 1 {
-		return fmt.Errorf("probe order faction %d sequence %d changed while it was resolving", order.factionID, order.sequence)
+		return fmt.Errorf("probe order faction %d sequence %d changed while it was resolving",
+			item.factionID, item.sequence)
 	}
 	return nil
 }
 
-func updateEntityLocation(conn *sqlite.Conn, entityID int64, loc location) error {
-	if err := sqlitex.ExecuteTransient(conn, `
-		UPDATE entity SET stellium_id = ?, system_id = ?, planet_id = ?, planet_ring = ? WHERE id = ?;`, &sqlitex.ExecOptions{
-		Args: []any{loc.stelliumID, nullableID(loc.systemID), nullableID(loc.planetID), nullableRing(loc), entityID},
-	}); err != nil {
-		return fmt.Errorf("update entity %d location: %w", entityID, err)
+func probeRequest(system string, orbit int) string {
+	if system == "" {
+		return fmt.Sprintf("orbit %d", orbit)
 	}
-	if conn.Changes() != 1 {
-		return fmt.Errorf("update entity %d location: entity does not exist", entityID)
-	}
-	return nil
+	return fmt.Sprintf("system %s orbit %d", system, orbit)
 }
 
-func updateMoveOutcome(conn *sqlite.Conn, gameID int64, turn int, order moveOrder, item outcome) error {
-	if err := sqlitex.ExecuteTransient(conn, `
-		UPDATE move_order SET status = ?, error_message = ?,
-			start_stellium_id = ?, start_system_id = ?, start_planet_id = ?, start_planet_ring = ?,
-			final_stellium_id = ?, final_system_id = ?, final_planet_id = ?, final_planet_ring = ?,
-			fuel_spent = ?
-		WHERE game_id = ? AND turn = ? AND faction_id = ? AND sequence = ? AND status = 'pending';`, &sqlitex.ExecOptions{
-		Args: append(outcomeArgs(item), item.fuelSpent, gameID, turn, order.factionID, order.sequence),
-	}); err != nil {
-		return fmt.Errorf("record move order faction %d sequence %d outcome: %w", order.factionID, order.sequence, err)
+func displaySystem(system string) string {
+	if system == "" {
+		return "current"
 	}
-	if conn.Changes() != 1 {
-		return fmt.Errorf("record move order faction %d sequence %d outcome: order changed", order.factionID, order.sequence)
-	}
-	return nil
-}
-
-func updateJumpOutcome(conn *sqlite.Conn, gameID int64, turn int, order jumpOrder, item outcome) error {
-	if err := sqlitex.ExecuteTransient(conn, `
-		UPDATE jump_order SET status = ?, error_message = ?,
-			start_stellium_id = ?, start_system_id = ?, start_planet_id = ?, start_planet_ring = ?,
-			final_stellium_id = ?, final_system_id = ?, final_planet_id = ?, final_planet_ring = ?,
-			fuel_spent = ?
-		WHERE game_id = ? AND turn = ? AND faction_id = ? AND sequence = ? AND status = 'pending';`, &sqlitex.ExecOptions{
-		Args: append(outcomeArgs(item), item.fuelSpent, gameID, turn, order.factionID, order.sequence),
-	}); err != nil {
-		return fmt.Errorf("record jump order faction %d sequence %d outcome: %w", order.factionID, order.sequence, err)
-	}
-	if conn.Changes() != 1 {
-		return fmt.Errorf("record jump order faction %d sequence %d outcome: order changed", order.factionID, order.sequence)
-	}
-	return nil
-}
-
-func outcomeArgs(item outcome) []any {
-	return []any{
-		item.status, nullableMessage(item.message),
-		item.start.stelliumID, nullableID(item.start.systemID), nullableID(item.start.planetID), nullableRing(item.start),
-		item.final.stelliumID, nullableID(item.final.systemID), nullableID(item.final.planetID), nullableRing(item.final),
-	}
-}
-
-func readLocation(stmt *sqlite.Stmt, column int) location {
-	loc := location{stelliumID: stmt.ColumnInt64(column)}
-	if !stmt.ColumnIsNull(column + 1) {
-		loc.systemID = stmt.ColumnInt64(column + 1)
-		loc.planetID = stmt.ColumnInt64(column + 2)
-		loc.ring = stmt.ColumnInt(column + 3)
-	}
-	return loc
+	return system
 }
 
 func nullableText(stmt *sqlite.Stmt, column int) string {
@@ -887,11 +476,11 @@ func nullableID(id int64) any {
 	return id
 }
 
-func nullableRing(loc location) any {
-	if loc.systemID == 0 {
+func nullableRing(at world.Location) any {
+	if at.SystemID == 0 {
 		return nil
 	}
-	return loc.ring
+	return at.Ring
 }
 
 func nullableMessage(message string) any {
@@ -901,34 +490,19 @@ func nullableMessage(message string) any {
 	return message
 }
 
-func displaySystem(system string) string {
-	if system == "" {
-		return "current"
-	}
-	return system
-}
-
-func countOutcome(result *Result, item outcome) {
-	if item.status == "succeeded" {
-		result.Succeeded++
-	} else {
-		result.Failed++
-	}
-}
-
 // actorAttr names the entity an order acted on. Moves and jumps are always
 // ship orders; a probe may be issued by a colony.
 func actorAttr(item outcome) slog.Attr {
 	if item.orderType == "probe" {
-		return slog.Int64("entity_id", item.shipID)
+		return slog.Int64("entity_id", item.actorID)
 	}
-	return slog.Int64("ship_id", item.shipID)
+	return slog.Int64("ship_id", item.actorID)
 }
 
-func locationAttr(name string, loc location) slog.Attr {
-	values := []any{"stellium_id", loc.stelliumID}
-	if loc.systemID != 0 {
-		values = append(values, "system_id", loc.systemID, "planet_id", loc.planetID, "ring", loc.ring)
+func locationAttr(name string, at world.Location) slog.Attr {
+	values := []any{"stellium_id", at.StelliumID}
+	if at.SystemID != 0 {
+		values = append(values, "system_id", at.SystemID, "planet_id", at.PlanetID, "ring", at.Ring)
 	}
 	return slog.Group(name, values...)
 }

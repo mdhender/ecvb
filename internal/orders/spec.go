@@ -8,9 +8,34 @@ import (
 	"strings"
 )
 
+// Phase is when in a turn an order resolves. Every order of one phase resolves
+// before any order of the next, whichever way round the player wrote them.
+type Phase int
+
+// The phases of a turn, in the order they resolve. Production and combat
+// append to this list.
+const (
+	PhaseProbe Phase = iota
+	PhaseMove
+	PhaseJump
+)
+
+// Phases lists the phases of a turn in resolution order.
+func Phases() []Phase { return []Phase{PhaseProbe, PhaseMove, PhaseJump} }
+
+// PhaseOf is when an order resolves. An unregistered verb never reaches this:
+// the parser refuses a line before it becomes an order.
+func PhaseOf(verb string) Phase {
+	if spec, ok := Lookup(verb); ok {
+		return spec.Phase
+	}
+	return PhaseProbe
+}
+
 // Spec is everything the order pipeline knows about one verb. Registering a
 // Spec is how an order joins the game: the parser dispatches on Verb, errors
-// quote Syntax, and `ec orders help` prints both.
+// quote Syntax, `ec orders help` prints both, and Phase is when the order
+// takes effect.
 type Spec struct {
 	// Verb is the keyword that opens the order, lowercase.
 	Verb string
@@ -18,8 +43,10 @@ type Spec struct {
 	Summary string
 	// Syntax lists every legal form of the order.
 	Syntax []string
+	// Phase is when in a turn the order resolves.
+	Phase Phase
 	// Parse reads the rest of the line, after the verb.
-	Parse func(line *Line) (Order, error)
+	Parse func(line *Line) (Params, error)
 }
 
 var registry = map[string]*Spec{}

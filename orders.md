@@ -174,14 +174,15 @@ A ship that cannot pay for an order does not stop the submission. `orders
 check` and `orders submit` accept the file and warn:
 
 ```text
-warning: line 5: ship 2 needs 960 FUEL to jump and will hold 144; the order fails unless fuel reaches the ship first
+warning: line 5: ship 2 needs 960 FUEL to jump and holds 144; the order is kept in case that changes before the turn resolves
 ```
 
-The warning is a projection: it charges each order in resolution order against
-what the ship is projected to hold, so a ship that runs dry partway through a
-file warns on every order after that. A ship still short of fuel when the
-engine reaches the order fails it, burning nothing and going nowhere, and the
-turn carries on.
+The warning comes from running the turn: each order is executed in resolution
+order against the fuel the ship actually holds, so a ship that runs dry partway
+through a file warns on every order after that, and an order it could not pay
+for leaves the ship where it was for the orders that follow. A ship still short
+of fuel when the engine reaches the order fails it, burning nothing and going
+nowhere, and the turn carries on.
 
 The warning is deliberately not an error, because fuel may reach the ship
 between submission and resolution. Nothing moves fuel between entities yet;
@@ -246,7 +247,9 @@ it read the planet.
 ## Checking and submitting
 
 Check syntax, identity, ownership, turn, and destinations without changing the
-database:
+database. The check runs the turn for real -- burning the fuel, moving the
+ships, reading the planets -- and then rolls all of it back, so what it reports
+is what the engine will do rather than a second opinion about it:
 
 ```text
 ec --db-path games/beta orders check games/beta/orders/t0-f1-orders-v1.txt
@@ -258,10 +261,16 @@ Submit an order file:
 ec --db-path games/beta orders submit games/beta/orders/t0-f1-orders-v1.txt
 ```
 
-Submission parses and validates the file again. A valid submission atomically
-replaces the faction's pending `move_order` and `jump_order` rows for the current
-turn. An invalid submission leaves the existing order set unchanged. Errors
+Submission runs the same check and then, having rolled it back, atomically
+replaces the faction's pending order rows for the current turn. An invalid
+submission leaves the existing order set unchanged and stores nothing. Errors
 include the source line number when applicable.
+
+An order file is refused for anything that cannot change between now and the
+turn resolving: a ship that is not yours, an entity of the wrong kind, a
+destination that does not exist, a drive that cannot reach or cannot lift.
+Anything that can still change -- fuel above all -- is a warning, and the order
+is stored.
 
 ## Reporting submitted orders
 

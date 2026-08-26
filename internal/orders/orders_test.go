@@ -39,6 +39,52 @@ func TestCheckValidatesSequentialOrdersWithoutWriting(t *testing.T) {
 	}
 }
 
+// Checking a file runs its orders against the database and rolls them back, so
+// the thing to get wrong is the rolling back. Nothing a turn would change may
+// survive a check: not where a ship is, not the fuel it holds, not the mass
+// that fuel was part of, and not what a probe read.
+func TestCheckPutsTheWorldBackTheWayItFoundIt(t *testing.T) {
+	conn := openOrderTestDatabase(t)
+	input := `game "TEST" turn 3
+id faction 1
+
+probe ship 40 orbit 4
+move ship 40 to orbit 6
+jump ship 40 to (1,2,3)
+`
+	before := worldSnapshot(t, conn)
+	if _, err := Check(context.Background(), conn, strings.NewReader(input)); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if after := worldSnapshot(t, conn); after != before {
+		t.Errorf("check changed the world:\n before %s\n  after %s", before, after)
+	}
+}
+
+// worldSnapshot is everything an order may touch, in one string.
+func worldSnapshot(t *testing.T, conn *sqlite.Conn) string {
+	t.Helper()
+	var parts []string
+	for _, query := range []string{
+		`SELECT group_concat(printf('%d@%d/%s/%s/%s:%d', id, stellium_id, coalesce(system_id, '-'),
+			coalesce(planet_id, '-'), coalesce(planet_ring, '-'), mass), ' ')
+			FROM (SELECT * FROM entity ORDER BY id)`,
+		`SELECT group_concat(printf('%d/%s/%d', entity_id, section, quantity), ' ')
+			FROM (SELECT * FROM inventory ORDER BY entity_id, section, unit, tech_level)`,
+		`SELECT (SELECT count(*) FROM probe_contact) || '/' || (SELECT count(*) FROM probe_deposit)`,
+	} {
+		if err := sqlitex.ExecuteTransient(conn, query+";", &sqlitex.ExecOptions{
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				parts = append(parts, stmt.ColumnText(0))
+				return nil
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return strings.Join(parts, " | ")
+}
+
 func TestCheckValidatesMovesBeforeJumpsRegardlessOfFileOrder(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 3
@@ -189,6 +235,11 @@ func openOrderTestDatabase(t *testing.T) *sqlite.Conn {
 			game_id, turn, faction_id, sequence, source_line, ship_id,
 			destination_x, destination_y, destination_z, destination_stellium_id
 		) VALUES (1, 3, 1, 1, 3, 40, 0, 0, 0, 10);
+		-- Checking a file runs the orders for real and rolls them back, so a
+		-- ship has to mass at least the fuel it is about to burn. 500 of each
+		-- ship's 3,000 MU is the fuel it carries, at 1 MU each.
+		UPDATE entity SET mass = 3000 WHERE id IN (40, 42);
+		UPDATE entity SET mass = 1234 WHERE id = 41;
 	`)
 	return conn
 }
@@ -665,7 +716,7 @@ jump ship 40 to (0,0,0)
 		lines = append(lines, fmt.Sprintf("%d: %s", warning.Line, warning.Message))
 	}
 	want := []string{
-		"6: ship 40 needs 160 FUEL to jump and will hold 36; the order fails unless fuel reaches the ship first",
+		"6: ship 40 needs 160 FUEL to jump and holds 36; the order is kept in case that changes before the turn resolves",
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("warnings = %q; want %q", lines, want)
@@ -693,7 +744,7 @@ move ship 40 to orbit 4
 		t.Fatalf("warnings = %+v; want one per order", result.Warnings)
 	}
 	for _, warning := range result.Warnings {
-		if !strings.Contains(warning.Message, "needs 4 FUEL to move and will hold 0") {
+		if !strings.Contains(warning.Message, "needs 4 FUEL to move and holds 0") {
 			t.Errorf("warning = %q; want it to report an empty tank", warning.Message)
 		}
 	}

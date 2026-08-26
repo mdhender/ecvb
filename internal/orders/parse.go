@@ -21,22 +21,13 @@ type Identity struct {
 	FactionID   int64
 }
 
-// Order is one parsed order.
+// Order is one parsed order line: where it came from, what it is, and what it
+// says. Params is the order's own type -- MoveParams, JumpParams, ProbeParams
+// -- so a field belongs to the one order that has it.
 type Order struct {
-	Line int
-	Verb string
-	// Actor is the kind of entity the order names, either "ship" or "colony".
-	// Only a probe may name a colony.
-	Actor  string
-	ShipID int64
-	X      int
-	Y      int
-	Z      int
-	System string
-	Orbit  int
-	// Orbits holds every orbit named by a probe order. One probe order probes
-	// one or more orbits and spends one probe on each.
-	Orbits []int
+	Line   int
+	Verb   string
+	Params Params
 }
 
 // Submission is the parsed contents of an order file.
@@ -183,7 +174,7 @@ func parseOrder(line *Line) (Order, error) {
 	if !ok {
 		return Order{}, fmt.Errorf("unknown order %q; expected %s", verb.text, verbList())
 	}
-	order, err := spec.Parse(line)
+	params, err := spec.Parse(line)
 	if err != nil {
 		// A field that was read but wrong says so itself. A form that never
 		// matched reports this verb's syntax instead.
@@ -195,6 +186,5 @@ func parseOrder(line *Line) (Order, error) {
 	if err := line.end(); err != nil {
 		return Order{}, spec.syntaxError()
 	}
-	order.Line = line.Number
-	return order, nil
+	return Order{Line: line.Number, Verb: spec.Verb, Params: params}, nil
 }

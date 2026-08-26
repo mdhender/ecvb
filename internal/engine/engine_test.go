@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/mdhender/ecvb/internal/testdb"
+	"github.com/mdhender/ecvb/internal/world"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -380,7 +381,7 @@ func TestResolveFailsProbesTheSensorsCannotSupport(t *testing.T) {
 		{
 			name:    "over budget",
 			orbits:  []int{4, 6, 4},
-			message: "entity 40 has only 2 probes this turn",
+			message: "ship 40 has only 2 probes this turn",
 		},
 		{
 			name:    "empty orbit",
@@ -391,13 +392,13 @@ func TestResolveFailsProbesTheSensorsCannotSupport(t *testing.T) {
 			name:    "no sensors",
 			setup:   `DELETE FROM inventory WHERE entity_id = 40 AND unit = 'SNSR';`,
 			orbits:  []int{4},
-			message: "entity 40 has no assembled SNSR and cannot probe",
+			message: "ship 40 has no assembled SNSR and cannot probe",
 		},
 		{
 			name:    "no system",
 			setup:   `UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;`,
 			orbits:  []int{4},
-			message: "entity 40 is orbiting the stellium; name a system to probe",
+			message: "ship 40 is orbiting the stellium; name a system to probe",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -509,7 +510,7 @@ func TestResolveProbesFromAColony(t *testing.T) {
 	if planetID != 31 {
 		t.Errorf("probe read planet %d; want planet 31 in orbit 6", planetID)
 	}
-	if want := "entity 41 has only 1 probes this turn"; message != want {
+	if want := "colony 41 has only 1 probes this turn"; message != want {
 		t.Errorf("message = %q; want %q", message, want)
 	}
 }
@@ -557,8 +558,8 @@ func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
 		t.Fatalf("move orders = %q; want %q", rows, want)
 	}
 	// The ring the ship settles into is drawn, not fixed.
-	if arrivalRing < MinShipRing || arrivalRing > MaxShipRing {
-		t.Errorf("arrival ring = %d; want it between %d and %d", arrivalRing, MinShipRing, MaxShipRing)
+	if arrivalRing < world.MinShipRing || arrivalRing > world.MaxShipRing {
+		t.Errorf("arrival ring = %d; want it between %d and %d", arrivalRing, world.MinShipRing, world.MaxShipRing)
 	}
 
 	var location string
@@ -729,30 +730,6 @@ func shipMass(t *testing.T, conn *sqlite.Conn, entityID int64) int64 {
 	return value
 }
 
-func TestRingsAreDrawnFromTheGameSeedAndRepeat(t *testing.T) {
-	game := seed{high: 19, low: 12}
-	// The same game, turn, faction, and order always reach the same ring, so
-	// re-resolving a turn puts the ship back where it was.
-	first := game.ringFor(3, 1, 2)
-	if again := game.ringFor(3, 1, 2); again != first {
-		t.Errorf("ring = %d then %d; want the draw to repeat", first, again)
-	}
-	// Every draw lands in a ring a ship may occupy, and consecutive orders do
-	// not share a stream: 400 draws spread across the range rather than
-	// clustering, which a poorly mixed seed would produce.
-	seen := make(map[int]bool)
-	for sequence := 1; sequence <= 400; sequence++ {
-		ring := game.ringFor(3, 1, sequence)
-		if ring < MinShipRing || ring > MaxShipRing {
-			t.Fatalf("ring = %d; want it between %d and %d", ring, MinShipRing, MaxShipRing)
-		}
-		seen[ring] = true
-	}
-	if len(seen) < 50 {
-		t.Errorf("400 draws covered %d rings; want them spread across the range", len(seen))
-	}
-}
-
 func TestResolveChargesAMoveToTheSamePlanetAndRerollsTheRing(t *testing.T) {
 	conn := openEngineTestDatabase(t)
 	// Ship 40 is at planet 30 in ring 64. Ordering it to the orbit it is
@@ -785,8 +762,8 @@ func TestResolveChargesAMoveToTheSamePlanetAndRerollsTheRing(t *testing.T) {
 	if planetID != 30 {
 		t.Errorf("planet = %d; want the ship still at planet 30", planetID)
 	}
-	if ring == 64 || ring < MinShipRing || ring > MaxShipRing {
-		t.Errorf("ring = %d; want a fresh draw between %d and %d", ring, MinShipRing, MaxShipRing)
+	if ring == 64 || ring < world.MinShipRing || ring > world.MaxShipRing {
+		t.Errorf("ring = %d; want a fresh draw between %d and %d", ring, world.MinShipRing, world.MaxShipRing)
 	}
 	// The hop cost 4 FUEL, the same as crossing to any other planet of the
 	// system, and took its mass with it.
