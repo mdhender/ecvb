@@ -4,6 +4,9 @@
 
 ## Definitions
 
+_cadre_ is one of the cadre unit codes: `CWKR` construction worker, `PLCF` police force,
+`SPCF` special forces, and `TRNE` trainees and recruits.
+
 _commission_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 
 _commitment_ is an integer percentage amount, range 1 to 100, followed by a `%`.
@@ -33,7 +36,13 @@ A quantity greater than 999 must separate every three digits with a comma: 5,000
 _techLevel_ is a technology level, written `TL`, a hyphen, and the level, 1 through 10.
 For example, TL-4.
 
+_stationNo_ is the sequence number of a trade station at a planet, starting at 1.
+
 _unitCode_ is a unit code with an optional technology level (e.g., GOLD or LFSU-7).
+
+`we` is the faction submitting the order file.
+It is the subject of the orders that no ship or colony carries out, such as naming a place
+or granting a permission, and it takes no id because the file header already names the faction.
 
 ## Combat orders
 
@@ -76,14 +85,14 @@ They do not have to be assembled first.
 
 ## Ship and Colony Creation
 
-(`ship` | `colony`) `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?) `using` _quantity_ _unit_ (`,` _quantity_ _unit_) `transfering` _quantity_ _unit_ (`,` _quantity_ _unit_) `with` _quantity_ `CWKR`
+(`ship` | `colony`) _id_ `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?)) `using` _quantity_ _unit_ (`,` _quantity_ _unit_) `transfering` _quantity_ _unit_ (`,` _quantity_ _unit_) `with` _quantity_ `CWKR`
 
 > # line breaks and spacing do not matter in this order
 > ship 18 create ship
 >   using 60 STRC-8,
 >         61 HDRV-1, 5 SDRV-1
 >         , 5 LFSU-3, 1 SNSR-1
->   transfering 25 FOOD, 5 PRO,  16,800 FUEL, 93 GOLD
+>   transfering 25 FOOD, 5 SKW,  16,800 FUEL, 93 GOLD
 >   with 500 CWKR
 > end
 
@@ -231,9 +240,9 @@ This usually increases the volume of the units.
 Every form names the entity assembling, the unit code being assembled, and how many.
 One order may assemble several kinds of units once.
 
-(`ship` | `colony`) _id_ `assemble` _unitCode_ _quantity_ (`,` _unitCode_ _quantity_)*
+(`ship` | `colony`) _id_ `assemble` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
-> ship 18 assemble 6,000 SNSR-1 
+> ship 18 assemble 6,000 SNSR-1
 
 > colony 24 assemble 5 LFSU-1, 60 STRL-1
 
@@ -251,9 +260,9 @@ Unassemble returns working units to unassembled inventory, optionally moving the
 
 (`ship` | `colony`) _id_ `transfer` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `to` (`ship` | `colony`) _id_
 
-> ship 18 transfer SOL 500 to colony 24
+> ship 18 transfer 500 SOL to colony 24
 
-> ship 18 transfer GOLD 4,500, FOOD 18,000 to colony 24
+> ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
 
 Transfer orders fail if the two entities are not at the same location when the order is executed.
 
@@ -334,7 +343,7 @@ A tech level order names no quantity, because a technology level is bought once.
 
 ## Move Orders
 
-`ship` _id_ `move` `to` (`system` _seq_)? orbit _orbitNo_
+`ship` _id_ `move` `to` (`system` _seq_)? `orbit` _orbitNo_
 
 > ship 18 move to orbit 5
 
@@ -370,7 +379,7 @@ A tech level order names no quantity, because a technology level is bought once.
 
 > ship 18 pay USK 120%
 
-> colony 24 PRO 15%, USK 18%
+> colony 24 pay SKW 15%, USK 18%
 
 ## Ration Orders
 
@@ -398,75 +407,88 @@ Note: control orders are given to an entity that is at the same location as the 
 
 ### Release Control Orders
 
-`release` (`ship` | `colony`) _id_
+Taking control is a physical act, so it is given to an entity that is present.
+Releasing it is administrative, so it is a faction order and needs no entity at the place.
+A faction may release a planet whose garrison is gone.
 
-> release ship 18
+`we` `release` (`ship` | `colony`) _id_
+
+> we release ship 18
 
 Release has a variant that allows you to release control of a planet.
 
-`release` _coordinates_ `system` _seq_ `orbit` _orbitNo_
+`we` `release` _coordinates_ `system` _seq_ `orbit` _orbitNo_
 
-> release (-1,2,3) system A orbit 5
+> we release (-1,2,3) system A orbit 5
 
 ## Naming Orders
 
 Names must be quoted text.
 They may be no more than 24 characters long, including spaces.
 
+Naming something you own is an order to the thing itself.
+Naming anything else is a faction order, because no ship or colony carries it out.
+
 You may name a stellium.
 You are allowed to name stellia that you have not yet visited.
 
-`name` _coordinates _quotedText_
+`we` `name` _coordinates_ _quotedText_
 
-> name (-1,2,3) "Stellium Joe"
+> we name (-1,2,3) "Stellium Joe"
 
 You may name a system.
 You are allowed to name systems that you have not yet visited.
 
-`name` _coordinates `system` _seq_ _quotedText_
+`we` `name` _coordinates_ `system` _seq_ _quotedText_
 
-> name (-1,2,3) system A "Alpha Sur"
+> we name (-1,2,3) system A "Alpha Sur"
 
 You may name a planet.
 You are not allowed to name one that you have never had a report of.
 
-`name` _coordinates `system` _seq_ `orbit` _orbitNo_ _quotedText_
+`we` `name` _coordinates_ `system` _seq_ `orbit` _orbitNo_ _quotedText_
 
-> name (-1,2,3) system A orbit 8 "Headly's Gate"
+> we name (-1,2,3) system A orbit 8 "Headly's Gate"
 
 You may name a ship or colony that you control.
 
-`name` (`ship` | `colony`) _id_ _quotedText_
+(`ship` | `colony`) _id_ `name` _quotedText_
 
-> name ship 18 "Jalopy"
+> ship 18 name "Jalopy"
 
-> name colony 24 "Jingo"
+> colony 24 name "Jingo"
 
 You may name another player or faction.
 You are not allowed to name one that you have not yet encountered.
 
-`name` (`player` | `faction`) _id_ _quotedText_
+`we` `name` (`player` | `faction`) _id_ _quotedText_
+
+> we name faction 5 "The Hegemony"
 
 You may name another player or faction's ships and colonies.
 You are not allowed to name one that you have not yet encountered.
 
-`name` (`player` | `faction`) _id_ (`ship` | `colony`) _id_ _quotedText_
+`we` `name` (`player` | `faction`) _id_ (`ship` | `colony`) _id_ _quotedText_
 
-> name player 5 ship 19 "Easy Target"
+> we name player 5 ship 19 "Easy Target"
 
-> name player 5 colony 33 "Avoid"
+> we name player 5 colony 33 "Avoid"
 
 ## Trade Station Orders
 
-> alter permission grant trade (-1,2,3) system A orbit 5 station 4 to faction 1
+`we` (`grant` | `refuse`) `trade` _coordinates_ `system` _seq_ `orbit` _orbitNo_ `station` _stationNo_ `to` `faction` _id_
 
-> alter permission refuse trade (-1,2,3) system A orbit 5 station 4 to faction 1
+> we grant trade (-1,2,3) system A orbit 5 station 4 to faction 1
+
+> we refuse trade (-1,2,3) system A orbit 5 station 4 to faction 1
 
 ## Colonizing Permission
 
-> alter permission grant colonize (-1,2,3) system A orbit 5 to faction 1
+`we` (`grant` | `refuse`) `colonize` _coordinates_ `system` _seq_ `orbit` _orbitNo_ `to` `faction` _id_
 
-> alter permission refuse colonize (-1,2,3) system A orbit 5 to faction 1
+> we grant colonize (-1,2,3) system A orbit 5 to faction 1
+
+> we refuse colonize (-1,2,3) system A orbit 5 to faction 1
 
 ## General Notes
 
