@@ -32,7 +32,7 @@
 // Both use the identical hash; only the destination of the first 128 bits
 // differs.
 //
-// # Frozen surfaces — do not change while any game exists
+// # Frozen surfaces — slushy in beta and alpha; not change while any game exists after alpha
 //
 // The key-path encoding (element order, the int64/uint64 coercions, the
 // big-endian layout, the length prefix) and the domain-tag numbering
@@ -44,8 +44,5 @@
 // numbers, not billions, so the cost is invisible and mixing quality comes for
 // free.
 //
-// The spec is doc/determinism.md; the rationale and prior art (Random123, NumPy
-// SeedSequence, JAX fold_in) are in doc/counter-based-prng.md; the decision is
-// ADR-0001. See
-// https://github.com/mdhender/ecv6-api/blob/main/doc/determinism.md
+// The rationale and prior art (Random123, NumPy SeedSequence, JAX fold_in).
 package prng

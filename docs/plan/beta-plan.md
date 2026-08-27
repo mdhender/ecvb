@@ -50,7 +50,7 @@ labour with them.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 30 orders | **batches 1 and 1b built and under the golden net** (5 of 30); ship-and-colony `create` specified and unbuilt; the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `00ecbb3` |
+| 5 — add the 30 orders | **batches 1 and 1b built and under the golden net** (5 of 30); ship-and-colony `create` specified and unbuilt; the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b) |
 
 ### What step 0 built
 
