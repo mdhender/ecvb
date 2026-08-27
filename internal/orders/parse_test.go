@@ -377,6 +377,71 @@ func TestHelpListsEveryOrder(t *testing.T) {
 // parser proper does, by reading the subject, and it has to leave the line
 // exactly as it found it, because Parse hands that same Line straight on to
 // parseOrder. This is the test of both halves at once -- the verb it read and
+// A quote that is never closed is refused.
+//
+// The tokenizer used to read to the end of the line and call it a token, so
+// `ship 18 name "Jalopy` named the ship and said nothing: quoted text is how a
+// name is written, and a player who dropped the closing quote found out from a
+// report a turn later. Nothing else a line can get wrong is settled this early,
+// and nothing else needs to be.
+func TestAQuoteThatIsNeverClosedIsRefused(t *testing.T) {
+	for _, item := range []struct{ line, want string }{
+		{`ship 18 name "Jalopy`, `unterminated quoted text "Jalopy"`},
+		{`we name (1,2,3) "Near`, `unterminated quoted text "Near"`},
+		{`ship 18 broadcast system B orbit 8 "hello" "sig`, `unterminated quoted text "sig"`},
+		// An empty run is still a run: the quote is still open at the newline.
+		{`ship 18 name "`, `unterminated quoted text ""`},
+	} {
+		_, err := Parse(strings.NewReader(header + item.line + "\n"))
+		if err == nil {
+			t.Errorf("%s was accepted; want it refused", item.line)
+			continue
+		}
+		if !strings.Contains(err.Error(), item.want) {
+			t.Errorf("%s: error = %q; want it to mention %q", item.line, err, item.want)
+		}
+	}
+}
+
+// The header is quoted text too, and is read before any order.
+func TestAnUnterminatedQuoteInTheHeaderIsRefused(t *testing.T) {
+	_, err := Parse(strings.NewReader("game \"BETA-001 turn 0\nid faction 1\n"))
+	if err == nil || !strings.Contains(err.Error(), "line 1: unterminated quoted text") {
+		t.Errorf("err = %v; want line 1 refused for an unterminated quote", err)
+	}
+}
+
+// A broken line inside a multi-line order stops the gather rather than letting
+// it read on to the end of the file looking for a terminator the broken line
+// might have swallowed.
+func TestAnUnterminatedQuoteInsideACreateStopsTheGather(t *testing.T) {
+	body := `colony 50 create ship
+  using 60 STRC-8
+  transfering 25 "FOOD
+  with 5 CWKR
+end
+colony 50 assemble 6 SNSR-99
+`
+	err := parseProblems(t, body)
+	for _, want := range []string{
+		"line 4: unterminated quoted text",
+		`line 9: invalid unit tag "SNSR-99"`,
+	} {
+		if !strings.Contains(err, want) {
+			t.Errorf("error = %q;\n  want it to hold %q", err, want)
+		}
+	}
+}
+
+func parseProblems(t *testing.T, body string) string {
+	t.Helper()
+	_, err := Parse(strings.NewReader(header + body))
+	if err == nil {
+		t.Fatal("the file was accepted; want it refused")
+	}
+	return err.Error()
+}
+
 // the cursor it did not move.
 func TestOpensOrderReadsTheVerbAndConsumesNothing(t *testing.T) {
 	for _, item := range []struct {

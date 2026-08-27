@@ -1096,6 +1096,16 @@ which is how a thing gets "fixed" later by somebody who assumes it was an
 oversight. It is the rule, and `docs/accepted-orders.md` says so where it defines
 a commission.
 
+**A quote that is never closed used to be accepted.** The tokenizer read to the
+end of the line and called it a token, so `ship 18 name "Jalopy` named the ship
+and said nothing; a player who dropped the closing quote found out from a report
+a turn later. It predates all of this work and was found by an adversarial probe
+-- truncating and mutating every line of `acceptedExamples` -- rather than by
+anything the suite was already doing. `tokenize` now returns an error, `Line`
+carries it as a fault, and `Parse` reports it before the line is read as
+anything. That probe found no panics anywhere, which is the other half of what
+it was worth running for.
+
 **What is still weak**, so that nobody has to rediscover it:
 
 - `Bind` and `Apply` for the twenty-seven are one shared stub. The parser is

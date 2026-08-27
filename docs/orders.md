@@ -104,6 +104,12 @@ line or follow an order:
 ship 2 probe system B orbit 4    # before anything moves
 ```
 
+**Quoted text is closed on the line it opens.** A game code, an email address,
+a name, and a broadcast's message and signature are all quoted, and a quote
+with no closing `"` is refused where it is written rather than read to the end
+of the line -- otherwise `ship 18 name "Jalopy` would quietly name the ship and
+say nothing about the missing quote.
+
 Keywords and system letters are case-insensitive. Game codes are matched
 exactly against the database. IDs are positive integers. A line that does not
 match any form of the order it names is rejected, and the error lists that

@@ -55,13 +55,19 @@ const punctuation = "(),"
 
 // tokenize splits one line into tokens, dropping any trailing comment. A `#`
 // outside quotes begins a comment that runs to the end of the line.
-func tokenize(text string) []token {
+//
+// A quote that is never closed is the one thing a line can get wrong before any
+// order is read from it, and it is refused here rather than passed on. Reading
+// to the end of the line and calling it a token is worse than it sounds: a name
+// is quoted text, so `ship 18 name "Jalopy` would name the ship and say
+// nothing, and the player would find out from a report a turn later.
+func tokenize(text string) ([]token, error) {
 	var tokens []token
 	runes := []rune(text)
 	for i := 0; i < len(runes); {
 		switch c := runes[i]; {
 		case c == '#':
-			return tokens
+			return tokens, nil
 		case c == ' ' || c == '\t' || c == '\r':
 			i++
 		case c == '"':
@@ -70,10 +76,12 @@ func tokenize(text string) []token {
 			for i < len(runes) && runes[i] != '"' {
 				i++
 			}
-			tokens = append(tokens, token{text: string(runes[start:i]), quoted: true})
-			if i < len(runes) {
-				i++ // the closing quote
+			if i == len(runes) {
+				return nil, fmt.Errorf("unterminated quoted text %q; a quote is closed on the line it opens",
+					string(runes[start:i]))
 			}
+			tokens = append(tokens, token{text: string(runes[start:i]), quoted: true})
+			i++ // the closing quote
 		case strings.ContainsRune(punctuation, c):
 			tokens = append(tokens, token{text: string(c)})
 			i++
@@ -85,7 +93,7 @@ func tokenize(text string) []token {
 			tokens = append(tokens, token{text: string(runes[start:i])})
 		}
 	}
-	return tokens
+	return tokens, nil
 }
 
 // Line is one tokenized order line, read left to right. Every order's parser
@@ -95,16 +103,28 @@ type Line struct {
 	Number int
 	tokens []token
 	pos    int
+	// fault is what was wrong with the line before any order was read from it.
+	// Only an unterminated quote can be: everything else a line might get wrong
+	// is a question about the order it names, and that is the order's to answer.
+	fault error
 }
 
 func newLine(number int, text string) *Line {
-	return &Line{Number: number, tokens: tokenize(text)}
+	tokens, fault := tokenize(text)
+	return &Line{Number: number, tokens: tokens, fault: fault}
 }
 
 // absorb adds another physical line's tokens to this one, for the orders that
 // run to a terminator rather than to the end of a line. The Number stays the
 // line the order began on, which is where a player looks for it.
-func (l *Line) absorb(other *Line) { l.tokens = append(l.tokens, other.tokens...) }
+func (l *Line) absorb(other *Line) {
+	l.tokens = append(l.tokens, other.tokens...)
+	// A fault on a line gathered into this one is this one's now: the order
+	// began here, and here is where the player is told about it.
+	if l.fault == nil {
+		l.fault = other.fault
+	}
+}
 
 // begins reports whether the line opens an order. Every order names its subject
 // first, so the first word is the whole of the test.

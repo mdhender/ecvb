@@ -72,6 +72,14 @@ func Parse(r io.Reader) (Submission, error) {
 		if !ok {
 			break
 		}
+		// A line that could not be tokenized names no order and never will, so
+		// it is reported here rather than handed on to be misread. It is
+		// checked before the header lines as well, because a game code is
+		// quoted text too.
+		if line.fault != nil {
+			found = append(found, problem{line.Number, line.fault.Error()})
+			continue
+		}
 		switch line.Number {
 		case 1:
 			if err := parseGameLine(line, &submission); err != nil {
@@ -270,6 +278,12 @@ func gather(file *lines, line *Line, spec *Spec, until string) error {
 				strings.ToUpper(spec.Verb), until, next.Number)
 		}
 		line.absorb(next)
+		// A line that could not be tokenized cannot be searched for the
+		// terminator, so gathering stops rather than reading to the end of the
+		// file looking for one that the broken line may have been carrying.
+		if line.fault != nil {
+			return line.fault
+		}
 	}
 	return nil
 }
