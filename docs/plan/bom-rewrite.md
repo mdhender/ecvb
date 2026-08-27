@@ -332,12 +332,13 @@ found rather than silently resolved, because one of them is the user's call:
 | `docs/model.md` | `entity_population` gains the cadre-assignment table when it is designed. |
 
 No code and no migration yet. When the build starts, the reuse to plan for is
-`cmd/ec/kit.go` — `metricsForUnit`, `parseUnitTag`, `isBulkResource`,
-`usableEnclosedSpace`, and `spaceWithTenPercentExcess` are the mass-and-volume
-rules `create` needs, and they belong in an `internal/units` package on the
-`internal/fuel` / `jumpdrive` / `sensors` template so the kit loader and the
-order share one implementation. `metricsForUnit` is also where `TRAN`'s defined
-mass goes, beside `jumpdrive.UnitMass` and `sensors.UnitMass`.
+`cmd/ec/kit.go` — `metricsForUnit`, `parseUnitTag`, `isBulkResource`, and
+`usableEnclosedSpace` are the mass-and-volume rules `create` needs, and they
+belong in an `internal/units` package on the `internal/fuel` / `jumpdrive` /
+`sensors` template so the kit loader and the order share one implementation.
+`metricsForUnit` is also where `TRAN`'s defined mass goes, beside
+`jumpdrive.UnitMass` and `sensors.UnitMass`. `spaceWithTenPercentExcess` is not
+one of them and stays in the kit loader — see the second discrepancy above.
 
 ## Verification
 

@@ -573,11 +573,14 @@ Recorded here so the size is visible; none of it is written yet.
   generalise to `LABR`, `PLCF`, `SPCF`, and `TRNE`.
 - Migrations for `under_construction`, `construction_item`, and that cadre table.
 - The mass and volume rules, which exist once already as `metricsForUnit`,
-  `parseUnitTag`, `isBulkResource`, `usableEnclosedSpace`, and
-  `spaceWithTenPercentExcess` in `cmd/ec/kit.go`. They belong in an
-  `internal/units` package on the `internal/fuel` template, so the kit loader and
-  the order share one implementation rather than two. `TRAN`'s defined mass goes
-  in `metricsForUnit` beside `jumpdrive.UnitMass` and `sensors.UnitMass`.
+  `parseUnitTag`, `isBulkResource`, and `usableEnclosedSpace` in
+  `cmd/ec/kit.go`. They belong in an `internal/units` package on the
+  `internal/fuel` template, so the kit loader and the order share one
+  implementation rather than two. `TRAN`'s defined mass goes in
+  `metricsForUnit` beside `jumpdrive.UnitMass` and `sensors.UnitMass`.
+  `spaceWithTenPercentExcess` **stays where it is**: it is headroom the loader
+  asks of a seed file so an agent-built kit can be hand-edited afterwards, not a
+  rule of the game, and a build has no use for it.
 
 **The starting kit is rework, and that is expected.** No player-controlled entity
 in `games/beta/home-planet-seed.json` holds a transport, and life support is far
