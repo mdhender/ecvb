@@ -1110,9 +1110,21 @@ it was worth running for.
 
 - `Bind` and `Apply` for the twenty-seven are one shared stub. The parser is
   exercised; nothing downstream of it is, for those verbs.
-- The `price` reader is the most intricate thing in the tokenizer and has the
-  fewest examples behind it. It is the first place to look when a market order
-  reads oddly.
+- The `price` reader is the most intricate thing in the tokenizer, and it is
+  intricate for four reasons at once: the comma that groups a number is the
+  comma that separates a list, only the last group may carry the decimal part, a
+  technology level is bought for a whole number of `GOLD` where everything else
+  is not, and the amount is validated as text rather than converted, because
+  nothing prices anything yet. It duplicates `quantity`'s grouping loop rather
+  than sharing it, because `quantity` forbids both of the things a price
+  requires -- a decimal, and the zero before it.
+
+  That stack had already cost two defects, found by probing it against the
+  accepted doc's own examples: `00.5 GOLD` was accepted and quietly rewritten to
+  `0.5`, and a group of the wrong length fell through to the currency check and
+  blamed the currency, so a player who wrote `1,00` was told to write `GOLD`.
+  Both are fixed and the reader now has a table of its own. It is still the
+  first place to look when a market order reads oddly.
 
 ### The cadres are named, and one of them is specified
 

@@ -547,21 +547,38 @@ func (l *Line) price(what string, whole bool) (Price, error) {
 	leading := len(current.text)
 	for !decimal {
 		separator, hasSeparator := l.peekAt(0)
-		group, hasGroup := l.peekAt(1)
-		if !hasSeparator || !hasGroup || separator.quoted || separator.text != "," || group.quoted {
+		if !hasSeparator || separator.quoted || separator.text != "," {
 			break
 		}
+		// A comma here is grouping a number rather than separating a list. It
+		// cannot be doing anything else: a price is always followed by its
+		// currency, so nothing but digits can stand between it and the amount.
+		// That is what lets a malformed group be reported as one -- a quantity
+		// has to guess, because the token after its comma may belong to the
+		// next item of a list.
+		group, hasGroup := l.peekAt(1)
+		malformed := fmt.Errorf("invalid %s %q; a comma in a number groups exactly three digits",
+			what, digits+","+groupText(group, hasGroup))
+		if !hasGroup || group.quoted {
+			return Price{}, malformed
+		}
 		next, hasDecimal, err := priceGroup(group.text, what)
-		// A group is exactly three digits, and only the last of them may carry
-		// the decimal part. Anything else is the comma that separates the items
-		// of a list rather than one that groups a number.
+		// Only the last group may carry the decimal part, which is what ends
+		// the number.
 		if integer, _, _ := strings.Cut(next, "."); err != nil || len(integer) != digitGroup {
-			break
+			return Price{}, malformed
 		}
 		l.pos += 2
 		digits, decimal = digits+next, hasDecimal
 	}
 	before, after, _ := strings.Cut(digits, ".")
+	// A leading zero is refused, as it is in a quantity, but the rule cannot be
+	// "no zero first": a price needs one before the decimal point, so 0.1 is
+	// written exactly that way. One zero is the whole of the integer part or it
+	// is a mistake.
+	if len(before) > 1 && before[0] == '0' {
+		return Price{}, fmt.Errorf("invalid %s %q; a number carries no leading zero", what, digits)
+	}
 	if len(before) > digitGroup && leading > digitGroup {
 		return Price{}, fmt.Errorf("invalid %s %q; a number over 999 separates every three digits with a comma", what, digits)
 	}
@@ -593,6 +610,15 @@ func priceGroup(text, what string) (digits string, decimal bool, err error) {
 		return before + "." + after, true, nil
 	}
 	return before, false, nil
+}
+
+// groupText is the group a malformed number stopped on, for the message about
+// it. A comma with nothing after it stopped on nothing.
+func groupText(group token, found bool) string {
+	if !found {
+		return ""
+	}
+	return group.text
 }
 
 // formatPrice writes a price back the way a player writes one, with the

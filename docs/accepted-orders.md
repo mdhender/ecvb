@@ -37,7 +37,10 @@ stands for 100 persons.
 
 _price_ is a positive number followed by either `GOLD` or `CNGD`.
 It must include at least one digit before the decimal, if there is a decimal amount.
-The digits before the decimal point are written with commas the same way as _quantity_.
+The digits before the decimal point are written with commas the same way as _quantity_,
+and a comma groups exactly three digits: 1,00 and 1,0000 are rejected.
+It carries no leading zero, but the digit a decimal amount needs before the point
+is not one: 0.1 GOLD is accepted and 00.5 GOLD is rejected.
 For example, 1.0 GOLD, 3 CNGD, 0.1 GOLD, 25,600 CNGD.
 
 _rationRate_ is an integer percentage amount, at least 0, followed by a `%`,
