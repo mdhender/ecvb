@@ -1031,3 +1031,58 @@ func openAndResolveWithOrders(t *testing.T, conn *sqlite.Conn, resolvedTurn int,
 		t.Fatal(err)
 	}
 }
+
+// A transfer moves no entity and still runs its transports, so its fuel is
+// worth logging even though it records no movement; and a partly filled order
+// succeeded, so what it has to say is a note rather than an error.
+func TestResolveRecordsATransfersFuelAndItsShortfall(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	testdb.Exec(t, conn, `
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
+			(41, 'operational', 'TRAN', 1, 20), (41, 'cargo', 'GOLD', 0, 1000),
+			(41, 'cargo', 'FUEL', 0, 100);
+		INSERT INTO entity_population (entity_id, class, quantity) VALUES (41, 'SKW', 50);
+		UPDATE entity SET mass = 5000 WHERE id = 41;
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 3, 1, 1, 4, 'transfer', 41, '1,000 GOLD to ship 40',
+			'{"units":[{"quantity":1000,"unit":"GOLD"}],"to":40,"to_kind":"ship"}');
+	`)
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
+		if attr.Key == slog.TimeKey {
+			return slog.Attr{}
+		}
+		return attr
+	}}))
+	result, err := Resolve(context.Background(), logger, conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 1 || result.Failed != 0 {
+		t.Fatalf("result = %+v; want the order to succeed: a shortage is a rate, not a failure", result)
+	}
+	// Twenty TRAN-1 carry 400 MU of the 1,000 GOLD, and the twenty hulls burn
+	// ceil(20/10) = 2 FUEL.
+	var status, message string
+	var fuelSpent int64
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT status, coalesce(error_message, ''), fuel_spent FROM game_order
+		WHERE game_id = 1 AND turn = 3 AND faction_id = 1 AND sequence = 1;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			status, message, fuelSpent = stmt.ColumnText(0), stmt.ColumnText(1), stmt.ColumnInt64(2)
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if status != "succeeded" || message != "" || fuelSpent != 2 {
+		t.Errorf("order = (%q, %q, %d FUEL); want succeeded with no message and 2 FUEL", status, message, fuelSpent)
+	}
+	if !strings.Contains(logs.String(), `note="colony 41 transferred 400 of 1,000 GOLD`) {
+		t.Errorf("log does not carry the shortfall as a note:\n%s", logs.String())
+	}
+	if !strings.Contains(logs.String(), "fuel_spent=2") {
+		t.Errorf("log does not report the transports' fuel:\n%s", logs.String())
+	}
+}

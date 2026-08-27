@@ -65,6 +65,10 @@ type outcome struct {
 	fuelSpent int64
 	// survey is the planet the order read, for the orders that read one.
 	survey *orders.Survey
+	// note is what an order that succeeded still had to say: that it did less
+	// than it was asked for. It is not an error, so it does not go on the
+	// order row, where the schema keeps a message and a success apart.
+	note string
 }
 
 // Resolve resolves an open turn. Every order of one phase resolves before any
@@ -93,13 +97,18 @@ func Resolve(ctx context.Context, logger *slog.Logger, conn *sqlite.Conn, gameCo
 			locationAttr("start", item.start),
 			locationAttr("final", item.final),
 		}
-		// The orders that move something are the orders that burn fuel to do
-		// it; the rest have no fuel to report.
-		if item.movement {
+		// An order reports its fuel when moving something is what it does, so
+		// that a move that burned nothing still says so, and otherwise only
+		// when it actually burned some -- a transfer moves no entity and still
+		// runs its transports.
+		if item.movement || item.fuelSpent != 0 {
 			attrs = append(attrs, slog.Int64("fuel_spent", item.fuelSpent))
 		}
 		if item.message != "" {
 			attrs = append(attrs, slog.String("error", item.message))
+		}
+		if item.note != "" {
+			attrs = append(attrs, slog.String("note", item.note))
 		}
 		logger.LogAttrs(ctx, slog.LevelInfo, "order resolved", attrs...)
 	}
@@ -212,7 +221,7 @@ func execute(conn *sqlite.Conn, loaded *world.World, turn int, order storedOrder
 		}
 		item.status, item.message = applied.Status, applied.Message
 		item.start, item.final = applied.Start, applied.Final
-		item.fuelSpent, item.survey = applied.FuelSpent, applied.Survey
+		item.fuelSpent, item.survey, item.note = applied.FuelSpent, applied.Survey, applied.Note
 	}
 	if err := updateOutcome(conn, loaded.Game().ID, turn, item); err != nil {
 		return outcome{}, err

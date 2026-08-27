@@ -33,10 +33,17 @@ type Phase struct {
 // The phases of a turn. Production and combat will be new entries here and a
 // Phase on their orders' Specs; nothing else has to learn about them.
 var (
-	PhaseProbe  = &Phase{Name: "probe"}
-	PhaseSensor = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
-	PhaseMove   = &Phase{Name: "move"}
-	PhaseJump   = &Phase{Name: "jump"}
+	// The three inventory phases are stages 6, 9, and 10 of
+	// docs/turn-sequence.md, and they are in that order on purpose: units must
+	// be unassembled to be carried, so a file may unassemble at one entity,
+	// transfer to another, and assemble again there, all in one turn.
+	PhaseUnassemble = &Phase{Name: "unassemble"}
+	PhaseTransfer   = &Phase{Name: "transfer"}
+	PhaseAssemble   = &Phase{Name: "assemble"}
+	PhaseProbe      = &Phase{Name: "probe"}
+	PhaseSensor     = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
+	PhaseMove       = &Phase{Name: "move"}
+	PhaseJump       = &Phase{Name: "jump"}
 	// PhaseArrival has no orders. A crossing between stellia is not an order --
 	// the jump that began it departed and succeeded turns ago -- so landing the
 	// ships that are due is the whole of the phase.
@@ -51,7 +58,10 @@ var (
 // Departures come before arrivals, so this turn's jumps are settled before this
 // turn's landings and a ship cannot be caught by a jump order written the turn
 // it arrives.
-var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming}
+var phases = []*Phase{
+	PhaseUnassemble, PhaseTransfer, PhaseAssemble,
+	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
+}
 
 func init() {
 	for i, phase := range phases {

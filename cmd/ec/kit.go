@@ -30,6 +30,7 @@ type kitAsset struct {
 	Kind        string           `json:"kind"`
 	TechLevel   *int             `json:"tech-level"`
 	Population  map[string]int64 `json:"population"`
+	Cadres      map[string]int64 `json:"cadres"`
 	Components  map[string]int64 `json:"components"`
 	Operational map[string]int64 `json:"operational"`
 	Cargo       map[string]int64 `json:"cargo"`
@@ -48,6 +49,7 @@ type preparedEntity struct {
 	mass           int64
 	enclosedVolume int64
 	population     map[string]int64
+	cadres         map[string]int64
 	inventory      []preparedInventory
 }
 
@@ -137,6 +139,7 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 		techLevel:  *asset.TechLevel,
 		controlled: len(asset.Population) != 0,
 		population: asset.Population,
+		cadres:     asset.Cadres,
 	}
 	occupied := int64(0)
 	for class, quantity := range asset.Population {
@@ -192,22 +195,13 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 			if err := addQuantity(&entity.mass, quantity, metrics.Mass); err != nil {
 				return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q mass: %w", kind, id, section.jsonName, tag, err)
 			}
-			if section.dbName == "component" && (unit == "STRC" || unit == "STRL") {
-				perUnit := int64(techLevel * techLevel)
-				if err := addQuantity(&entity.enclosedVolume, quantity, perUnit); err != nil {
-					return preparedEntity{}, fmt.Errorf("%s entity %q enclosed volume: %w", kind, id, err)
-				}
-			} else if !(section.dbName == "cargo" && (kind == "COPN" || kind == "CORB") && units.IsBulkResource(unit)) {
-				volume := metrics.CargoVolume
-				switch section.dbName {
-				case "component":
-					volume = metrics.ComponentVolume
-				case "operational":
-					volume = metrics.OperationalVolume
-				}
-				if err := addQuantity(&occupied, quantity, volume); err != nil {
-					return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q volume: %w", kind, id, section.jsonName, tag, err)
-				}
+			if err := addQuantity(&entity.enclosedVolume, quantity,
+				units.EnclosedVolumePerUnit(section.dbName, unit, techLevel)); err != nil {
+				return preparedEntity{}, fmt.Errorf("%s entity %q enclosed volume: %w", kind, id, err)
+			}
+			if err := addQuantity(&occupied, quantity,
+				units.OccupiedVolumePerUnit(kind, section.dbName, unit, techLevel, hasTechLevel)); err != nil {
+				return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q volume: %w", kind, id, section.jsonName, tag, err)
 			}
 			entity.inventory = append(entity.inventory, preparedInventory{
 				section: section.dbName, unit: unit, techLevel: techLevel, quantity: quantity,
@@ -215,7 +209,13 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 		}
 	}
 
-	enclosedSpace := units.UsableEnclosedSpace(kind, entity.enclosedVolume)
+	if err := prepareCadres(kind, id, &entity); err != nil {
+		return preparedEntity{}, err
+	}
+	enclosedSpace, err := units.UsableEnclosedSpace(kind, entity.enclosedVolume)
+	if err != nil {
+		return preparedEntity{}, fmt.Errorf("%s entity %q: %w", kind, id, err)
+	}
 	required, err := spaceWithTenPercentExcess(occupied)
 	if err != nil {
 		return preparedEntity{}, fmt.Errorf("%s entity %q occupied volume: %w", kind, id, err)
@@ -224,6 +224,39 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 		return preparedEntity{}, fmt.Errorf("%s entity %q has %d VU enclosed space; need at least %d VU for %d VU occupied space", kind, id, enclosedSpace, required, occupied)
 	}
 	return entity, nil
+}
+
+// prepareCadres checks the population a kit has assigned to a cadre. A cadre is
+// an assignment rather than a unit, so it adds no mass and no volume: the
+// people it names are already in the entity's population, and this only says
+// that the entity can put them to work.
+//
+// Only CWKR is accepted. The other four cadres have names and nothing else --
+// docs/units.md says outright that what they permit is not settled -- so a kit
+// that assigns one is asking for something the game cannot yet honour.
+func prepareCadres(kind, id string, entity *preparedEntity) error {
+	names := make([]string, 0, len(entity.cadres))
+	for name := range entity.cadres {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		quantity := entity.cadres[name]
+		if name != "CWKR" {
+			return fmt.Errorf("%s entity %q cadre %q is not specified yet; only CWKR may be assigned", kind, id, name)
+		}
+		if quantity <= 0 {
+			return fmt.Errorf("%s entity %q cadre %s must be positive", kind, id, name)
+		}
+		// One CWKR is one SKW plus one USK, so the entity has to carry both.
+		for _, class := range []string{"SKW", "USK"} {
+			if held := entity.population[class]; held < quantity {
+				return fmt.Errorf("%s entity %q assigns %d %s and carries %d %s; one %s is one SKW plus one USK",
+					kind, id, quantity, name, held, class, name)
+			}
+		}
+	}
+	return nil
 }
 
 func spaceWithTenPercentExcess(occupied int64) (int64, error) {
@@ -316,6 +349,20 @@ func insertKit(conn *sqlite.Conn, kit preparedKit, home homeCandidate, playerFac
 				entityID, item.section, item.unit, item.techLevel, item.quantity,
 			}}); err != nil {
 				return fmt.Errorf("insert %s entity %q inventory: %w", entity.kind, entity.seedID, err)
+			}
+		}
+		cadres := make([]string, 0, len(entity.cadres))
+		for name := range entity.cadres {
+			cadres = append(cadres, name)
+		}
+		sort.Strings(cadres)
+		for _, name := range cadres {
+			if err := sqlitex.ExecuteTransient(conn, `
+				INSERT INTO entity_cadre (entity_id, cadre, quantity)
+				VALUES (?, ?, ?);`, &sqlitex.ExecOptions{Args: []any{
+				entityID, name, entity.cadres[name],
+			}}); err != nil {
+				return fmt.Errorf("insert %s entity %q cadre: %w", entity.kind, entity.seedID, err)
 			}
 		}
 		classes := make([]string, 0, len(entity.population))

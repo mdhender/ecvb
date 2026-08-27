@@ -67,8 +67,8 @@ sync with the migrations. Supporting docs:
 - `docs/entity-location.md` — the location rules encoded as CHECK constraints on `entity`
   (`SHIP` may sit at stellium level or at a planet in ring 1–99; `COPN`/`CSFC` are ring
   0; `CORB` is ring 1). Any code that moves an entity must satisfy these.
-- `docs/units.md` — unit-code glossary plus the provisional mass/volume formulas the kit
-  loader uses.
+- `docs/units.md` — unit-code glossary plus the provisional mass/volume formulas in
+  `internal/units`, which both the kit loader and the inventory orders measure with.
 - `docs/orders.md` — the order file format and check/submit semantics.
 - `docs/gamemaster-turn.md` — the operator runbook for resolving a turn.
 - `distance_map.md` — design note on stellium distance; the decision is to keep
@@ -143,17 +143,34 @@ implementation: the row carries the parameters the player wrote, not the ids
 they resolved to, so `loadOrders` rebuilds `Params` and the same `Bind` runs.
 
 `internal/world` is what both halves are written against: one game's entities,
-stellia, systems, and planets, with mutations (`Move`, `BurnFuel`,
-`RecordProbe`, `SpendProbe`, `RecordSensors`) that write through to SQLite and
-keep the loaded copy in step. That is what makes the second order of a turn
-measure a ship as the first order left it.
+stellia, systems, and planets, with mutations (`Move`, `BurnFuel`, `ShiftAll`,
+`Hand`, `HandPopulation`, `RecordProbe`, `SpendProbe`, `RecordSensors`) that
+write through to SQLite and keep the loaded copy in step. That is what makes the
+second order of a turn measure a ship as the first order left it.
+
+**`internal/world/inventory.go` is the only thing in the game that writes the
+`inventory` table**, and the only thing that reads it. An entity's mass,
+enclosed volume, drive, sensors, and fuel are all derived from what it holds, so
+every mutation writes the row and corrects all five; loading any of them
+separately is what would let them drift. `internal/fuel` keeps the draw-order
+rule and `internal/jumpdrive` and `internal/sensors` the arithmetic of a drive
+and an array, but none of the three touch SQL any more.
+
+Per-turn state lives beside the loaded copy and is thrown away with it: the
+probe budget, how many orders of a kind an entity has been given, the MU of
+construction work each of its two pools has done, and the transports it has
+committed. A World is loaded for one operation, so all four start empty every
+turn without anything having to clear them.
 
 ### Phases
 
 A turn is the table in `spec.go` and nothing else:
 
 ```go
-var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming}
+var phases = []*Phase{
+	PhaseUnassemble, PhaseTransfer, PhaseAssemble,
+	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
+}
 ```
 
 `orders.Phases()` is what both `simulate` and `engine.resolve` loop over, so
@@ -187,6 +204,19 @@ five are orders *and* a sweep -- combat, the market, espionage, ship movement,
 the news service -- where the orders declare intent and one sweep settles all of
 them against each other.
 
+Three orders move units through inventory, and they resolve in that order --
+stages 6, 9, and 10 of `docs/turn-sequence.md` -- so one file may unassemble at
+one entity, `transfer` to another, and `assemble` again there, all in one turn.
+Two rules shape all three. **A shortage is a rate rather than a failure**: an
+order that outruns the `CWKR` cadre, the stock on hand, or the transports does
+what it can and carries no more; it is not refused, and what it did not do does
+not carry over. That is `Outcome.Note`, which is a warning at check and submit
+and a `note` on the engine log line -- not an `error_message`, because the order
+succeeded. **The one thing that fails an assemble or an unassemble is space**:
+an entity cannot hold more than it encloses, and doing less of the order would
+not fix it. `internal/cadre` holds the 500 MU-a-turn rule and the two pools;
+`internal/transport` holds what a hull carries, who crews it, and what it burns.
+
 A ship travels twice a turn at most, and never the same way twice: one `move`
 and one `jump`, which is how a ship at a planet leaves. `Binder.once` settles
 that at Bind against a per-turn count in `world`, beside the probe budget, so a
@@ -213,7 +243,8 @@ that is now a `create` prerequisite alone.
    turn. `Check` runs exactly the same thing and keeps nothing.
 2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
    `orders.Phases()` in order: **every order of one phase resolves before any
-   order of the next**, today probe, sensor, move, jump, arrival, naming. Expected game-rule
+   order of the next**, today unassemble, transfer, assemble, probe, sensor,
+   move, jump, arrival, naming. Expected game-rule
    failures are recorded on the order row (`status = 'failed'` plus
    `error_message`, final location equal to start location) and do not abort the
    turn; database/state errors roll the turn back. State flips

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/mdhender/ecvb/internal/units"
 )
 
 // syntaxErr marks a line that never matched the shape of its order, as
@@ -112,11 +114,16 @@ func (l *Line) next() (token, bool) {
 	return l.tokens[l.pos-1], true
 }
 
-func (l *Line) peek() (token, bool) {
-	if !l.more() {
+func (l *Line) peek() (token, bool) { return l.peekAt(0) }
+
+// peekAt looks ahead without consuming. A quantity needs two tokens of
+// lookahead, because whether a comma continues the number or separates the
+// next item is decided by what follows it.
+func (l *Line) peekAt(offset int) (token, bool) {
+	if l.pos+offset >= len(l.tokens) {
 		return token{}, false
 	}
-	return l.tokens[l.pos], true
+	return l.tokens[l.pos+offset], true
 }
 
 // keyword consumes the next token when it matches one of the given words,
@@ -234,6 +241,126 @@ func (l *Line) coordinates() (x, y, z int, err error) {
 		return 0, 0, 0, badSyntax("expected (X,Y,Z)")
 	}
 	return values[0], values[1], values[2], nil
+}
+
+// digitGroup is the number of digits a quantity separates on.
+const digitGroup = 3
+
+func isDigits(text string) bool {
+	if text == "" {
+		return false
+	}
+	for _, r := range text {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// formatQuantity writes a whole number the way a player writes a quantity,
+// with every three digits separated by a comma.
+func formatQuantity(value int64) string {
+	digits := strconv.FormatInt(value, 10)
+	var out strings.Builder
+	for i, r := range digits {
+		if i != 0 && (len(digits)-i)%digitGroup == 0 {
+			out.WriteByte(',')
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
+}
+
+// quantity consumes a quantity: a whole number greater than zero, written with
+// a comma between every three digits once it passes 999.
+//
+// The separator is the same character the lists of units use, so reading one
+// takes two tokens of lookahead: a comma continues the number when exactly
+// three digits follow it, and separates the next item otherwise. Nothing is
+// ambiguous, because a quantity is always followed by a unit code and never by
+// another quantity.
+func (l *Line) quantity(what string) (int64, error) {
+	current, ok := l.next()
+	if !ok || current.quoted {
+		return 0, badSyntax("expected %s", what)
+	}
+	if !isDigits(current.text) {
+		return 0, fmt.Errorf("invalid %s %q", what, current.text)
+	}
+	if current.text[0] == '0' {
+		return 0, fmt.Errorf("invalid %s %q; a quantity is greater than zero and carries no leading zero",
+			what, current.text)
+	}
+	digits := current.text
+	for {
+		separator, hasSeparator := l.peekAt(0)
+		group, hasGroup := l.peekAt(1)
+		if !hasSeparator || !hasGroup || separator.quoted || separator.text != "," ||
+			group.quoted || len(group.text) != digitGroup || !isDigits(group.text) {
+			break
+		}
+		l.pos += 2
+		digits += group.text
+	}
+	if len(digits) > digitGroup && len(current.text) > digitGroup {
+		return 0, fmt.Errorf("invalid %s %q; a quantity over 999 separates every three digits with a comma, as in %s",
+			what, digits, formatQuantity(mustParse(digits)))
+	}
+	value, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s is too large", what)
+	}
+	if value < 1 {
+		return 0, fmt.Errorf("invalid %s %q; a quantity is greater than zero", what, digits)
+	}
+	return value, nil
+}
+
+// mustParse is only ever handed digits that came out of a token, and is only
+// used to spell a number back at the player who mistyped it. A number too
+// large to parse is spelled back as it was written.
+func mustParse(digits string) int64 {
+	value, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
+// unitTag consumes a unit code with an optional technology level, such as GOLD
+// or LFSU-7. It is upper-cased, the way a system letter is, so a player who
+// types in lower case reads their own order back in the game's spelling.
+func (l *Line) unitTag() (string, error) {
+	current, ok := l.next()
+	if !ok || current.quoted {
+		return "", badSyntax("expected a unit code")
+	}
+	tag := strings.ToUpper(current.text)
+	if _, _, _, err := units.ParseTag(tag); err != nil {
+		return "", err
+	}
+	return tag, nil
+}
+
+// unitList consumes one or more quantities of units, separated by commas:
+// `4,500 GOLD, 18,000 FOOD`. Every order that names units names them this way.
+func (l *Line) unitList() ([]UnitQuantity, error) {
+	var items []UnitQuantity
+	for {
+		quantity, err := l.quantity("a quantity")
+		if err != nil {
+			return nil, err
+		}
+		tag, err := l.unitTag()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, UnitQuantity{Quantity: quantity, Tag: tag})
+		if _, ok := l.keyword(","); !ok {
+			return items, nil
+		}
+	}
 }
 
 // orbitList consumes one or more orbits. A probe spends one probe on each.

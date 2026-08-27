@@ -4,13 +4,7 @@
 // can see and how many probes they can launch.
 package sensors
 
-import (
-	"fmt"
-	"math"
-
-	"zombiezen.com/go/sqlite"
-	"zombiezen.com/go/sqlite/sqlitex"
-)
+import "math"
 
 // Unit is the inventory unit code of a sensor. Only assembled units in the
 // component section see anything; SNSR held anywhere else is freight.
@@ -52,41 +46,7 @@ func ApproximateMass(mass int64) int {
 	return int(math.Floor(math.Log10(float64(mass))))
 }
 
-// Load returns the sensor array assembled on one entity.
-func Load(conn *sqlite.Conn, entityID int64) (Array, error) {
-	var array Array
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT tech_level, quantity
-		FROM inventory
-		WHERE entity_id = ? AND section = 'component' AND unit = ? AND quantity > 0;`, &sqlitex.ExecOptions{
-		Args: []any{entityID, Unit},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			array = array.Add(stmt.ColumnInt(0), stmt.ColumnInt64(1))
-			return nil
-		},
-	}); err != nil {
-		return Array{}, fmt.Errorf("load sensors for entity %d: %w", entityID, err)
-	}
-	return array, nil
-}
-
-// LoadAll returns the sensor array assembled on every entity in a game.
-func LoadAll(conn *sqlite.Conn, gameID int64) (map[int64]Array, error) {
-	arrays := make(map[int64]Array)
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT i.entity_id, i.tech_level, i.quantity
-		FROM inventory AS i
-		JOIN entity AS e ON e.id = i.entity_id
-		JOIN faction AS f ON f.id = e.faction_id
-		WHERE f.game_id = ? AND i.section = 'component' AND i.unit = ? AND i.quantity > 0;`, &sqlitex.ExecOptions{
-		Args: []any{gameID, Unit},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			id := stmt.ColumnInt64(0)
-			arrays[id] = arrays[id].Add(stmt.ColumnInt(1), stmt.ColumnInt64(2))
-			return nil
-		},
-	}); err != nil {
-		return nil, fmt.Errorf("load sensors: %w", err)
-	}
-	return arrays, nil
-}
+// Reading the inventory table is internal/world's, and only world's, so
+// that what an entity holds and what it can do cannot drift apart. A sensors
+// is what the entity's component section adds up to, and world adds it up
+// again every time it changes one.

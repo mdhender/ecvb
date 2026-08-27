@@ -155,6 +155,12 @@ Every entity has a controlling faction. An entity with population is controlled
 by its player's faction. An entity without population is controlled by the
 game's `uncontrolled` agent faction.
 
+A unit is assembled out of `unassembled` inventory and into one of the two
+working sections, and which one is a property of the unit code rather than
+anything an order says. `HDRV`, `SNSR`, `SDRV`, `LFSU`, `STRC`, and `STRL` go to
+`component`, which is the only section they work in; everything else goes to
+`operational`. Resources, population, and cadres are never assembled.
+
 Only `STRC` and `STRL` inventory in the `component` section creates enclosed
 volume. A structural unit at technology level \(t\) encloses \(t^2\) VU. Usable
 enclosed space is the raw enclosed volume multiplied by the entity efficiency
@@ -187,6 +193,22 @@ space.
 
 `(entity_id, class)` is the primary key. Population contributes to entity mass
 and occupied enclosed space. Census reports multiply `quantity` by 100.
+
+### `entity_cadre`
+
+| Column | Description |
+| --- | --- |
+| `entity_id` | The entity the cadre is assigned at. |
+| `cadre` | One of `CWKR`, `LABR`, `PLCF`, `SPCF`, or `TRNE`. |
+| `quantity` | How many are assigned. |
+
+`(entity_id, cadre)` is the primary key. A cadre is a temporary assignment of
+population rather than a unit, so it has no mass and no volume of its own: the
+people in it are already counted in `entity_population`, and this records what
+they have been assigned to do. One `CWKR` is one `SKW` plus one `USK`, so an
+entity's `CWKR` count is bounded by both; the kit loader checks that, and
+nothing else does yet, because nothing else forms or dissolves a cadre. The
+`draft` and `disband` orders are what will.
 
 ## Work groups
 

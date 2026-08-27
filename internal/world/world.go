@@ -45,9 +45,22 @@ type Entity struct {
 	FactionID int64
 	Location  Location
 	Mass      int64
-	Fuel      int64
 	Drive     jumpdrive.Drive
 	Sensors   sensors.Array
+	// EnclosedVolume is the raw volume the entity's assembled structure
+	// encloses. What it can actually hold things in is that volume after the
+	// efficiency of its kind; see UsableEnclosedSpace.
+	EnclosedVolume int64
+	// Inventory is everything the entity holds, by section, unit, and
+	// technology level. Drive, Sensors, EnclosedVolume, and Mass are all
+	// derived from it, and every mutation keeps them in step.
+	Inventory Inventory
+	// Population is the people the entity carries, by class.
+	Population map[string]int64
+	// Cadre is the population it has assigned to each cadre. A cadre is an
+	// assignment rather than a unit, so its people are counted in Population
+	// too, and it adds no mass of its own.
+	Cadre map[string]int64
 	// Transit is the crossing this ship is making, or nil when it is on the
 	// board. A ship in transit has no Location at all.
 	Transit *Transit
@@ -78,6 +91,10 @@ type Game struct {
 	Turn  int
 	State string
 	Seed  Seed
+	// Uncontrolled is the faction that holds every entity with nobody aboard.
+	// It is not a player: an entity of its is a derelict, which is why a
+	// faction may hand things to one without the two being allies.
+	Uncontrolled int64
 }
 
 // World is one game's state.
@@ -95,12 +112,34 @@ type World struct {
 	// the same reason: a World is loaded for one operation and thrown away, so
 	// the count starts empty every turn without anything having to clear it.
 	ordered map[orderKey]int
+	// work counts the MU of construction work of each kind an entity has done
+	// this turn. Turn state, like the probe budget: a cadre does its 500 MU a
+	// turn however many orders ask for it.
+	work map[workKey]int64
+	// hulls counts the transports an entity has committed this turn, and
+	// squares the sum of their technology levels squared, which is what the
+	// fuel is reckoned from. A transport goes there and comes back, so a turn
+	// is the whole of what one hull is worth.
+	hulls   map[hullKey]int64
+	squares map[int64]int64
 }
 
 // orderKey is one kind of order given to one entity.
 type orderKey struct {
 	verb     string
 	entityID int64
+}
+
+// workKey is one pool of construction work at one entity.
+type workKey struct {
+	kind     string
+	entityID int64
+}
+
+// hullKey is one entity's transports at one technology level.
+type hullKey struct {
+	entityID  int64
+	techLevel int
 }
 
 // Load reads a game into memory. found is false when no game has that code,
@@ -113,6 +152,9 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 		atPoint:  make(map[Point]int64),
 		probes:   make(map[int64]int64),
 		ordered:  make(map[orderKey]int),
+		work:     make(map[workKey]int64),
+		hulls:    make(map[hullKey]int64),
+		squares:  make(map[int64]int64),
 	}
 	loaded.game.Code = gameCode
 	if err := sqlitex.ExecuteTransient(conn,
@@ -129,6 +171,18 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 	}
 	if !found {
 		return nil, false, nil
+	}
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT f.id FROM faction AS f
+		JOIN agent AS a ON a.id = f.agent_id
+		WHERE f.game_id = ? AND a.code = 'uncontrolled';`, &sqlitex.ExecOptions{
+		Args: []any{loaded.game.ID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			loaded.game.Uncontrolled = stmt.ColumnInt64(0)
+			return nil
+		},
+	}); err != nil {
+		return nil, false, fmt.Errorf("find the uncontrolled faction of game %q: %w", gameCode, err)
 	}
 	if err := loaded.loadStellia(); err != nil {
 		return nil, false, err
@@ -271,16 +325,16 @@ func (w *World) LandArrivals(turn int) error {
 	return nil
 }
 
-// BurnFuel draws an order's fuel. Burned fuel leaves the entity, so its mass
-// falls with it and a later order in the same turn measures the drive against
-// the lighter ship.
+// BurnFuel draws an order's fuel, emptying the entity's operational fuel
+// first, then its unassembled fuel, and its cargo last, so a hold of spare
+// fuel survives until the working supply is gone.
+//
+// Burned fuel leaves the entity, so its mass falls with it and a later order in
+// the same turn measures the drive against the lighter ship. The draw order is
+// the fuel package's rule; taking the units out of inventory is this package's,
+// because it is the only thing that writes that table.
 func (w *World) BurnFuel(entity *Entity, quantity int64) error {
-	if err := fuel.Spend(w.conn, entity.ID, quantity); err != nil {
-		return err
-	}
-	entity.Fuel -= quantity
-	entity.Mass -= quantity * fuel.UnitMass
-	return nil
+	return w.burn(entity, fuel.Unit, quantity, fuel.DrawOrder())
 }
 
 // ProbesSpent is how many probes an entity has launched this turn.
@@ -410,7 +464,8 @@ func (w *World) loadStellia() error {
 
 func (w *World) loadEntities() error {
 	if err := sqlitex.ExecuteTransient(w.conn, `
-		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring, e.mass
+		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring,
+		       e.mass, e.enclosed_volume
 		FROM entity AS e
 		JOIN faction AS f ON f.id = e.faction_id
 		WHERE f.game_id = ?;`, &sqlitex.ExecOptions{
@@ -420,38 +475,21 @@ func (w *World) loadEntities() error {
 			w.entities[id] = &Entity{
 				ID: id, Unit: stmt.ColumnText(1), FactionID: stmt.ColumnInt64(2),
 				Location: readLocation(stmt, 3), Mass: stmt.ColumnInt64(7),
+				EnclosedVolume: stmt.ColumnInt64(8),
+				Inventory:      make(Inventory),
+				Population:     make(map[string]int64),
+				Cadre:          make(map[string]int64),
 			}
 			return nil
 		},
 	}); err != nil {
 		return fmt.Errorf("load entities: %w", err)
 	}
-	drives, err := jumpdrive.LoadAll(w.conn, w.game.ID)
-	if err != nil {
+	// The drive, the sensors, and the fuel are not loaded: they are what the
+	// inventory adds up to, and loading them separately is what would let them
+	// drift from it.
+	if err := w.loadInventory(); err != nil {
 		return err
-	}
-	for id, drive := range drives {
-		if entity, ok := w.entities[id]; ok {
-			entity.Drive = drive
-		}
-	}
-	arrays, err := sensors.LoadAll(w.conn, w.game.ID)
-	if err != nil {
-		return err
-	}
-	for id, array := range arrays {
-		if entity, ok := w.entities[id]; ok {
-			entity.Sensors = array
-		}
-	}
-	quantities, err := fuel.AvailableAll(w.conn, w.game.ID)
-	if err != nil {
-		return err
-	}
-	for id, quantity := range quantities {
-		if entity, ok := w.entities[id]; ok {
-			entity.Fuel = quantity
-		}
 	}
 	if err := sqlitex.ExecuteTransient(w.conn, `
 		SELECT entity_id, destination_stellium_id, arrival_turn

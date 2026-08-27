@@ -70,6 +70,26 @@ func TestReadKitRejectsUnknownFieldsAndInsufficientSpace(t *testing.T) {
 			want: "need at least 3 VU",
 		},
 		{
+			name: "cadre without the population it assigns",
+			content: `{
+				"kit-name":"test",
+				"entities":{"entity":{"kind":"COPN","tech-level":1,
+					"population":{"SKW":5,"USK":2},"cadres":{"CWKR":5},
+					"components":{"STRC-10":10}}}
+			}`,
+			want: "assigns 5 CWKR and carries 2 USK",
+		},
+		{
+			name: "cadre nothing is specified for",
+			content: `{
+				"kit-name":"test",
+				"entities":{"entity":{"kind":"COPN","tech-level":1,
+					"population":{"SKW":5,"USK":5},"cadres":{"PLCF":1},
+					"components":{"STRC-10":10}}}
+			}`,
+			want: "is not specified yet; only CWKR may be assigned",
+		},
+		{
 			name: "invalid entity kind",
 			content: `{
 				"kit-name":"test",
@@ -89,6 +109,35 @@ func TestReadKitRejectsUnknownFieldsAndInsufficientSpace(t *testing.T) {
 				t.Fatalf("readKit error = %v; want containing %q", err, tt.want)
 			}
 		})
+	}
+}
+
+// A cadre is an assignment of population rather than a unit: the people in it
+// are already counted, so it adds no mass and no volume, and a kit can only
+// assign population the entity actually carries.
+func TestAKitMayAssignAConstructionWorkerCadre(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "kit.json")
+	content := `{
+		"kit-name":"test",
+		"entities":{"entity":{"kind":"COPN","tech-level":1,
+			"population":{"SKW":5,"USK":5},"cadres":{"CWKR":5},
+			"components":{"STRC-10":10}}}
+	}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	kit, err := readKit(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entity := kit.entities[0]
+	if got := entity.cadres["CWKR"]; got != 5 {
+		t.Errorf("CWKR = %d; want 5", got)
+	}
+	// Ten population units at 2 MU each, and ten STRC-10 at 20 MU each. The
+	// cadre adds nothing: its people are the SKW and USK already counted.
+	if entity.mass != 10*2+10*20 {
+		t.Errorf("mass = %d; want %d, the cadre weighing nothing of its own", entity.mass, 220)
 	}
 }
 

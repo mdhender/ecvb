@@ -42,8 +42,9 @@ func TestCheckValidatesSequentialOrdersWithoutWriting(t *testing.T) {
 // Checking a file runs the turn against the database and rolls it back, so the
 // thing to get wrong is the rolling back. Nothing a turn would change may
 // survive a check: not where a ship is, not the fuel it holds, not the mass
-// that fuel was part of, not what a probe read, and not what a phase's sweep
-// wrote when nobody ordered it.
+// that fuel was part of, not what it has assembled or handed to somebody else,
+// not what a probe read, and not what a phase's sweep wrote when nobody
+// ordered it.
 func TestCheckPutsTheWorldBackTheWayItFoundIt(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 3
@@ -73,6 +74,12 @@ func worldSnapshot(t *testing.T, conn *sqlite.Conn) string {
 			FROM (SELECT * FROM entity ORDER BY id)`,
 		`SELECT group_concat(printf('%d/%s/%d', entity_id, section, quantity), ' ')
 			FROM (SELECT * FROM inventory ORDER BY entity_id, section, unit, tech_level)`,
+		`SELECT group_concat(printf('%d/%s/%d', entity_id, class, quantity), ' ')
+			FROM (SELECT * FROM entity_population ORDER BY entity_id, class)`,
+		`SELECT group_concat(printf('%d/%s/%d', entity_id, cadre, quantity), ' ')
+			FROM (SELECT * FROM entity_cadre ORDER BY entity_id, cadre)`,
+		`SELECT group_concat(printf('%d:%d', id, enclosed_volume), ' ')
+			FROM (SELECT * FROM entity ORDER BY id)`,
 		`SELECT (SELECT count(*) FROM probe_contact) || '/' || (SELECT count(*) FROM probe_deposit)
 			|| '/' || (SELECT count(*) FROM sensor_survey) || '/' || (SELECT count(*) FROM sensor_contact)
 			|| '/' || (SELECT count(*) FROM in_transit)`,

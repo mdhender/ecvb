@@ -26,18 +26,40 @@ order they happen:
 
 | # | Phase | What resolves |
 | --- | --- | --- |
-| 1 | probe | every `PROBE` order |
-| 2 | sensor | every assembled `SNSR` reads the sky from where it stands; no order is given for it |
-| 3 | move | every `MOVE` order |
-| 4 | jump | every `JUMP` order departs |
-| 5 | arrival | every ship whose crossing finished lands; no order is given for it |
-| 6 | naming | every `NAME` order |
+| 1 | unassemble | every `UNASSEMBLE` order |
+| 2 | transfer | every `TRANSFER` order |
+| 3 | assemble | every `ASSEMBLE` order |
+| 4 | probe | every `PROBE` order |
+| 5 | sensor | every assembled `SNSR` reads the sky from where it stands; no order is given for it |
+| 6 | move | every `MOVE` order |
+| 7 | jump | every `JUMP` order departs |
+| 8 | arrival | every ship whose crossing finished lands; no order is given for it |
+| 9 | naming | every `NAME` order |
+
+The three inventory phases are in that order on purpose: units have to be
+unassembled to be carried, so one file may unassemble at one entity, transfer
+to another, and assemble again there, all in the same turn.
 
 Probes and passive sensors both read where things stood when the turn began, so
 both settle before anything moves; a ship that jumps this turn reports its new
 stellium in next turn's report. Departures settle before arrivals, so a ship
 landing this turn cannot be caught by a jump order written the turn it arrives. `ec orders help` prints this table from the
 same list the engine walks, so it cannot fall behind.
+
+## Quantities
+
+A quantity is a whole number greater than zero. Once it passes 999 it separates
+every three digits with a comma: `5,000` is accepted and `5000` is refused.
+The same comma separates the items of a list, which reads without ambiguity
+because a quantity is always followed by a unit code and never by another
+quantity:
+
+```text
+ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+```
+
+A unit code is a code on its own, such as `GOLD`, or a code and a technology
+level, such as `LFSU-7`. See [Unit Glossary](units.md).
 
 ## File names
 
@@ -361,6 +383,129 @@ empty, may not begin or end with a space, may not hold two spaces in a row, and
 may not hold control characters.
 
 Names resolve in the naming phase, which is the last phase of the turn.
+
+## UNASSEMBLE
+
+```text
+ship SHIP-ID unassemble QUANTITY UNIT, QUANTITY UNIT, ...
+colony COLONY-ID unassemble QUANTITY UNIT, QUANTITY UNIT, ...
+ship SHIP-ID unassemble and stow QUANTITY UNIT, QUANTITY UNIT, ...
+colony COLONY-ID unassemble and stow QUANTITY UNIT, QUANTITY UNIT, ...
+```
+
+Unassembling takes working units apart and returns them to unassembled
+inventory. It is lossless: what comes apart is what went together.
+
+Examples:
+
+```text
+ship 18 unassemble 1,000 SNSR-1
+colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
+```
+
+`and stow` puts the units down in cargo instead, which is what a `TRANSFER`
+needs: units must be in cargo to be carried.
+
+Unassembling is work, and the same `CWKR` cadre does it at the same rate as
+assembling. See [What construction workers do](#what-construction-workers-do).
+
+An unassemble that would leave the entity overpacked **fails**, and nothing
+moves. Enclosed space comes from assembled `STRC` and `STRL`, so unassembling
+structure takes room away at the same time as the units coming apart need
+somewhere to be put; an entity cannot hold more than it encloses.
+
+Unassembling `LFSU` can kill people: only assembled life support supports
+anyone. See [Unit Glossary](units.md).
+
+## TRANSFER
+
+```text
+ship SHIP-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to ship SHIP-ID
+ship SHIP-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to colony COLONY-ID
+colony COLONY-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to ship SHIP-ID
+colony COLONY-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to colony COLONY-ID
+```
+
+A transfer hands units and population to another entity at the same place. The
+sending entity's transports do the carrying and it pays their fuel.
+
+Examples:
+
+```text
+ship 18 transfer 500 SOL to colony 24
+ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+```
+
+The recipient must be one of your own entities or an uncontrolled one, and the
+two must be at the same stellium, system, and planet **when the order runs**.
+They may be in different rings of that planet. A transfer to an entity
+somewhere else fails; there is no partial answer to being in the wrong place.
+
+Units must be in **cargo** to be transferred, and are stowed in the recipient's
+cargo on arrival: a transport sets down freight and does not assemble it.
+Population moves the same way and is charged the same mass and volume. A cadre
+cannot be transferred, because it is an assignment of people rather than a
+thing; transfer the population instead.
+
+**A shortage fills the order partway rather than failing it.** A transfer that
+asks for more than is in cargo, or for more than the transports carry, moves
+what it can and says how much that was. One `TRAN` at technology level *t*
+carries 20*t*² MU **and** 60*t*² VU in a turn, there and back for one charge;
+both limits hold. One `SKW` crews ten of them. The fuel is reckoned over every
+transport the entity used in the turn at once, so a second transfer that shares
+the round trip pays only what it adds. See [Unit Glossary](units.md).
+
+A transfer that cannot pay its transports' fuel fails.
+
+## ASSEMBLE
+
+```text
+ship SHIP-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...
+colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...
+```
+
+Assembling puts unassembled units to work. It usually costs volume: a unit
+takes twice its cargo volume operational and four times it as a component.
+
+Examples:
+
+```text
+ship 18 assemble 6,000 SNSR-1
+colony 24 assemble 5 LFSU-1, 60 STRL-1
+```
+
+Nothing in the order says where a unit goes; the unit code does. `HDRV`,
+`SNSR`, `SDRV`, `LFSU`, `STRC`, and `STRL` are assembled into **component**
+inventory, because that is the only section they work in. Everything else is
+assembled into **operational** inventory. Resources, population, and cadres are
+never assembled, and naming one is a mistake in the file.
+
+Only assembled units do anything: a drive that is not in component inventory is
+freight, and so is a sensor. Assembling either changes what the entity can do
+in the same turn, but a later phase has to be the one that uses it -- assembly
+resolves before probes and before movement.
+
+An assemble that would leave the entity overpacked **fails**, and nothing
+moves.
+
+### What construction workers do
+
+A `CWKR` cadre carries out `ASSEMBLE` and `UNASSEMBLE`. One does 500 MU of work
+a turn, where the work is the mass being handled.
+
+**Work of the same kind is pooled across an entity**, so the workers it needs
+are reckoned from one total rather than order by order and unit by unit. An
+entity assembling 15,120 MU of `HDRV` and 100 MU of `STRC-1` needs
+`ceil((15,120 + 100) / 500)` = 31 workers, not 31 + 1 = 32.
+
+**Assembly and unassembly never pool with each other.** An entity assembling
+100 MU and unassembling 100 MU needs 2 workers, not 1: each total rounds up on
+its own.
+
+**A shortage is a rate rather than a failure.** An order that asks for more
+than the cadre can do this turn, or for more than the entity holds, does what
+it can and says how much that was. It is not refused and it does not carry
+over. The engine allocates the cadre without being told to.
 
 ## Checking and submitting
 

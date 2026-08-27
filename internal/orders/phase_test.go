@@ -34,6 +34,15 @@ func TestTheTurnIsItsPhaseTable(t *testing.T) {
 	if slices.Index(turn, PhaseSensor) > slices.Index(turn, PhaseMove) {
 		t.Error("the sensor sweep happens after ships have moved")
 	}
+	// Units have to be unassembled to be carried and are set down as freight
+	// when they arrive, so one file may unassemble here, transfer there, and
+	// assemble again, all in one turn. That only works in this order.
+	if slices.Index(turn, PhaseUnassemble) > slices.Index(turn, PhaseTransfer) {
+		t.Error("transfers settle before anything is unassembled to carry")
+	}
+	if slices.Index(turn, PhaseTransfer) > slices.Index(turn, PhaseAssemble) {
+		t.Error("assembly settles before the transfer that brings the units")
+	}
 }
 
 func TestEveryOrderResolvesInAPhaseTheTurnHas(t *testing.T) {

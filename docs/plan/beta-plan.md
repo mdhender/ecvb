@@ -12,13 +12,14 @@ Adding one order used to touch ~33 places across 18 files (measured from
 this plan removes them before adding the orders.
 
 **Status: steps 0 through 4 are done and the plan's own verification suite is
-green. Step 5 has begun: NAME is built (`e3eada9`) and `docs/accepted-orders.md`
+green. Step 5 has begun: NAME is built (`e3eada9`), batch 1 -- `assemble`,
+`unassemble`, `transfer` -- is built, and `docs/accepted-orders.md`
 is now accepted rather than proposed. The parser now reads that surface: every
 order line is subject first, and `we` is a subject. The accepted verbs are
 mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-three
 phases -- see "The turn sequence and the accepted doc are reconciled" below.**
 
-**Step 5 is stopped, and not for want of pipeline. The four structural taxes
+**Step 5 is stopped after batch 1, and not for want of pipeline. The four structural taxes
 this plan set out to remove are removed: an order is one `Spec`, a rule is
 written once, a turn is its phase table, and every order is a row of one table.
 What most of the thirty-one remaining verbs are waiting on is what they *do*.
@@ -46,7 +47,7 @@ turns out not to be needed at all.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 31 orders | **batch 1 ready**, the rest blocked on rules — none of the 31 built | `e3eada9` (NAME, one of the four) |
+| 5 — add the 31 orders | **batch 1 built** (3 of 31); the rest blocked on rules | `e3eada9` (NAME), batch 1 |
 
 ### What step 0 built
 
@@ -618,31 +619,9 @@ zero stellium as nowhere, and only the sensor sweep, the entity report, and
 The accepted doc gives the surface forms, so what is missing is semantics
 rather than syntax:
 
-- **ASSEMBLE / UNASSEMBLE** -- the doc says assembly usually increases a unit's
-  volume and that unassembling optionally stows to cargo, and it now says what
-  the work costs. A `CWKR` cadre does it and one unit does **500 MU a turn**.
-  Work of the same kind is **pooled across an entity**, so an entity assembling
-  15,120 MU of `HDRV` and 100 MU of `STRC-1` needs 31 workers and not 32: the
-  rounding up is per pool, not per line. Unassembly pools the same way at the
-  same rate and **never pools with assembly** -- 100 MU of each needs 2 workers,
-  not 1 -- and the engine allocates the cadre without being told to. That is the
-  labour cost, the per-turn limit, and the allocation rule, all three. Still
-  open: which inventory sections units move between and which units may be
-  assembled into which; whether unassembling is lossless; and what happens when
-  unassembling `STRC` would drop enclosed space below what is occupied.
-- **TRANSFER** -- the accepted form is `ship 18 transfer 4,500 GOLD, 18,000
-  FOOD to colony 24`, and the doc settles co-location (the order fails if the
-  two entities are not in the same place) and that the units leave cargo and are
-  stowed in cargo on arrival. "A shortage of transports partially fills it" is
-  now a computation rather than a gesture: a `TRAN` at technology level _t_
-  carries \(20t^2\) MU **and** \(60t^2\) VU a turn, there and back for one
-  charge, crewed one `SKW` per ten and drawing
-  \(\lceil \sum t^2/10 \rceil\) `FUEL` reckoned over an entity's transports
-  at once rather than one hull at a time. Population moves too: `500 SOL`. One
-  thing moved under it: stage 9 is now orders **and a sweep**, because a build's
-  delivery draws on the same transports a `transfer` does, and an explicitly
-  ordered transfer is served before a build's standing claim. Still open:
-  whether it crosses factions. This is the closest of the lot to buildable.
+- **ASSEMBLE / UNASSEMBLE / TRANSFER** -- **built.** See "Batch 1 is built"
+  below. The four rules that were open here were answered by the user and are
+  now written down in `docs/orders.md`, `docs/units.md`, and `docs/model.md`.
 - **CREATE** -- **designed, and no longer waiting on rules.**
   `docs/plan/entity_build_bom_process.md` settles it end to end and
   `docs/plan/bom-rewrite.md` records what changed on the way. Every question
@@ -686,6 +665,93 @@ rather than syntax:
 - **COMBAT (attack / invade / raid / support)** -- forms given, effects not.
   Needs a combat system, and `support ... defending` now carries what used to be
   a separate defend order.
+
+### Batch 1 is built
+
+`assemble`, `unassemble`, and `transfer` are three `Spec`s, three doc sections,
+and tests -- which is what steps 0 through 4 were for. What they actually cost
+was everything underneath them, because `internal/world` neither loaded nor
+mutated inventory and `internal/fuel` was the only code that touched the table.
+
+**`internal/world/inventory.go` is now the only thing that reads or writes
+`inventory`.** An entity's mass, enclosed volume, drive, sensors, and fuel are
+derived from what it holds, so every mutation writes the row and corrects all
+five. `fuel.Available`, `fuel.AvailableAll`, `fuel.Spend`, `jumpdrive.Load(All)`
+and `sensors.Load(All)` are gone with their SQL; `fuel` keeps `DrawOrder`, which
+is the rule world spends by, and the other two keep their arithmetic. The
+mutations are `ShiftAll` (between the sections of one entity), `Hand` and
+`HandPopulation` (between two entities), `RoomAfter` (what a set of shifts would
+leave, as arithmetic rather than a trial and a rollback), and `BurnFuel`, which
+is now a draw through the same code.
+
+Two new mechanic packages on the `internal/<mechanic>` template:
+**`internal/cadre`** (the 500 MU a turn, `WorkersFor`, and `WorkAllowed`, which
+is what makes the two pools round up separately) and **`internal/transport`**
+(`Capacity`, `CrewedHulls`/`Limit`, `Pack`, and `Fuel`). Both are pure
+arithmetic with no SQL, and `world` holds the per-turn pools they are asked
+about, beside the probe budget.
+
+**One migration**, appended to the baseline the rule still allows editing:
+`entity_cadre`. A cadre is an assignment of population rather than a unit, so it
+carries no mass of its own and its people stay in `entity_population`; the kit
+loader gained a `cadres` block and checks that a kit assigning _n_ `CWKR`
+carries _n_ `SKW` and _n_ `USK`. **`games/beta/rebuild.sh` has to be run against
+any database made before this.**
+
+**The four open rules, as the user settled them:**
+
+- **Which sections, and which units.** `HDRV`, `SNSR`, `SDRV`, `LFSU`, `STRC`,
+  and `STRL` assemble into `component`, because `docs/units.md` says of each of
+  them that a unit held anywhere else is freight. Everything else assembles into
+  `operational`. Resources, population, and cadres are never assembled. The
+  order says nothing about the section; the unit code decides.
+- **Unassembly is lossless.** What comes apart is what went together.
+- **Too little space fails the order**, and nothing moves. It is the one thing
+  that fails an assemble or an unassemble outright, because doing less of the
+  order would not fix it. The same check runs on `assemble`, which usually costs
+  volume, for the same reason.
+- **A transfer reaches your own entities and uncontrolled ones**, and no other
+  faction's. `world.Game().Uncontrolled` is loaded for it.
+
+**A fifth rule turned up and was settled the same way.** `CWKR` is made by
+`draft`, which is batch 3, so nothing had any. Gating on it would have killed
+`assemble` until batch 3 and `create` with it. The user's answer was that an
+order short of what it needs *does not fail*: it assembles what the workers paid
+for and no more. That is now the shape of all three orders -- short of workers,
+short of stock, short of transports -- and it is `Outcome.Note`, a warning at
+check and submit and a `note` on the engine log line rather than an
+`error_message`, because the order succeeded. Kits may assign a cadre so that
+there is one to draw on before `draft` exists.
+
+**Judgment calls, flagged rather than hidden:**
+
+- **Co-location ignores the ring.** A ring is drawn afresh every time a ship
+  settles at a planet, so requiring the same one would make a transfer nearly
+  impossible. Same stellium, system, and planet is what `sameBerth` compares.
+- **Transport crew is the entity's whole `SKW`**, not the `SKW` left over after
+  its cadres. `docs/units.md` says "one `SKW` unit operates up to 10 transports
+  in a turn" and nothing about competing with a cadre; the "a worker does one
+  task per turn" rule is stated about construction workers.
+- **Nothing checks the recipient's space.** The accepted doc gives one reason a
+  transfer is partly filled -- transports -- and says outright that what arrives
+  is stowed in cargo. Whether a recipient can refuse for want of room is not
+  written anywhere, and neither is what `LFSU` does to population that arrives.
+- **`TRAN`'s own mass and volume are still the provisional table's.**
+  `docs/units.md` gives it a flat 4 MU and \(4t\) VU; `internal/units` gives
+  every unit the provisional \(2t\), and correcting one unit of it would change
+  every kit built from it and every golden with it. Noted in `docs/units.md`.
+
+**What batch 1 wants and did not get:** a partly filled order has nowhere on the
+order row to say so. `game_order`'s status block keeps a message and a success
+apart, correctly, and a note is not an error. The engine log and the submission
+warnings carry it; a player reading the orders report does not see it. That is
+the `result` column step 4 deliberately did not add, and batch 2 will want it,
+because a build's progress is the same shape.
+
+**Not touched:** `internal/replay`'s scenario and the CLAUDE-01 corpus. Neither
+carries an inventory order, so the goldens are the clean signal that a large
+change to `world` moved nothing: `go test ./internal/replay` green with no
+`-update`, and 147 byte-identical report files.
 
 ### The cadres are named, and one of them is specified
 
@@ -731,26 +797,22 @@ multi-line parse; `under_construction`, `construction_item`, and a cadre table;
 and the mass-and-volume rules lifted out of `cmd/ec/kit.go` into an
 `internal/units` package.
 
-**Batch 1 is not waiting on rules either**, and that fell out of settling
-`create` rather than being asked for: a build assembles what it is delivered, so
-what a construction worker costs had to be settled, and it carries that material
-by transport, so `TRAN` had to be given real numbers. Both are what `assemble`,
-`unassemble`, and `transfer` were missing. Batch 1 is therefore the place to
-start, and not only because batch 2 depends on it. Everything else waits on
-rules.
+**Batch 1 is built.** It was the place to start because everything below moves
+units through the mutations it establishes, and because it was the only batch
+whose rules were settled. Four more were asked and answered while building it;
+see "Batch 1 is built" above. Everything else still waits on rules.
 
-The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
-`probe`, `name` -- and one of those still needs reworking: `name`, for naming
-another faction's ships and colonies. `jump` is finished, crossings and all.
-Thirty-one remain, batched so that each exercises what the next needs:
+The accepted doc carries thirty-five verbs. Seven are built -- `move`, `jump`,
+`probe`, `name`, and batch 1's `assemble`, `unassemble`, and `transfer` -- and
+one of those still needs reworking: `name`, for naming another faction's ships
+and colonies. `jump` is finished, crossings and all. Twenty-eight remain,
+batched so that each exercises what the next needs:
 
-1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. Establishes
-   `World`'s inventory mutations, which everything below moves units through.
-   **Its rules are settled** -- the `CWKR` rate and the pooling rules for
-   assembly and unassembly, and `TRAN`'s capacity, crew, and fuel for transfer
-   -- so this batch waits on nothing. It is also the gate on batch 2, which
-   cannot claim, deliver, or assemble anything until `world` can move units at
-   all.
+1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. **Built.**
+   `world` now owns the inventory table outright, `internal/cadre` and
+   `internal/transport` hold the two mechanics, and `entity_cadre` holds the
+   assignment a kit may make. See "Batch 1 is built" above for the rules that
+   were settled on the way and the four judgment calls that were not.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
    first batch to exercise a multi-line order end to end. **No longer blocked on

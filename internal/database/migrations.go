@@ -159,6 +159,20 @@ CREATE TABLE entity_population (
     PRIMARY KEY (entity_id, class)
 );
 
+-- The population an entity has assigned to a cadre. A cadre is not a unit and
+-- has no mass or volume of its own: the people in it are already counted in
+-- entity_population, and this says what they have been assigned to do. One
+-- CWKR is one SKW plus one USK, so an entity's CWKR count is bounded by both.
+--
+-- Nothing forms or dissolves a cadre yet; that is the draft and disband orders.
+-- Until they exist a kit is the only thing that puts a row here.
+CREATE TABLE entity_cadre (
+    entity_id INTEGER NOT NULL REFERENCES entity(id),
+    cadre TEXT NOT NULL CHECK (cadre IN ('CWKR', 'LABR', 'PLCF', 'SPCF', 'TRNE')),
+    quantity INTEGER NOT NULL CHECK (quantity >= 0),
+    PRIMARY KEY (entity_id, cadre)
+);
+
 CREATE TABLE work_group (
     id INTEGER PRIMARY KEY,
     entity_id INTEGER NOT NULL REFERENCES entity(id),

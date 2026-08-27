@@ -108,6 +108,13 @@ type Outcome struct {
 	// Survey is the planet the order read, for the orders that read one. An
 	// order that read nothing, or a probe that failed, leaves it nil.
 	Survey *Survey
+	// Note is what an order that succeeded still wants to say: that it did
+	// less than it was asked for, because the workers or the transports or the
+	// stock ran out. A shortage is a rate rather than a failure, so it is not
+	// an error message and does not go where one goes -- the engine log
+	// carries it, and a check or a submit reports it as a warning, so a player
+	// sees before the turn runs that their file asks for more than it will get.
+	Note string
 }
 
 // Survey is a planet an order read.
@@ -191,6 +198,35 @@ func (b *Binder) once(verb string, entity *world.Entity) error {
 	return nil
 }
 
+// recipient finds the entity an order is handing something to. It is not
+// actor: a faction may hand things to its own entities and to the derelicts
+// nobody holds, but not to another faction's -- so ownership is checked here
+// against two answers rather than one.
+func (b *Binder) recipient(id int64, kind string) (*world.Entity, error) {
+	entity := b.World.Entity(id)
+	if entity == nil {
+		return nil, fmt.Errorf("%s %d does not exist", kind, id)
+	}
+	switch kind {
+	case "colony":
+		if entity.Unit == "SHIP" {
+			return nil, fmt.Errorf("entity %d is a ship, not a colony", id)
+		}
+	case "ship":
+		if entity.Unit != "SHIP" {
+			return nil, fmt.Errorf("entity %d is a %s, not a ship", id, entity.Unit)
+		}
+	}
+	if entity.FactionID != b.FactionID && entity.FactionID != b.World.Game().Uncontrolled {
+		return nil, fmt.Errorf("%s %d belongs to another faction", noun(entity), id)
+	}
+	if entity.InTransit() {
+		return nil, fmt.Errorf("%s %d is in transit and arrives on turn %d; nothing can reach it until then",
+			noun(entity), id, entity.Transit.ArrivalTurn)
+	}
+	return entity, nil
+}
+
 // system is the system an order names: the one the player wrote, which has to
 // belong to the entity's own stellium, or the one the entity is in when the
 // order named none. Zero is the stellium orbit, which is no system at all;
@@ -213,9 +249,9 @@ func (b *Binder) system(entity *world.Entity, letter string) (int64, error) {
 // pay when it cannot. It is the one rule that is deliberately not settled at
 // Bind: fuel may reach a ship between the file and the turn.
 func spendFuel(t *Turn, entity *world.Entity, verb string, cost int64) (string, error) {
-	if entity.Fuel < cost {
+	if held := entity.Fuel(); held < cost {
 		return fmt.Sprintf("%s %d needs %d %s to %s and holds %d",
-			noun(entity), entity.ID, cost, fuel.Unit, verb, entity.Fuel), nil
+			noun(entity), entity.ID, cost, fuel.Unit, verb, held), nil
 	}
 	return "", t.World.BurnFuel(entity, cost)
 }

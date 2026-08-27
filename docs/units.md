@@ -59,7 +59,22 @@ enclosed-space efficiency is 0.2.
 ## `CWKR`
 
 **Construction Worker cadre.** Required to execute an `assemble` order, and so
-named by every `create` order, because a create assembles what it is given.
+named by every `create` order, because a create assembles what it is given. One
+`CWKR` is one `SKW` plus one `USK`.
+
+One unit does up to 500 MU of work a turn, where the work is the mass being
+handled. Work of the same kind is **pooled across an entity**, so the workers it
+needs are reckoned from one total rather than order by order; assembly and
+unassembly are two pools that round up on their own and never pool with each
+other. A worker does one task per turn, so the pool is drawn down as the turn
+runs rather than refilled for each order.
+
+**A shortage is a rate rather than a failure.** An order that asks for more than
+the cadre can do this turn does what the workers paid for and says so; it is not
+refused and nothing carries over. See [Order File Reference](orders.md).
+
+A cadre is held in `entity_cadre`. Nothing forms or dissolves one yet -- that is
+`draft` and `disband` -- so a starting kit is the only thing that assigns one.
 
 ## `FACT`
 
@@ -346,6 +361,17 @@ trip, so carrying a `CWKR` cadre out to a build site and home again at the end
 of the shift is charged once, not twice. (Combat may destroy a transport on the
 way; that is a combat rule and is not written yet.)
 
+A `transfer` takes the fewest hulls that carry its load, highest technology
+level first, and the fuel is reckoned over every hull the entity used in the
+turn at once, so a second transfer that shares the round trip pays only what it
+adds to the total. **A shortage fills the order partway rather than failing it.**
+See [Order File Reference](orders.md).
+
+The flat 4 MU and the \(4t\) VU above are not what the code weighs yet. The
+mass and volume table in `internal/units` is still the provisional one this
+document opens with, for `TRAN` as for every other unit, and correcting one unit
+of it would change every kit built from it.
+
 Fuel per MU moved does not depend on technology level: capacity is \(20t^2\) and
 fuel is \(t^2/10\), so the ratio is flat. A better transport buys fewer hulls and
 fewer crew, not cheaper freight.
@@ -358,3 +384,18 @@ fewer crew, not cheaper freight.
 
 **Unskilled Worker population.** Population that a faction can assign to work
 in farms, mines, and factories.
+
+## Summary
+Agents must ignore this summary. It is a work in progress.
+
+|Code|Class     |Mass MU|Component VU|Cargo VU|
+|----|----------|-------|------------|---------|
+|STRC|Structural|1 × TL |-1          |1 × TL   |
+|STRL|Structural|1 × TL |-1          |1 × TL   |
+|HDRV|Propulsion|45 × TL|45 × TL     |22.5 × TL|
+|SDRV|Propulsion|25 × TL|25 × TL     |12.5 × TL|
+|NAS |Population|1      |N/A         |N/A      |
+|SKW |Population|1      |N/A         |N/A      |
+|SOL |Population|1      |N/A         |N/A      |
+|USK |Population|1      |N/A         |N/A      |
+|CWKR|Cadre     |2      |N/A         |N/A      |

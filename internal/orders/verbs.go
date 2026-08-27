@@ -10,8 +10,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/mdhender/ecvb/internal/cadre"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"github.com/mdhender/ecvb/internal/sensors"
+	"github.com/mdhender/ecvb/internal/transport"
+	"github.com/mdhender/ecvb/internal/units"
 	"github.com/mdhender/ecvb/internal/world"
 )
 
@@ -133,6 +136,107 @@ func init() {
 				order.Place = place
 			}
 			if order.Name, err = line.quoted("name"); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+	})
+
+	register(&Spec{
+		Verb:     "assemble",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "put unassembled units to work, as much of them as the construction workers manage",
+		Syntax: []string{
+			"ship SHIP-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...",
+			"colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...",
+		},
+		Phase: PhaseAssemble,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := AssembleParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := AssembleParams{Kind: subject.Kind, EntityID: subject.ID}
+			var err error
+			if order.Units, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+	})
+
+	register(&Spec{
+		Verb:     "unassemble",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "take working units apart again, optionally stowing them in cargo",
+		Syntax: []string{
+			"ship SHIP-ID unassemble QUANTITY UNIT, QUANTITY UNIT, ...",
+			"colony COLONY-ID unassemble QUANTITY UNIT, QUANTITY UNIT, ...",
+			"ship SHIP-ID unassemble and stow QUANTITY UNIT, QUANTITY UNIT, ...",
+			"colony COLONY-ID unassemble and stow QUANTITY UNIT, QUANTITY UNIT, ...",
+		},
+		Phase: PhaseUnassemble,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := UnassembleParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := UnassembleParams{Kind: subject.Kind, EntityID: subject.ID}
+			// Stowing puts the units down in cargo instead of leaving them in
+			// unassembled inventory, which is what a transfer needs.
+			if _, ok := line.keyword("and"); ok {
+				if err := line.expect("stow"); err != nil {
+					return nil, err
+				}
+				order.Stow = true
+			}
+			var err error
+			if order.Units, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+	})
+
+	register(&Spec{
+		Verb:     "transfer",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "hand units or population to another entity at the same place, by transport",
+		Syntax: []string{
+			"ship SHIP-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to ship SHIP-ID",
+			"ship SHIP-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to colony COLONY-ID",
+			"colony COLONY-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to ship SHIP-ID",
+			"colony COLONY-ID transfer QUANTITY UNIT, QUANTITY UNIT, ... to colony COLONY-ID",
+		},
+		Phase: PhaseTransfer,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := TransferParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := TransferParams{Kind: subject.Kind, EntityID: subject.ID}
+			var err error
+			if order.Units, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			if err := line.expect("to"); err != nil {
+				return nil, err
+			}
+			kind, ok := line.keyword(SubjectShip, SubjectColony)
+			if !ok {
+				return nil, badSyntax("expected ship or colony")
+			}
+			order.RecipientAs = kind
+			if order.Recipient, err = line.entityID(kind); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -651,4 +755,445 @@ func (o *nameBound) Apply(t *Turn) (Outcome, error) {
 		at = entity.Location
 	}
 	return succeeded(at, at, 0), nil
+}
+
+// UNITS -----------------------------------------------------------------
+
+// UnitQuantity is one item of an order that names units: how many, and the tag
+// the player wrote them as. The tag is kept as written rather than split into
+// a code and a level, because it is what the order file said and what the
+// report prints back.
+type UnitQuantity struct {
+	Quantity int64  `json:"quantity"`
+	Tag      string `json:"unit"`
+}
+
+// unitListInput renders the units an order named, in the words the player
+// used: `4,500 GOLD, 18,000 FOOD`.
+func unitListInput(items []UnitQuantity) string {
+	parts := make([]string, len(items))
+	for i, item := range items {
+		parts[i] = fmt.Sprintf("%s %s", formatQuantity(item.Quantity), item.Tag)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// bindUnitShifts resolves the tags an order named into the moves through
+// inventory it is asking for.
+//
+// Which section a unit works in is a property of the unit code, so it cannot
+// change during a turn and belongs here rather than in Apply. So does naming
+// something that is never assembled at all, and naming the same unit twice --
+// both are mistakes in the file rather than things the world might yet oblige.
+func bindUnitShifts(items []UnitQuantity, assembling, stow bool) ([]world.Shift, error) {
+	var found bindErrors
+	seen := make(map[string]bool, len(items))
+	shifts := make([]world.Shift, 0, len(items))
+	for _, item := range items {
+		unit, techLevel, _, err := units.ParseTag(item.Tag)
+		if err != nil {
+			found = append(found, err)
+			continue
+		}
+		if seen[item.Tag] {
+			found = append(found, fmt.Errorf("%s is named twice", item.Tag))
+			continue
+		}
+		seen[item.Tag] = true
+		assembled, assemblable := units.AssembledSection(unit)
+		if !assemblable {
+			found = append(found, notAssemblable(item.Tag, unit))
+			continue
+		}
+		from, to := units.SectionUnassembled, assembled
+		if !assembling {
+			from, to = assembled, units.SectionUnassembled
+			if stow {
+				to = units.SectionCargo
+			}
+		}
+		shifts = append(shifts, world.Shift{From: from, To: to,
+			Unit: unit, TechLevel: techLevel, Quantity: item.Quantity})
+	}
+	if len(found) != 0 {
+		return nil, found
+	}
+	return shifts, nil
+}
+
+// notAssemblable says why a thing an order named is never put together, in the
+// terms of what it actually is.
+func notAssemblable(tag, unit string) error {
+	switch {
+	case units.IsPopulation(unit):
+		return fmt.Errorf("%s is population; people are carried and fed, not assembled", tag)
+	case units.IsCadre(unit):
+		return fmt.Errorf("%s is a cadre, an assignment of people rather than a unit, and is never assembled", tag)
+	default:
+		return fmt.Errorf("%s is a resource; it is measured rather than made, and is never assembled", tag)
+	}
+}
+
+// ASSEMBLE and UNASSEMBLE ------------------------------------------------
+
+// AssembleParams is an ASSEMBLE as written: an entity and the units it is to
+// put to work.
+type AssembleParams struct {
+	Kind     string         `json:"-"`
+	EntityID int64          `json:"-"`
+	Units    []UnitQuantity `json:"units"`
+}
+
+// Actor is the entity whose construction workers do the assembling.
+func (p AssembleParams) Actor() int64 { return p.EntityID }
+
+// Input is the order as the player wrote it.
+func (p AssembleParams) Input() string { return unitListInput(p.Units) }
+
+// Bind settles which sections the units move between, which the unit codes
+// decide and a turn cannot change.
+func (p AssembleParams) Bind(b *Binder) ([]Bound, error) {
+	entity, err := b.actor(p.EntityID, p.Kind)
+	if err != nil {
+		return nil, err
+	}
+	shifts, err := bindUnitShifts(p.Units, true, false)
+	if err != nil {
+		return nil, err
+	}
+	return []Bound{&workBound{params: p, entity: entity, pool: cadre.Assembly,
+		verb: "assembled", shifts: shifts}}, nil
+}
+
+// UnassembleParams is an UNASSEMBLE as written. Stow says the units are put
+// down in cargo rather than left in unassembled inventory, which is what makes
+// them ready to be carried away.
+type UnassembleParams struct {
+	Kind     string         `json:"-"`
+	EntityID int64          `json:"-"`
+	Stow     bool           `json:"stow,omitempty"`
+	Units    []UnitQuantity `json:"units"`
+}
+
+// Actor is the entity whose construction workers do the taking apart.
+func (p UnassembleParams) Actor() int64 { return p.EntityID }
+
+// Input is the order as the player wrote it.
+func (p UnassembleParams) Input() string {
+	if p.Stow {
+		return "and stow " + unitListInput(p.Units)
+	}
+	return unitListInput(p.Units)
+}
+
+// Bind settles which sections the units move between. Unassembly is lossless:
+// what comes apart is what went together, so nothing here weighs a yield.
+func (p UnassembleParams) Bind(b *Binder) ([]Bound, error) {
+	entity, err := b.actor(p.EntityID, p.Kind)
+	if err != nil {
+		return nil, err
+	}
+	shifts, err := bindUnitShifts(p.Units, false, p.Stow)
+	if err != nil {
+		return nil, err
+	}
+	return []Bound{&workBound{params: p, entity: entity, pool: cadre.Unassembly,
+		verb: "unassembled", shifts: shifts}}, nil
+}
+
+// workBound is an ASSEMBLE or an UNASSEMBLE. They are one thing in two
+// directions: the same cadre does both, at the same rate, and the only
+// differences are which way the units move through the sections and which of
+// the two work pools the order draws on.
+type workBound struct {
+	params Params
+	entity *world.Entity
+	// pool is the construction-work pool this order draws on. The two never
+	// pool with each other, so which one an order is in is the whole of what
+	// separates the rounding of the one from the rounding of the other.
+	pool string
+	// verb is the past tense the note reads in: assembled, unassembled.
+	verb   string
+	shifts []world.Shift
+}
+
+// Params is the order as it will be stored.
+func (o *workBound) Params() Params { return o.params }
+
+// Fuel is nothing. Construction workers are people, and people are paid rather
+// than burned.
+func (o *workBound) Fuel() int64 { return 0 }
+
+// Apply does as much of the work as the entity's construction workers and its
+// stock allow.
+//
+// A shortage is a rate rather than a failure: an order that asks for more than
+// the cadre can do this turn, or for more than the entity holds, does what it
+// can and says so. It fails for one reason only -- that the result would not
+// fit -- because an entity cannot hold more than it encloses, and that is not
+// something doing less of the order would fix.
+func (o *workBound) Apply(t *Turn) (Outcome, error) {
+	at := o.entity.Location
+	allowed := t.World.WorkAllowed(o.pool, o.entity)
+	done := int64(0)
+	shifts := make([]world.Shift, 0, len(o.shifts))
+	var short []string
+	cadreBound := false
+	for _, want := range o.shifts {
+		quantity := want.Quantity
+		if held := o.entity.Held(want.From, want.Unit, want.TechLevel); held < quantity {
+			quantity = held
+		}
+		// The work is the mass being handled, so a heavier unit is more work.
+		// A unit that masses nothing is no work at all and is not rationed.
+		if unitMass := units.MetricsForStored(want.Unit, want.TechLevel).Mass; unitMass > 0 {
+			if room := (allowed - done) / unitMass; room < quantity {
+				quantity, cadreBound = max(room, 0), true
+			}
+			done += quantity * unitMass
+		}
+		if quantity != want.Quantity {
+			short = append(short, fmt.Sprintf("%s of %s %s",
+				formatQuantity(quantity), formatQuantity(want.Quantity), want.Tag()))
+		}
+		want.Quantity = quantity
+		shifts = append(shifts, want)
+	}
+	occupied, usable, err := o.entity.RoomAfter(shifts)
+	if err != nil {
+		return Outcome{}, err
+	}
+	if occupied > usable {
+		return failed(at, fmt.Sprintf("%s %d would hold %s VU in %s VU of enclosed space",
+			noun(o.entity), o.entity.ID, formatQuantity(occupied), formatQuantity(usable))), nil
+	}
+	if err := t.World.ShiftAll(o.entity, shifts); err != nil {
+		return Outcome{}, err
+	}
+	t.World.RecordWork(o.pool, o.entity.ID, done)
+	item := succeeded(at, at, 0)
+	if len(short) != 0 {
+		reason := "it holds no more"
+		if cadreBound {
+			reason = fmt.Sprintf("its %d %s do %s MU of work a turn",
+				o.entity.ConstructionWorkers(), cadre.Unit,
+				formatQuantity(o.entity.ConstructionWorkers()*cadre.WorkPerUnit))
+		}
+		item.Note = fmt.Sprintf("%s %d %s %s; %s",
+			noun(o.entity), o.entity.ID, o.verb, strings.Join(short, ", "), reason)
+	}
+	return item, nil
+}
+
+// TRANSFER --------------------------------------------------------------
+
+// TransferParams is a TRANSFER as written: an entity, what it is handing over,
+// and who it is handing it to.
+//
+// The recipient's id is stored, which is not the same thing as storing a
+// resolved id: it is the number the player typed, and Bind looks it up again
+// when the turn runs, so a recipient that has since gone is a rejected file
+// rather than a corrupt row.
+type TransferParams struct {
+	Kind        string         `json:"-"`
+	EntityID    int64          `json:"-"`
+	Units       []UnitQuantity `json:"units"`
+	Recipient   int64          `json:"to"`
+	RecipientAs string         `json:"to_kind"`
+}
+
+// Actor is the entity handing the units over. Its transports do the carrying,
+// and it pays the fuel.
+func (p TransferParams) Actor() int64 { return p.EntityID }
+
+// Input is the transfer as the player wrote it.
+func (p TransferParams) Input() string {
+	return fmt.Sprintf("%s to %s %d", unitListInput(p.Units), p.RecipientAs, p.Recipient)
+}
+
+// Bind finds the recipient and checks that the units named are things that can
+// be handed over at all. Where the two entities are is not settled here: a
+// ship moves during a turn, so co-location is measured when the order runs.
+func (p TransferParams) Bind(b *Binder) ([]Bound, error) {
+	entity, err := b.actor(p.EntityID, p.Kind)
+	if err != nil {
+		return nil, err
+	}
+	recipient, err := b.recipient(p.Recipient, p.RecipientAs)
+	if err != nil {
+		return nil, err
+	}
+	if recipient.ID == entity.ID {
+		return nil, fmt.Errorf("%s %d cannot transfer to itself", noun(entity), entity.ID)
+	}
+	var found bindErrors
+	seen := make(map[string]bool, len(p.Units))
+	items := make([]transferItem, 0, len(p.Units))
+	for _, item := range p.Units {
+		unit, techLevel, _, err := units.ParseTag(item.Tag)
+		if err != nil {
+			found = append(found, err)
+			continue
+		}
+		if seen[item.Tag] {
+			found = append(found, fmt.Errorf("%s is named twice", item.Tag))
+			continue
+		}
+		seen[item.Tag] = true
+		// A cadre is an assignment rather than a thing: the people in it are
+		// already counted as population, so a transfer names the population.
+		if units.IsCadre(unit) {
+			found = append(found, fmt.Errorf("%s is a cadre, an assignment of people rather than a thing to carry; transfer the population instead", item.Tag))
+			continue
+		}
+		items = append(items, transferItem{
+			tag: item.Tag, unit: unit, techLevel: techLevel, quantity: item.Quantity,
+			population: units.IsPopulation(unit),
+		})
+	}
+	if len(found) != 0 {
+		return nil, found
+	}
+	return []Bound{&transferBound{params: p, entity: entity, recipient: recipient, items: items}}, nil
+}
+
+// transferItem is one lot a transfer carries, resolved. Population is not
+// inventory -- it has a table of its own and is never assembled -- but it
+// rides the same transports and is charged the same mass and volume.
+type transferItem struct {
+	tag        string
+	unit       string
+	techLevel  int
+	quantity   int64
+	population bool
+}
+
+// metrics is what one of these masses and what room it takes as freight.
+func (i transferItem) metrics() units.Metrics {
+	if i.population {
+		return units.PopulationMetrics
+	}
+	return units.MetricsForStored(i.unit, i.techLevel)
+}
+
+type transferBound struct {
+	params    TransferParams
+	entity    *world.Entity
+	recipient *world.Entity
+	items     []transferItem
+	// spent is the FUEL the transports cost, filled in when the order runs. A
+	// transfer's bill depends on the load, so it is not known until the load
+	// is, and what is stored with a pending order is what the dry run found.
+	spent int64
+}
+
+// Params is the transfer as it will be stored.
+func (o *transferBound) Params() Params { return o.params }
+
+func (o *transferBound) Fuel() int64 { return o.spent }
+
+// Apply carries as much as the transports take.
+//
+// Three things are weighed here rather than at Bind, because a turn can change
+// all three: where the two entities are, what is in the sending entity's
+// cargo, and how many of its transports are still free. The first is a failure
+// -- there is no partial answer to being in the wrong place -- and the other
+// two fill the order partway, which is what the transports rule says outright.
+func (o *transferBound) Apply(t *Turn) (Outcome, error) {
+	at := o.entity.Location
+	if !sameBerth(o.entity.Location, o.recipient.Location) {
+		return failed(at, fmt.Sprintf("%s %d and %s %d are not at the same place",
+			noun(o.entity), o.entity.ID, noun(o.recipient), o.recipient.ID)), nil
+	}
+	free := t.World.TransportsFree(o.entity)
+	capacity := transport.Capacity(free)
+	var carried transport.Load
+	var short []string
+	loaded := make([]transferItem, 0, len(o.items))
+	for _, item := range o.items {
+		quantity := item.quantity
+		if held := o.held(item); held < quantity {
+			quantity = held
+		}
+		metrics := item.metrics()
+		// Both limits hold, so what a lot can take is whichever runs out
+		// first. A lot that masses nothing and takes no room is not rationed.
+		if metrics.Mass > 0 {
+			quantity = min(quantity, (capacity.Mass-carried.Mass)/metrics.Mass)
+		}
+		if metrics.CargoVolume > 0 {
+			quantity = min(quantity, (capacity.Volume-carried.Volume)/metrics.CargoVolume)
+		}
+		quantity = max(quantity, 0)
+		if quantity != item.quantity {
+			short = append(short, fmt.Sprintf("%s of %s %s",
+				formatQuantity(quantity), formatQuantity(item.quantity), item.tag))
+		}
+		carried.Mass += quantity * metrics.Mass
+		carried.Volume += quantity * metrics.CargoVolume
+		item.quantity = quantity
+		loaded = append(loaded, item)
+	}
+	// The fuel is reckoned over the hulls the load actually needs, so a small
+	// transfer is not charged for every transport the entity owns.
+	used := transport.Pack(free, carried)
+	cost := transport.Fuel(t.World.Squares(o.entity.ID)+transport.Squares(used)) -
+		transport.Fuel(t.World.Squares(o.entity.ID))
+	message, err := spendFuel(t, o.entity, "run its transports", cost)
+	if err != nil {
+		return Outcome{}, err
+	}
+	if message != "" {
+		return failed(at, message), nil
+	}
+	o.spent = cost
+	t.World.CommitTransports(o.entity, used)
+	for _, item := range loaded {
+		if item.quantity == 0 {
+			continue
+		}
+		if item.population {
+			err = t.World.HandPopulation(o.entity, o.recipient, item.unit, item.quantity)
+		} else {
+			err = t.World.Hand(o.entity, o.recipient, item.unit, item.techLevel, item.quantity)
+		}
+		if err != nil {
+			return Outcome{}, err
+		}
+	}
+	item := succeeded(at, at, cost)
+	if len(short) != 0 {
+		item.Note = fmt.Sprintf("%s %d transferred %s; %s",
+			noun(o.entity), o.entity.ID, strings.Join(short, ", "), o.shortfall(free))
+	}
+	return item, nil
+}
+
+// held is how much of a lot the sending entity has to hand. Units must be in
+// cargo to be transferred; population is wherever population is.
+func (o *transferBound) held(item transferItem) int64 {
+	if item.population {
+		return o.entity.Population[item.unit]
+	}
+	return o.entity.Held(units.SectionCargo, item.unit, item.techLevel)
+}
+
+// shortfall says which of the two ran out, for the note on a partly filled
+// transfer.
+func (o *transferBound) shortfall(free []transport.Hulls) string {
+	if len(free) == 0 {
+		return fmt.Sprintf("it has no %s free this turn", transport.Unit)
+	}
+	capacity := transport.Capacity(free)
+	return fmt.Sprintf("its transports carry %s MU and %s VU a turn",
+		formatQuantity(capacity.Mass), formatQuantity(capacity.Volume))
+}
+
+// sameBerth reports whether two entities are at the same place. The ring is
+// not part of it: a ring is drawn afresh every time a ship settles at a
+// planet, and a transport crossing between two rings of one planet has gone
+// nowhere worth charging for.
+func sameBerth(a, b world.Location) bool {
+	return a.StelliumID != 0 && a.StelliumID == b.StelliumID &&
+		a.SystemID == b.SystemID && a.PlanetID == b.PlanetID
 }
