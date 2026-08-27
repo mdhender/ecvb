@@ -198,7 +198,7 @@ parser reads neither, so the parser rewrite comes before the rest of the orders;
 
 The two docs are reconciled: every accepted verb lands on a step of a stage, and
 `docs/turn-sequence.md` is the authority on *when* an order takes effect. Its
-twenty-two stages are forty-three phases, because a stage's lettered steps run in
+twenty-two stages are forty-five phases, because a stage's lettered steps run in
 their letter order and a step is exactly a `Phase`. Six stages are pure sweeps;
 five are orders *and* a sweep -- combat, the market, espionage, ship movement,
 the news service -- where the orders declare intent and one sweep settles all of

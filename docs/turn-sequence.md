@@ -45,7 +45,7 @@ A lettered sub-step is a step of a stage, and steps run in the lettered order:
 every order of step a resolves before any order of step b, whichever way round
 a player wrote them. Within a step, the order of the lines in the file decides.
 A step is therefore exactly a `Phase`, which is why move and jump are two
-phases and not one, and why twenty-two stages come to forty-three phases.
+phases and not one, and why twenty-two stages come to forty-five phases.
 
 ## The stages
 
@@ -151,12 +151,24 @@ itself -- see stage 8.
 
 **Orders.**
 
-`unassemble`
+  a. `unassemble`
+  b. `stow`
 
-Working units become unassembled inventory, optionally stowed to cargo. This is
-before transfers (9) and the market (11) on purpose: units must be unassembled
-to be transferred, bought, or sold, so the sequence is unassemble here, move
-them there, assemble again at stage 10.
+Both steps move units away from the sections they work in, which is what makes
+them ready to go somewhere. Working units become unassembled inventory,
+optionally stowed to cargo; a plain `stow` then moves unassembled inventory to
+cargo, which is where a transport picks a load up.
+
+The order of the two steps is what lets one file do both halves: a plain
+`unassemble` at step a leaves units in unassembled inventory, and a `stow` at
+step b can pick them up in the same turn. `unassemble` `and` `stow` does both at
+step a for units that were assembled, and is construction work throughout at no
+extra cost; a plain `stow` at step b is production labour moving freight. See
+[Accepted Orders](accepted-orders.md).
+
+This is all before transfers (9) and the market (11) on purpose: units must be
+in cargo to be transferred and unassembled to be bought or sold, so the sequence
+is unassemble and stow here, move them there, unstow or assemble at stage 10.
 
 ### 7. Build change orders are entered
 
@@ -247,11 +259,22 @@ tie-break inside the sweep rather than the whole of the rule.
 
 **Orders and a sweep.**
 
-`assemble`
+  a. `unstow`
+  b. `assemble`, and the build sweep
+
+Both steps move units toward the sections they work in, which is the mirror of
+stage 6. `unstow` takes units out of cargo and puts them in unassembled
+inventory; `assemble` puts them to work.
+
+`unstow` is here rather than earlier because what it moves is usually what a
+transfer set down at stage 9, and it is before the market (11) because units
+must be unassembled to be bought or sold. It is **not** needed to assemble
+anything: an `assemble` draws from unassembled inventory first and from cargo
+after it, so a load delivered at stage 9 can be assembled at step b of the same
+turn without being unstowed first.
 
 Unassembled units become working ones, usually taking more volume than they
-did. Units that arrived by transfer at stage 9 can be assembled here in the
-same turn.
+did.
 
 A build **completes** here too: the workers carried out at stage 9 work off what
 is on site, in the order the player wrote the lines, and then go home. The stage
@@ -569,7 +592,7 @@ carries those rules.
 ## Stages, phases, and what is built
 
 The engine's `phases` table is flat: it has one entry per *step*, not one per
-stage, so the twenty-two stages below come to forty-three phases. Six of those
+stage, so the twenty-two stages below come to forty-five phases. Six of those
 phases are built -- `probe`, `sensor`, `move`, `jump`, `arrival`, `name` -- and
 two stages, 13 and 15, are built entire.
 
@@ -587,11 +610,11 @@ sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
 | 3. Factory production | `manufacturing` | sweep | no |
 | 4. Combat | `raid`, `support`, `attack`, `invade` | orders + sweep | no |
 | 5. Creation | `create` | orders + sweep | no |
-| 6. Dis-assembly | `unassemble` | orders | no |
+| 6. Dis-assembly | `unassemble`, `stow` | orders | no |
 | 7. Build change | `retool` | orders | no |
 | 8. Group change | `idle`, `remove`, `add`, `activate` | orders | no |
 | 9. Transfers | `transfer` | orders + sweep | no |
-| 10. Assembly | `assemble` | orders + sweep | no |
+| 10. Assembly | `unstow`, `assemble` | orders + sweep | no |
 | 11. Market and trade stations | `sell`, `buy` | orders + sweep | no |
 | 12. Surveys | `survey` | orders | no |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |

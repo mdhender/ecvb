@@ -146,7 +146,7 @@ half of this note:
 - **`CWKR` now has a home to build.** Not a fifth `entity_population.class` — it
   is an assignment of one `SKW` and one `USK`, made by `draft` and persisting
   until disbanded. That wants a table (`entity_id, cadre, quantity`) that
-  generalises to `LABR`, `PLCF`, `SPCF`, and `TRNE`, and `under_construction`
+  generalises to `PLCF`, `SPCF`, and `TRNE`, and `under_construction`
   records how much of it a given build holds.
 - **`entity.tech_level` and `entity.enclosed_volume` are `NOT NULL` with no
   default**, and neither is a field on `world.Entity`. A create must supply both,

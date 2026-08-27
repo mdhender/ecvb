@@ -20,14 +20,67 @@ The loader currently uses provisional mass and volume values for testing:
 
 A **cadre** is not a unit. It is a temporary assignment of population that lets
 the assigned units carry out orders they otherwise could not, so a cadre has no
-mass or volume of its own. The cadres are `CWKR`, `LABR`, `PLCF`, `SPCF`, and
-`TRNE`; they are listed below with the other codes because that is where a
-reader looks one up. `CWKR` is required to execute an `assemble`. What the other
-four permit, and which population may be assigned to each, is not settled.
+mass or volume of its own. The cadres are `CWKR`, `PLCF`, `SPCF`, and `TRNE`;
+they are listed below with the other codes because that is where a reader looks
+one up. `CWKR` is required to execute an `assemble`. What the other three
+permit, and which population may be assigned to each, is not settled.
+
+**Production labour** is an entity's `USK` plus \(t\) for every assembled
+`AUTO` it carries. It is what unskilled work of every kind is measured against
+-- working a factory, a farm, or a mine, and moving freight with a `stow` or an
+`unstow` -- so that no rule has to say "so many `USK`, or the equivalent in
+automation". The equivalence is stated here, once, and nowhere else.
+
+The name is narrower than the thing: production labour moves freight as well as
+working a farm. It is one term because one term is the point, and every rule
+that asks for unskilled work is written against it.
+
+A cadre is the exception, and the reason is not arithmetic. **A cadre is an
+assignment of people**, so automation never joins one: the `USK` of a `CWKR` has
+to be a person. Production labour is not population -- automation is not fed,
+does not appear in a census, and is not part of `REBL`.
 
 `REBL` is neither a unit nor a cadre, and is listed below for the same reason
 the cadres are. It is a percentage rather than a quantity, and nothing in the
 schema holds it yet.
+
+## `AUTO`
+
+**Automation**, sometimes called production robots. A technology-level unit that
+does unskilled work without anyone doing it.
+
+A unit at technology level \(t\) has a mass of \(4t\) MU and takes \(4t\) VU
+assembled, \(4t\) VU unassembled, and \(2t\) VU in cargo. It is the first unit
+whose cargo volume differs from its unassembled volume: it packs down for
+carrying and does not fold up any smaller sitting idle in the hold.
+
+An assembled unit at technology level \(t\) does the work of \(t\) `USK`
+units, so 20 `AUTO-4` replace \(20 \times 4 = 80\) `USK`. Only assembled units
+count; `AUTO` held in any other section is freight, the same as a drive or a
+sensor. Running one burns no `FUEL` and costs nothing per turn.
+
+**It replaces unskilled workers wherever unskilled work is done**: in a
+factory, a farm, or a mine, and moving freight for a `stow` or an `unstow`. What
+it never does is join a cadre -- a cadre is an assignment of people, so the one
+`SKW` and one `USK` of a [`CWKR`](#cwkr) both have to be people.
+
+**It is not population.** An `AUTO` does unskilled work and nothing else a
+person does: it has no row in `entity_population`, does not appear in a census,
+is not fed by a ration order, and is not part of the `REBL` percentage. A colony
+of robots is not a colony of people. What "`USK`-equivalent" means is equivalent
+*at that work*, and nowhere else.
+
+**Automation is a pool, not a member.** It is counted into the entity's production labour,
+defined once at the top of this document, and everything that asks for unskilled
+work draws on that one total. An `AUTO` is never assigned *into* anything: it is not
+a member of a group or of a cadre, and no order puts one in or takes one out.
+That is what keeps the number a player writes and the number a report shows in
+the same unit, and it means nothing is consumed by putting automation to work
+and nothing has to be chosen to give back when it stops.
+
+`internal/units` does not weigh `AUTO` yet, and cannot: its table gives every
+unit one volume for both cargo and unassembled inventory, and `AUTO` needs the
+two to differ.
 
 ## `CNGD`
 
@@ -60,7 +113,9 @@ enclosed-space efficiency is 0.2.
 
 **Construction Worker cadre.** Required to execute an `assemble` order, and so
 named by every `create` order, because a create assembles what it is given. One
-`CWKR` is one `SKW` plus one `USK`.
+`CWKR` is one `SKW` plus one `USK`, and both have to be people:
+[`AUTO`](#auto) replaces unskilled workers in factories, farms, and mines, and
+nowhere else.
 
 **Its people are spoken for, and it cannot outlive them.** The `SKW` and `USK`
 in a cadre are already counted in the entity's population -- that is what gives
@@ -83,6 +138,11 @@ runs rather than refilled for each order.
 **A shortage is a rate rather than a failure.** An order that asks for more than
 the cadre can do this turn does what the workers paid for and says so; it is not
 refused and nothing carries over. See [Order File Reference](orders.md).
+
+`unassemble` `and` `stow` costs no more than a plain `unassemble`. Putting the
+units down in cargo is part of taking them apart rather than a second job, so
+the whole order is charged to the construction workers and none of it to the
+unskilled workers a plain `stow` would need.
 
 A cadre is held in `entity_cadre`. Nothing forms or dissolves one yet -- that is
 `draft` and `disband` -- so a starting kit is the only thing that assigns one.
@@ -175,10 +235,6 @@ later order in the same turn measures the drive against the lighter ship.
 A move or jump fails when the ship cannot pay. `orders check` and `orders
 submit` only warn, because fuel may still reach the ship before the turn
 resolves; the engine decides.
-
-## `LABR`
-
-**Laborer cadre.** What it permits is not settled.
 
 ## `LFSU`
 
@@ -396,7 +452,22 @@ fewer crew, not cheaper freight.
 ## `USK`
 
 **Unskilled Worker population.** Population that a faction can assign to work
-in farms, mines, and factories.
+in farms, mines, and factories, and to move freight.
+
+Unskilled work of every kind is measured in **production labour**, defined at
+the top of this document, where an assembled [`AUTO`](#auto) stands in for a
+worker. A worker assigned to a cadre is not production labour at all, having
+been spoken for already.
+
+One unit of production labour moves up to **500 MU a turn** of freight -- the
+same rate a construction worker assembles at -- and **does one task per turn**,
+so labour that stowed cannot also unstow. Stowing and unstowing are two pools,
+each rounded up on its own, the way assembly and unassembly are for a
+[`CWKR`](#cwkr).
+
+**A shortage is a rate rather than a failure.** An order that asks for more than
+the labour can move this turn moves what it manages and says so. See
+[Accepted Orders](accepted-orders.md).
 
 ## Summary
 Agents must ignore this summary. It is a work in progress.

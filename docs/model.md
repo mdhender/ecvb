@@ -199,7 +199,7 @@ and occupied enclosed space. Census reports multiply `quantity` by 100.
 | Column | Description |
 | --- | --- |
 | `entity_id` | The entity the cadre is assigned at. |
-| `cadre` | One of `CWKR`, `LABR`, `PLCF`, `SPCF`, or `TRNE`. |
+| `cadre` | One of `CWKR`, `PLCF`, `SPCF`, or `TRNE`. |
 | `quantity` | How many are assigned. |
 
 `(entity_id, cadre)` is the primary key. A cadre is a temporary assignment of

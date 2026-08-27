@@ -2,13 +2,15 @@
 
 ## Definitions
 
-_cadre_ is one of the cadre codes: `CWKR` construction worker, `LABR` laborer,
-`PLCF` police force, `SPCF` special forces, and `TRNE` trainees and recruits.
+_cadre_ is one of the cadre codes: `CWKR` construction worker, `PLCF` police
+force, `SPCF` special forces, and `TRNE` trainees and recruits.
 A cadre is a temporary assignment of population, not a unit. The population it
 assigns is real, so a cadre has the mass and volume of the people in it and has
-to be carried like anyone else. One `CWKR` is one `SKW` plus one `USK`. What a
-construction worker does is in
-[What a construction worker does](#what-a-construction-worker-does).
+to be carried like anyone else -- and it is spoken for, so the people in it are
+not available to be given a second job, and the cadre cannot outlive them. One
+`CWKR` is one `SKW` plus one `USK`. What a construction worker does is in
+[What a construction worker does](#what-a-construction-worker-does); what the
+other three permit is not settled.
 
 _commission_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 
@@ -355,11 +357,78 @@ assembly — 500 MU a turn per unit, pooled across the entity's unassembly but
 never pooled with its assembly. See
 [What a construction worker does](#what-a-construction-worker-does).
 
+`and` `stow` costs nothing extra. Putting the units down in cargo is part of
+taking them apart rather than a second job, so the whole order is charged to the
+construction workers and none of it to the unskilled workers a plain
+[`stow`](#stow-orders) would need.
+
 (`ship` | `colony`) _id_ `unassemble` (`and` `stow`)? _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
 > ship 18 unassemble 1,000 SNSR-1
 
 > colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
+
+## Stow Orders
+
+Stowing moves units between unassembled inventory and cargo. Neither form takes
+a unit apart or puts one together: it is freight handling rather than
+construction, so it is not the `CWKR` cadre that does it. **Production labour**
+does, and no cadre is drafted for it.
+
+Every form names the entity, the unit code being moved, and how many. One order
+may move several kinds of units at once.
+
+(`ship` | `colony`) _id_ `stow` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
+
+> ship 18 stow 18,000 FOOD, 800 HDRV-1
+
+(`ship` | `colony`) _id_ `unstow` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
+
+> colony 24 unstow 800 HDRV-1, 18,000 FOOD
+
+`stow` moves units from unassembled inventory into cargo. `unstow` moves them
+back out of cargo into unassembled inventory.
+
+**As many of the units named are moved as the stock and the labour allow, and
+no more.** A shortage fills the order partway rather than failing it, the same
+way a shortage of construction workers fills an `assemble` partway.
+
+### What production labour does
+
+**Production labour** is an entity's `USK` plus _t_ for every assembled
+[`AUTO`](units.md#auto) it carries — automation stands in for an unskilled
+worker wherever unskilled work is done, and moving freight is unskilled work
+however the term reads. See [Unit Glossary](units.md).
+
+One unit of it moves up to **500 MU a turn** — the same rate a construction
+worker assembles at — and **does one task per turn**, so labour that stowed
+cannot also unstow. Stowing and unstowing are two pools, each rounded up on its
+own, the way assembly and unassembly are for a `CWKR`.
+
+A worker already assigned to a cadre is not production labour at all, having
+been spoken for already. Automation is the other way round: it is production
+labour and never a cadre, so an `AUTO` moves freight but is no use in a `CWKR`.
+
+### Why each of them exists
+
+The two sections are not interchangeable, and which one a unit sits in decides
+what may be done with it:
+
+- **Units must be in cargo to be transferred**, so `stow` is what readies a
+  load for a [transfer](#transfer-orders).
+- **Units must be unassembled to be bought or sold**, so `unstow` is what
+  readies what a transfer set down for the [market](#market-order).
+
+Assembly reaches both sections, so neither order is needed to assemble
+anything: an `assemble` draws from unassembled inventory first and from cargo
+after it.
+
+`unassemble` `and` `stow` already does both halves in one order, and remains
+the way to take a working unit apart and put it straight into cargo. It is
+construction work throughout, charged to the `CWKR` cadre and to no unskilled
+worker, so it is the cheaper route whenever the units were assembled to begin
+with. A plain `stow` is for units that never were -- bought, unstowed, or left
+over from a build.
 
 ## Transfer Orders
 

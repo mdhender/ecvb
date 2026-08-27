@@ -16,7 +16,7 @@ green. Step 5 has begun: NAME is built (`e3eada9`), batch 1 -- `assemble`,
 `unassemble`, `transfer` -- is built, and `docs/accepted-orders.md`
 is now accepted rather than proposed. The parser now reads that surface: every
 order line is subject first, and `we` is a subject. The accepted verbs are
-mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-three
+mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-five
 phases -- see "The turn sequence and the accepted doc are reconciled" below.**
 
 **Step 5 is stopped after batch 1, and not for want of pipeline. The four structural taxes
@@ -469,7 +469,7 @@ authoring rules, not implementing them, so the user is supplying the 1978 text.
 ### The turn sequence and the accepted doc are reconciled
 
 `docs/turn-sequence.md` was the 1978 twenty-one stages and the accepted doc had
-moved away from it. It is now twenty-two stages and forty-three phases, with every
+moved away from it. It is now twenty-two stages and forty-five phases, with every
 accepted verb landing on a step and every step saying whether it is orders, a
 sweep, or both. That table is what `phases` in `spec.go` grows into.
 
@@ -622,6 +622,81 @@ rather than syntax:
 - **ASSEMBLE / UNASSEMBLE / TRANSFER** -- **built.** See "Batch 1 is built"
   below. The four rules that were open here were answered by the user and are
   now written down in `docs/orders.md`, `docs/units.md`, and `docs/model.md`.
+- **STOW / UNSTOW** -- accepted and **not built**. Two verbs added to
+  `docs/accepted-orders.md` after batch 1 landed: `ship 18 stow 18,000 FOOD, 800
+  HDRV-1` moves units from unassembled inventory to cargo and `colony 24 unstow
+  800 HDRV-1, 18,000 FOOD` moves them back, as many of each as the stock and the
+  cadre allow. They are the freight half of what `unassemble and stow` does in
+  one order. They land on `docs/turn-sequence.md` as steps rather than stages --
+  `stow` at 6b, because units must be in cargo to be transferred at 9, and
+  `unstow` at 10a, because units must be unassembled to be sold at 11 -- which is
+  why the turn is forty-five phases now and not forty-three.
+
+  They were first given to a `LABR` cadre, and `LABR` has since been removed
+  from the game. **What carries them out is production labour, and no cadre is
+  drafted for it**: one unit of it moves 500 MU a turn -- the same rate a `CWKR`
+  assembles at -- and does one task per turn, so stowing and unstowing are two
+  pools that round up on their own and labour that stowed cannot unstow.
+  Production labour is `USK` plus \(t\) per assembled `AUTO`, so automation
+  moves freight; what it never does is join a cadre.
+
+  `unassemble and stow` costs nothing extra. Putting the units down in cargo is
+  part of taking them apart rather than a second job, so that form is charged to
+  the construction workers throughout and to no unskilled worker -- which makes
+  it the cheaper route whenever the units were assembled to begin with, and
+  leaves a plain `stow` for units that never were.
+
+  **That was the last of it: these two are now specified and buildable.** The
+  surface is the `unitList` grammar batch 1 already reads, the sections are ones
+  `world` already moves units between, the partial-fill shape is the one all
+  three of batch 1's orders have, and the labour rule is `cadre.WorkAllowed`
+  with a different pool of workers -- `Entity.Unassigned("USK")` rather than the
+  `CWKR` count -- and a different pair of pools. Nothing new has to be built to
+  hold any of it.
+- **AUTO** -- a new unit, and the one rules decision taken since. Automation
+  masses \(4t\) MU, burns no fuel, and an assembled unit does the work of
+  \(t\) `USK` wherever unskilled work is done. It cannot stand in for the `USK`
+  of a `CWKR`: a cadre is an assignment of people, and that is the one line it
+  does not cross.
+
+  It was first specified with a draft rule that put `AUTO` units *inside* the
+  laborer cadre, highest technology level first, and the user disowned it on
+  sight. The fault was one thing generating three: the order counted containers
+  and the report counted capability, so drafting 30 read back as 130 (the spec
+  said 140; the arithmetic being hard to do by hand was part of the case against
+  it), drafting 1 and then 30 differed from drafting 31, and disbanding 100
+  returned 130 and emptied the pool. **Settled instead: automation is a pool,
+  not a member.** An entity's production labour is its `USK` plus \(t\) for
+  every assembled `AUTO`, and everything that asks for unskilled work draws on
+  that one total; an `AUTO` is never assigned into a group or a cadre, and no
+  order puts one in or takes one out. Nothing is consumed by putting automation to work and nothing has to be
+  chosen to give back when it stops.
+
+  **The reason the first version reached for a cadre is worth keeping.** The
+  user's read on it: to stop every rule having to say "requires so many `USK`,
+  or the equivalent in automation". That is a naming problem rather than a
+  modelling one, and it is solved by naming the total once. `docs/units.md` now
+  defines **production labour** -- an entity's `USK` plus \(t\) for every
+  assembled `AUTO` -- at the top, and every rule that asks for unskilled work is
+  written against it. No rule repeats the equivalence and no cadre has to carry
+  a machine to avoid it.
+
+  It was scoped to factories, farms, and mines first, on the strength of one
+  line in the specification, and that was too narrow: the point of naming the
+  pool is that one word stands in everywhere, so narrowing it made "stow and
+  unstow use labour" read as "use `USK`". It covers every kind of unskilled work
+  now, and the only thing automation does not reach is a cadre. **The name is
+  narrower than the thing and stays that way by decision** -- production labour
+  moves freight -- so `docs/units.md` says so where it is defined.
+
+  The laborer cadre itself was then removed outright, which took the last of the
+  confusion with it: nothing is now called both a cadre and a pool of labour.
+
+  `AUTO` is also the first unit whose cargo volume differs from its unassembled
+  volume (\(2t\) against \(4t\)). `units.Metrics` folds those two together --
+  `VolumeIn` returns `CargoVolume` for both sections -- so it needs a fourth
+  independent number before an `AUTO` can be weighed at all. No kit holds one,
+  so that change moves no golden.
 - **CREATE** -- **designed, and no longer waiting on rules.**
   `docs/plan/entity_build_bom_process.md` settles it end to end and
   `docs/plan/bom-rewrite.md` records what changed on the way. Every question
@@ -797,7 +872,7 @@ turn.
 
 ### The cadres are named, and one of them is specified
 
-`CWKR`, `LABR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
+`CWKR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
 is a temporary assignment of population rather than a unit, so it needs no row
 in `entity_population` -- but the population it assigns is real, and carries
 that population's mass and volume, so a cadre can be transported. Nothing models
@@ -844,11 +919,11 @@ units through the mutations it establishes, and because it was the only batch
 whose rules were settled. Four more were asked and answered while building it;
 see "Batch 1 is built" above. Everything else still waits on rules.
 
-The accepted doc carries thirty-five verbs. Seven are built -- `move`, `jump`,
+The accepted doc carries thirty-seven verbs. Seven are built -- `move`, `jump`,
 `probe`, `name`, and batch 1's `assemble`, `unassemble`, and `transfer` -- and
 one of those still needs reworking: `name`, for naming another faction's ships
-and colonies. `jump` is finished, crossings and all. Twenty-eight remain,
-batched so that each exercises what the next needs:
+and colonies. `jump` is finished, crossings and all. Thirty remain, batched so
+that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. **Built.**
    `world` now owns the inventory table outright, `internal/cadre` and

@@ -90,7 +90,7 @@ var populationClasses = map[string]bool{
 
 // The cadres. A cadre is a temporary assignment of population rather than a
 // unit, so it is held in none of the inventory sections.
-var cadres = map[string]bool{"CWKR": true, "LABR": true, "PLCF": true, "SPCF": true, "TRNE": true}
+var cadres = map[string]bool{"CWKR": true, "PLCF": true, "SPCF": true, "TRNE": true}
 
 // IsPopulation reports whether a code names a population class.
 func IsPopulation(code string) bool { return populationClasses[code] }

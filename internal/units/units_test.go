@@ -40,7 +40,7 @@ func TestAssembledSectionIsSettledByTheUnitCode(t *testing.T) {
 	// Three kinds of thing are never assembled: resources are measured rather
 	// than made, and population and cadres are not inventory at all.
 	for _, unit := range []string{"GOLD", "FUEL", "METL", "MNRL", "USK", "SKW", "SOL", "NAS",
-		"CWKR", "LABR", "PLCF", "SPCF", "TRNE"} {
+		"CWKR", "PLCF", "SPCF", "TRNE"} {
 		if _, assemblable := AssembledSection(unit); assemblable {
 			t.Errorf("%s reads as assemblable; want it refused", unit)
 		}

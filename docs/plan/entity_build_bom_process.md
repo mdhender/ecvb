@@ -570,7 +570,7 @@ Recorded here so the size is visible; none of it is written yet.
   path creates an `entity` row during a turn.
 - A cadre table, so a drafted `CWKR` has somewhere to live. It is an assignment
   of `SKW` and `USK`, not a fifth `entity_population.class`, and it should
-  generalise to `LABR`, `PLCF`, `SPCF`, and `TRNE`.
+  generalise to `PLCF`, `SPCF`, and `TRNE`.
 - Migrations for `under_construction`, `construction_item`, and that cadre table.
 - The mass and volume rules, which exist once already as `metricsForUnit`,
   `parseUnitTag`, `isBulkResource`, and `usableEnclosedSpace` in

@@ -168,7 +168,7 @@ CREATE TABLE entity_population (
 -- Until they exist a kit is the only thing that puts a row here.
 CREATE TABLE entity_cadre (
     entity_id INTEGER NOT NULL REFERENCES entity(id),
-    cadre TEXT NOT NULL CHECK (cadre IN ('CWKR', 'LABR', 'PLCF', 'SPCF', 'TRNE')),
+    cadre TEXT NOT NULL CHECK (cadre IN ('CWKR', 'PLCF', 'SPCF', 'TRNE')),
     quantity INTEGER NOT NULL CHECK (quantity >= 0),
     PRIMARY KEY (entity_id, cadre)
 );
