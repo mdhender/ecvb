@@ -14,8 +14,8 @@ package prng
 // each axis in -15..15, a system adding its sequence letter (A=1, B=2, ...),
 // and a planet adding its orbit (1..10). A deposit adds its sequential deposit
 // number on the planet (1..40), assigned at generation and never reused or
-// renumbered. TagPlayer draws use the game-assigned player number, which must
-// likewise be stable — never a database row id.
+// renumbered. TagPlayer and TagFaction draws use their game-assigned numbers,
+// which must likewise be stable — never database row ids.
 //
 // FROZEN SURFACE — APPEND ONLY. The block starts at 1 (0 is invalid, so a
 // forgotten tag is an obvious bug rather than a silent alias). Never insert or
@@ -30,4 +30,5 @@ const (
 	TagPlanet              // 4: per-orbit contents, addressed by (x, y, z, seq, orbit)
 	TagDeposit             // 5: per-deposit draws, addressed by (x, y, z, seq, orbit, deposit_no)
 	TagPlayer              // 6: per-player draws, addressed by player number
+	TagFaction             // 7: per-faction draws, addressed by faction number
 )

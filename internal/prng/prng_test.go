@@ -102,6 +102,7 @@ func goldenInputs() golden {
 		{prng.TagPlayer, 2},
 		{prng.TagDeposit, 3, -7, 12, 1, 5, 1}, // planet's deposit ordinal 1
 		{prng.TagDeposit, 3, -7, 12, 1, 5, 2},
+		{prng.TagFaction, 1},
 	}
 	derivePaths := [][]prng.Key{
 		{prng.TagCluster},
