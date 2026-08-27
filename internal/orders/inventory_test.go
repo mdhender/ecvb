@@ -147,7 +147,7 @@ func TestAssembleDoesWhatTheCadrePaysForAndSaysSo(t *testing.T) {
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want := "colony 50 assembled 62 of 100 SNSR-1; its 5 CWKR do 2,500 MU of work a turn"
+	want := "colony 50 assembled 62 of 100 SNSR-1; its 5 CWKR had 2,500 MU of work left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
@@ -261,7 +261,7 @@ func TestTransferIsFilledPartwayWhenTheTransportsRunOut(t *testing.T) {
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want := "colony 50 transferred 400 of 1,000 GOLD; its transports carry 400 MU and 1,200 VU a turn"
+	want := "colony 50 transferred 400 of 1,000 GOLD; it had 400 MU and 1,200 VU of transport left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
@@ -544,7 +544,7 @@ func TestStowIsRationedByProductionLabourAndNotByTheCadre(t *testing.T) {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
 	want = "colony 50 unstowed 562 of 1,000 SNSR-1; " +
-		"its 45 units of production labour move 22,500 MU of freight a turn"
+		"its 45 units of production labour had 22,500 MU of freight left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
@@ -581,8 +581,29 @@ func TestStowingTakesAWholeWorkerFromUnstowing(t *testing.T) {
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	if !strings.Contains(result.Warnings[0].Message, "unstowed 550 of 1,000 SNSR-1") {
-		t.Errorf("warning = %q; want the unstow held to 550", result.Warnings[0].Message)
+	want := "colony 50 unstowed 550 of 1,000 SNSR-1; " +
+		"its 45 units of production labour had 22,000 MU of freight left this turn"
+	if result.Warnings[0].Message != want {
+		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
+	}
+}
+
+// The note says what the workers had left when the order ran, not what a whole
+// turn of them is worth. An order that came second is answered by whatever the
+// first one left it, and quoting the full rate at a player whose second order
+// stopped short of it explains nothing.
+func TestTheShortfallNoteSaysWhatWasLeftRatherThanTheTurnsWholeRate(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	// Two orders of one pool: the first takes 1,200 MU of the cadre's 2,500
+	// and the second is answered by the 1,300 that is left, not by the 2,500
+	// the five workers are worth over a turn.
+	result := check(t, conn, "colony 50 assemble 30 SNSR-1\ncolony 50 assemble 100 SNSR-1\n")
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v; want one, on the second order", result.Warnings)
+	}
+	want := "colony 50 assembled 32 of 100 SNSR-1; its 5 CWKR had 1,300 MU of work left this turn"
+	if result.Warnings[0].Message != want {
+		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
 }
 

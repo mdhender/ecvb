@@ -502,6 +502,10 @@ is **pooled across an entity**, the way construction work is.
 turn, so labour that stowed cannot also unstow: each total rounds up on its
 own, and an entity that stowed 1 MU has spent a whole worker on it.
 
+An order that outran the labour reports **what was left when it ran**, not what
+a whole turn of it is worth, because the pool is drawn down in phase order and
+an order that came second is answered by whatever the first one left it.
+
 A stow or an unstow that would leave the entity overpacked **fails**, and
 nothing moves. Only `AUTO` can bring that about, being the one unit that takes
 more room unassembled than it does in cargo.
@@ -605,6 +609,10 @@ its own.
 than the cadre can do this turn, or for more than the entity holds, does what
 it can and says how much that was. It is not refused and it does not carry
 over. The engine allocates the cadre without being told to.
+
+The message reports **what the cadre had left when the order ran**, so a second
+order that stopped short is answered by the number that explains it rather than
+by the turn's whole rate.
 
 ## Checking and submitting
 

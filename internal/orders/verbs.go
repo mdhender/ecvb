@@ -1106,23 +1106,27 @@ type workBound struct {
 	// stowed, unstowed.
 	verb string
 	// rate is the note's account of who does this kind of work and how much of
-	// it they get through in a turn, for an order that outran them.
-	rate func(*world.Entity) string
+	// it they had left when the order ran, for an order that outran them.
+	rate func(entity *world.Entity, allowed int64) string
 	work []unitWork
 }
 
-// cadreRate and labourRate say who did the work and what they are worth in a
-// turn, for the note an order that outran them carries.
-func cadreRate(entity *world.Entity) string {
-	return fmt.Sprintf("its %d %s do %s MU of work a turn",
-		entity.ConstructionWorkers(), cadre.Unit,
-		formatQuantity(entity.ConstructionWorkers()*cadre.WorkPerUnit))
+// cadreRate and labourRate say who did the work and how much of it they had
+// left, for the note an order that outran them carries.
+//
+// What was left rather than what a full turn is worth: a worker does one task
+// per turn and the pool is drawn down in phase order, so an order that came
+// second is answered by whatever the first one left it. Quoting the whole
+// turn's rate at a player whose second order stopped short of it is quoting a
+// number that does not explain the one above it.
+func cadreRate(entity *world.Entity, allowed int64) string {
+	return fmt.Sprintf("its %s %s had %s MU of work left this turn",
+		formatQuantity(entity.ConstructionWorkers()), cadre.Unit, formatQuantity(allowed))
 }
 
-func labourRate(entity *world.Entity) string {
-	return fmt.Sprintf("its %s units of production labour move %s MU of freight a turn",
-		formatQuantity(entity.ProductionLabour()),
-		formatQuantity(entity.ProductionLabour()*labour.PerUnit))
+func labourRate(entity *world.Entity, allowed int64) string {
+	return fmt.Sprintf("its %s units of production labour had %s MU of freight left this turn",
+		formatQuantity(entity.ProductionLabour()), formatQuantity(allowed))
 }
 
 // Params is the order as it will be stored.
@@ -1190,7 +1194,7 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 	if len(short) != 0 {
 		reason := "it holds no more"
 		if workersBound {
-			reason = o.rate(o.entity)
+			reason = o.rate(o.entity, allowed)
 		}
 		item.Note = fmt.Sprintf("%s %d %s %s; %s",
 			noun(o.entity), o.entity.ID, o.verb, strings.Join(short, ", "), reason)
@@ -1395,10 +1399,10 @@ func (o *transferBound) held(item transferItem) int64 {
 // transfer.
 func (o *transferBound) shortfall(free []transport.Hulls) string {
 	if len(free) == 0 {
-		return fmt.Sprintf("it has no %s free this turn", transport.Unit)
+		return fmt.Sprintf("it had no %s free this turn", transport.Unit)
 	}
 	capacity := transport.Capacity(free)
-	return fmt.Sprintf("its transports carry %s MU and %s VU a turn",
+	return fmt.Sprintf("it had %s MU and %s VU of transport left this turn",
 		formatQuantity(capacity.Mass), formatQuantity(capacity.Volume))
 }
 

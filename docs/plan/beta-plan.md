@@ -904,12 +904,14 @@ The rings in the golden moved, which is not a rules change: a landing ring is a
 deterministic draw keyed on the game seed and the order's sequence number, and
 adding orders to a file shifts the sequence numbers after them.
 
-One thing was noticed and deliberately not changed. The note an order that
-outran its workers carries names the entity's *whole* rate -- "its 20 units of
+One wart was found on the way and then fixed. The note an order that outran its
+workers carries used to name the entity's *whole* rate -- "its 20 units of
 production labour move 10,000 MU of freight a turn" -- even when an earlier
-order of the turn is what left it short. That is exactly what the `CWKR` note
-already does, and the pool being drawn down in stage order is the rule rather
-than an accident, so both were left reading the same way.
+order of the turn was what left it short, so the number in the note did not
+explain the number above it. It now says **what was left when the order ran**:
+"had 8,500 MU of freight left this turn". The `CWKR` note had the same fault
+and got the same fix, and the transport note, which already reported the free
+hulls, was reworded to read the same way.
 
 ### The cadres are named, and one of them is specified
 
