@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+step() {
+    local label=$1
+    shift
+    local started=$SECONDS
+
+    printf 'setup: %s...\n' "$label"
+    "$@"
+    printf 'setup: %s completed in %ds\n' "$label" "$((SECONDS - started))"
+}
+
+install_system_packages() {
+    local -a packages=()
+
+    command -v curl >/dev/null || packages+=(curl)
+    command -v tar >/dev/null || packages+=(tar)
+    command -v sha256sum >/dev/null || packages+=(coreutils)
+    [ -r /etc/ssl/certs/ca-certificates.crt ] || packages+=(ca-certificates)
+
+    if ((${#packages[@]} == 0)); then
+        echo "setup: system packages already installed"
+        return
+    fi
+
+    sudo apt-get update
+    sudo apt-get install -y "${packages[@]}"
+}
+
+install_go() {
+    local version archive checksum actual_checksum
+
+    version=$(awk '$1 == "go" { print $2; exit }' go.mod)
+    archive="go${version}.linux-amd64.tar.gz"
+
+    case "$version" in
+        1.26.4) checksum=1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f ;;
+        *)
+            echo "setup: no recorded checksum for Go ${version}; update .agents/setup" >&2
+            return 1
+            ;;
+    esac
+
+    if [ -x /usr/local/go/bin/go ] && [ "$(/usr/local/go/bin/go env GOVERSION)" = "go${version}" ]; then
+        echo "setup: Go ${version} already installed"
+    else
+        curl -fsSLo "/tmp/${archive}" "https://go.dev/dl/${archive}"
+        actual_checksum=$(sha256sum "/tmp/${archive}" | awk '{ print $1 }')
+        if [ "$actual_checksum" != "$checksum" ]; then
+            echo "setup: checksum mismatch for ${archive}" >&2
+            rm -f "/tmp/${archive}"
+            return 1
+        fi
+        rm -rf /usr/local/go
+        tar -C /usr/local -xzf "/tmp/${archive}"
+        rm -f "/tmp/${archive}"
+    fi
+
+    mkdir -p "$HOME/.local/bin"
+    ln -sfn /usr/local/go/bin/go "$HOME/.local/bin/go"
+    ln -sfn /usr/local/go/bin/gofmt "$HOME/.local/bin/gofmt"
+    export PATH="/usr/local/go/bin:$PATH"
+}
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+
+step "checking system packages" install_system_packages
+step "installing the pinned Go toolchain" install_go
+step "downloading Go modules" go mod download
+step "warming the Go build and test cache" go test ./...
+
+echo "setup: orb is ready"

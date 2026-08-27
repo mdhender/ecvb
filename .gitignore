@@ -16,3 +16,6 @@
 # they are explicity ignored; shared .env and .env.<env> files are committed.
 .env.local
 .env.*.local
+
+# Amp orb portal metadata
+.amp/portals/*
