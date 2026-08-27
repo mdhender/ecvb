@@ -19,22 +19,24 @@ order line is subject first, and `we` is a subject. The accepted verbs are
 mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-five
 phases -- see "The turn sequence and the accepted doc are reconciled" below.**
 
-**Step 5 is stopped after batch 1, and not for want of pipeline. The four structural taxes
-this plan set out to remove are removed: an order is one `Spec`, a rule is
-written once, a turn is its phase table, and every order is a row of one table.
-What most of the thirty-one remaining verbs are waiting on is what they *do*.
+**Nothing is waiting on pipeline. The four structural taxes this plan set out to
+remove are removed: an order is one `Spec`, a rule is written once, a turn is
+its phase table, and every order is a row of one table. What most of the
+twenty-seven unspecified verbs are waiting on is what they *do*.
 `docs/accepted-orders.md` gives their surface forms and settles a good deal of
 the surrounding detail, but it does not say what a group produces per turn, what
 a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
-See "What the code still has to be told" below for the list, verb by verb.
-Two pieces were exceptions -- blocked on this repository rather than on the
-rules -- and both are now cleared. The `jump` rework is **built**: a crossing
-takes \(\lceil d / t \rceil\) turns, a ship in transit is nowhere and
-unreachable, and the whole fuel bill is drawn on departure. `create` is
-**designed**: `docs/plan/entity_build_bom_process.md` settles it end to end, and
-the one schema change it was thought to need -- a fourth `game_order.status` --
-turns out not to be needed at all.**
+See "What the code still has to be told" below for the list, verb by verb.**
+
+**Three verbs are specified and unbuilt, and are what to build next: `stow` and
+`unstow`, which need nothing that batch 1 did not already establish, and the
+ship-and-colony forms of `create`, whose plan of record is
+`docs/plan/entity_build_bom_process.md` and four of whose eight listed costs
+batch 1 paid. See "Step 5 -- add the orders" for what each has left. The `jump`
+rework is **built**: a crossing takes \(\lceil d / t \rceil\) turns, a ship in
+transit is nowhere and unreachable, and the whole fuel bill is drawn on
+departure.**
 
 ---
 
@@ -47,7 +49,7 @@ turns out not to be needed at all.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 31 orders | **batch 1 built and under the golden net** (3 of 31); the rest blocked on rules | `e3eada9` (NAME), `b96420d`, the golden commit |
+| 5 — add the 30 orders | **batch 1 built and under the golden net** (3 of 30); `stow`/`unstow` and ship-and-colony `create` specified and unbuilt; the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118` |
 
 ### What step 0 built
 
@@ -896,28 +898,46 @@ four cadres are still names.
 A new order becomes: one `Spec` (parse + bind + apply), a section in
 `docs/orders.md`, and tests.
 
-**Where this stopped, and what starts it again.** None of the thirty-one are
-built, and none of them are waiting on the pipeline: an order costs a `Spec`, a
-doc section, and tests now, which is what steps 0 through 4 were for. They are
-waiting on what the verbs *do*. That is the list in "What the code still has to
-be told", and it is the 1978 text the user is supplying, verb by verb. Nothing
-in the code has to be prepared for it first, so a batch can be built the week
-its rules land.
+**Where this stands.** Three of the thirty are built -- batch 1's `assemble`,
+`unassemble`, and `transfer` -- and none of the rest are waiting on the
+pipeline: an order costs a `Spec`, a doc section, and tests now, which is what
+steps 0 through 4 were for. They are waiting on what the verbs *do*. That is the
+list in "What the code still has to be told", and it is the 1978 text the user
+is supplying, verb by verb. Nothing in the code has to be prepared for it first,
+so a batch can be built the week its rules land.
 
-Two pieces were blocked on this repository rather than on the rules, and neither
-is now. The **`jump` rework** is built -- see "The jump rework is built" above.
-**`create`** is designed: `docs/plan/entity_build_bom_process.md` is its plan of
-record, the fourth order status turned out not to be needed, and what it waits
-on is implementation rather than a decision. That cost is real and is listed
-there -- inventory mutation in `internal/world`, which has none today; the first
-multi-line parse; `under_construction`, `construction_item`, and a cadre table;
-and the mass-and-volume rules lifted out of `cmd/ec/kit.go` into an
-`internal/units` package.
+Batch 1 was the place to start because everything below moves units through the
+mutations it establishes, and because it was the only batch whose rules were
+settled. Four more rules were asked and answered while building it, and three
+more since; see "Batch 1 is built" above.
 
-**Batch 1 is built.** It was the place to start because everything below moves
-units through the mutations it establishes, and because it was the only batch
-whose rules were settled. Four more were asked and answered while building it;
-see "Batch 1 is built" above. Everything else still waits on rules.
+**Two things are unblocked and can be built today.**
+
+- **`stow` and `unstow`** -- batch 1b, and the smaller of the two. Every rule
+  they need is settled and every mechanism they need exists: the `unitList`
+  grammar, the sections `world` already moves units between, the partial-fill
+  shape all three of batch 1's orders have, and `cadre.WorkAllowed` over a
+  different pool of workers. What is new is one thing only: the pool is
+  `Entity.Unassigned("USK")` plus \(t\) per assembled `AUTO` rather than a cadre
+  count. `AUTO` cannot be weighed until `units.Metrics` grows a fourth volume,
+  which no kit is affected by.
+- **`create`, ship and colony forms** -- batch 2, and the larger.
+  `docs/plan/entity_build_bom_process.md` is its plan of record and settles it
+  end to end. **Batch 1 paid four of the eight costs listed there**: inventory
+  mutation in `internal/world`, the cadre table, the two tokenizer readers, and
+  the `internal/units` package. What is left is the first multi-line
+  (`end`-terminated) parse; the `under_construction` and `construction_item`
+  migrations with `world.CreateEntity`; sweeps on the `create`, `transfer`, and
+  `assemble` phases for stages 5, 9, and 10, where the `Sweep` hook exists and
+  all three are nil; a `result` column on `game_order`, because a build's
+  per-turn progress is the same shape as a partial fill and has nowhere to be
+  said; and kit rework, because no player-controlled entity in
+  `games/beta/home-planet-seed.json` holds a transport and a build that cannot
+  be delivered to never finishes.
+
+The three **group** `create` forms are not in that, and neither is the rest of
+batch 2. They wait on what a factory, a farm, or a mine produces per turn, and
+on a `work_group` column for what a factory is `making`.
 
 The accepted doc carries thirty-seven verbs. Seven are built -- `move`, `jump`,
 `probe`, `name`, and batch 1's `assemble`, `unassemble`, and `transfer` -- and
@@ -930,6 +950,12 @@ that each exercises what the next needs:
    `internal/transport` hold the two mechanics, and `entity_cadre` holds the
    assignment a kit may make. See "Batch 1 is built" above for the rules that
    were settled on the way and the four judgment calls that were not.
+
+   1b. **`stow` and `unstow`** — accepted after the rest of batch 1 landed, and
+   the same family: they move units between unassembled inventory and cargo, so
+   that a load is ready to be transferred or sold. **Specified and unbuilt**, and
+   nothing else waits on them. They are here rather than in a batch of their own
+   because they need exactly what batch 1 established and nothing more.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
    first batch to exercise a multi-line order end to end. **No longer blocked on
