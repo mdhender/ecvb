@@ -463,3 +463,201 @@ func inventoryScalar(t *testing.T, conn *sqlite.Conn, query string, args ...any)
 	}
 	return value
 }
+
+// STOW and UNSTOW -------------------------------------------------------
+
+// Stowing moves units out of unassembled inventory into cargo, which is where
+// a transport picks a load up; unstowing moves them back.
+func TestStowAndUnstowMoveUnitsBetweenUnassembledInventoryAndCargo(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	apply(t, conn, "colony 50 stow 40 SNSR-1\n")
+	if got := storedQuantity(t, conn, 50, "cargo", "SNSR", 1); got != 40 {
+		t.Errorf("cargo SNSR-1 = %d; want 40", got)
+	}
+	if got := storedQuantity(t, conn, 50, "unassembled", "SNSR", 1); got != 60 {
+		t.Errorf("unassembled SNSR-1 = %d; want 60 left", got)
+	}
+	apply(t, conn, "colony 50 unstow 25 SNSR-1\n")
+	if got := storedQuantity(t, conn, 50, "cargo", "SNSR", 1); got != 15 {
+		t.Errorf("cargo SNSR-1 = %d; want 15 left", got)
+	}
+	if got := storedQuantity(t, conn, 50, "unassembled", "SNSR", 1); got != 85 {
+		t.Errorf("unassembled SNSR-1 = %d; want 85", got)
+	}
+}
+
+// Neither order takes a unit apart or puts one together, so what may be named
+// is wider than what an assemble may name: a resource is freight like anything
+// else, and unstowing one is what readies it for the market.
+func TestStowReachesTheResourcesAnAssembleNeverCan(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	apply(t, conn, "colony 50 unstow 400 GOLD\n")
+	if got := storedQuantity(t, conn, 50, "unassembled", "GOLD", 0); got != 400 {
+		t.Errorf("unassembled GOLD = %d; want 400", got)
+	}
+	if got := storedQuantity(t, conn, 50, "cargo", "GOLD", 0); got != 600 {
+		t.Errorf("cargo GOLD = %d; want 600 left", got)
+	}
+}
+
+// Only two things are never stowed, and neither is inventory at all.
+func TestSubmitRefusesStowingWhatIsNotFreight(t *testing.T) {
+	for _, item := range []struct{ line, want string }{
+		{"colony 50 stow 100 SOL", "SOL is population; people are carried rather than stowed"},
+		{"colony 50 stow 100 CWKR", "CWKR is a cadre"},
+		{"colony 50 unstow 100 SOL", "SOL is population; people are carried rather than stowed"},
+		{"colony 50 stow 100 SNSR-1, 5 SNSR-1", "SNSR-1 is named twice"},
+	} {
+		_, err := Check(context.Background(), openInventoryOrderDatabase(t), strings.NewReader(header+item.line+"\n"))
+		if err == nil {
+			t.Errorf("%s was accepted; want the file refused", item.line)
+			continue
+		}
+		if !strings.Contains(err.Error(), item.want) {
+			t.Errorf("%s: error = %q; want it to mention %q", item.line, err, item.want)
+		}
+	}
+}
+
+// Production labour is the entity's unassigned USK -- a worker already in a
+// cadre has been spoken for -- plus t for every assembled AUTO it carries.
+func TestStowIsRationedByProductionLabourAndNotByTheCadre(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	// The colony holds a hundred sensors and nothing else to stow, so the
+	// stock is what stops this one.
+	result := check(t, conn, "colony 50 stow 1,000 SNSR-1\n")
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v; want one", result.Warnings)
+	}
+	want := "colony 50 stowed 100 of 1,000 SNSR-1; it holds no more"
+	if result.Warnings[0].Message != want {
+		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
+	}
+	// With a thousand in cargo to draw on, the labour is what stops it. 50 USK
+	// less the 5 in the CWKR cadre is 45, which moves 22,500 MU a turn; a
+	// SNSR-1 masses 40 MU, so 562 of them come out of cargo and the 563rd does
+	// not.
+	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+		VALUES (50, 'cargo', 'SNSR', 1, 1000);`)
+	result = check(t, conn, "colony 50 unstow 1,000 SNSR-1\n")
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v; want one", result.Warnings)
+	}
+	want = "colony 50 unstowed 562 of 1,000 SNSR-1; " +
+		"its 45 units of production labour move 22,500 MU of freight a turn"
+	if result.Warnings[0].Message != want {
+		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
+	}
+}
+
+// An assembled AUTO stands in for t unskilled workers wherever unskilled work
+// is done, and moving freight is unskilled work. It is a pool and never a
+// member: nothing is assigned into it and nothing is drafted for it.
+func TestAutomationStandsInForUnskilledWorkersWhenItIsAssembled(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
+		(50, 'cargo', 'SNSR', 1, 1000),
+		(50, 'operational', 'AUTO', 2, 10),
+		(50, 'unassembled', 'AUTO', 2, 100);`)
+	// Ten assembled AUTO-2 add 20 to the 45 unassigned USK: 65 units of labour
+	// move 32,500 MU a turn, which is 812 sensors. The hundred unassembled
+	// ones add nothing, being freight until somebody puts them to work.
+	result := check(t, conn, "colony 50 unstow 1,000 SNSR-1\n")
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0].Message,
+		"unstowed 812 of 1,000 SNSR-1; its 65 units of production labour") {
+		t.Fatalf("warnings = %+v; want the order stopped at 812", result.Warnings)
+	}
+}
+
+// One unit of production labour does one task a turn, so labour that stowed
+// cannot also unstow: the two pools round up on their own.
+func TestStowingTakesAWholeWorkerFromUnstowing(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+		VALUES (50, 'cargo', 'SNSR', 1, 1000);`)
+	// One sensor stowed is 40 MU of freight and one whole worker, leaving 44
+	// to unstow with: 22,000 MU, which is 550 sensors rather than 562.
+	result := check(t, conn, "colony 50 stow 1 SNSR-1\ncolony 50 unstow 1,000 SNSR-1\n")
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v; want one", result.Warnings)
+	}
+	if !strings.Contains(result.Warnings[0].Message, "unstowed 550 of 1,000 SNSR-1") {
+		t.Errorf("warning = %q; want the unstow held to 550", result.Warnings[0].Message)
+	}
+}
+
+// A construction worker and production labour are two different pools of
+// people, so an assemble and a stow in one turn do not take work from each
+// other.
+func TestStowingAndAssemblingDrawOnDifferentPeople(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	// The cadre still assembles its full 62 sensors even though the stow moved
+	// 400 MU of gold in the same turn.
+	result := check(t, conn, "colony 50 unstow 400 GOLD\ncolony 50 assemble 100 SNSR-1\n")
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v; want one, on the assemble", result.Warnings)
+	}
+	if !strings.Contains(result.Warnings[0].Message, "assembled 62 of 100 SNSR-1") {
+		t.Errorf("warning = %q; want the assemble untouched by the unstow", result.Warnings[0].Message)
+	}
+}
+
+// A stow at stage 6b feeds a transfer at stage 9, and an unstow at stage 10a
+// takes what the transfer set down back out of cargo -- all in one turn,
+// whichever way round the player wrote the lines.
+func TestStowFeedsATransferAndUnstowTakesTheLoadBackOutInOneTurn(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	// The ship needs people of its own: production labour is the entity's, and
+	// nothing rides out with the freight to unload it at the far end.
+	testdb.Exec(t, conn, "INSERT INTO entity_population (entity_id, class, quantity) VALUES (51, 'USK', 10);")
+	apply(t, conn, `ship 51 unstow 10 SNSR-1
+colony 50 transfer 10 SNSR-1 to ship 51
+colony 50 stow 10 SNSR-1
+`)
+	if got := storedQuantity(t, conn, 51, "unassembled", "SNSR", 1); got != 10 {
+		t.Errorf("ship unassembled SNSR-1 = %d; want 10, the unstow having run last", got)
+	}
+	if got := storedQuantity(t, conn, 51, "cargo", "SNSR", 1); got != 0 {
+		t.Errorf("ship cargo SNSR-1 = %d; want none: the unstow emptied it", got)
+	}
+	if got := storedQuantity(t, conn, 50, "cargo", "SNSR", 1); got != 0 {
+		t.Errorf("colony cargo SNSR-1 = %d; want none: the transfer took what the stow put there", got)
+	}
+	if got := storedQuantity(t, conn, 50, "unassembled", "SNSR", 1); got != 90 {
+		t.Errorf("colony unassembled SNSR-1 = %d; want 90", got)
+	}
+}
+
+// Automation is the one unit that takes more room unassembled than it does in
+// cargo, so it is the one unit an unstow can be refused for want of space.
+func TestUnstowingAutomationFailsWhenItWouldLeaveTheEntityOverpacked(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	// The colony encloses 10,000 VU and holds 700 of it. An AUTO-10 takes 20
+	// VU in cargo and 40 unassembled, so 400 of them sit in cargo comfortably
+	// and unstowing them all would need 16,000 VU.
+	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+		VALUES (50, 'cargo', 'AUTO', 10, 400);`)
+	result := check(t, conn, "colony 50 unstow 400 AUTO-10\n")
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v; want one", result.Warnings)
+	}
+	if !strings.Contains(result.Warnings[0].Message, "colony 50 would hold") {
+		t.Errorf("warning = %q; want it to say the colony would be overpacked", result.Warnings[0].Message)
+	}
+	apply(t, conn, "colony 50 unstow 400 AUTO-10\n")
+	if got := storedQuantity(t, conn, 50, "cargo", "AUTO", 10); got != 400 {
+		t.Errorf("cargo AUTO-10 = %d; want all 400 still there: a failed order moves nothing", got)
+	}
+}
+
+// Stowing automation frees room rather than costing it, which is the same rule
+// read the other way round.
+func TestStowingAutomationFreesTheRoomItTakesUnassembled(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+		VALUES (50, 'unassembled', 'AUTO', 2, 100);`)
+	apply(t, conn, "colony 50 stow 100 AUTO-2\n")
+	if got := storedQuantity(t, conn, 50, "cargo", "AUTO", 2); got != 100 {
+		t.Errorf("cargo AUTO-2 = %d; want all 100", got)
+	}
+}

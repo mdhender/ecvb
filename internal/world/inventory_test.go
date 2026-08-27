@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mdhender/ecvb/internal/cadre"
+	"github.com/mdhender/ecvb/internal/labour"
 	"github.com/mdhender/ecvb/internal/testdb"
 	"github.com/mdhender/ecvb/internal/transport"
 	"github.com/mdhender/ecvb/internal/units"
@@ -241,6 +242,40 @@ func TestWorkPoolsAreDrawnDownAcrossTheTurnAndNeverPoolWithEachOther(t *testing.
 	// An entity with no cadre does no work at all.
 	if got := loaded.WorkAllowed(cadre.Assembly, loaded.Entity(41)); got != 0 {
 		t.Errorf("allowed with no cadre = %d MU; want 0", got)
+	}
+}
+
+// Production labour is a second pair of pools and a different pool of workers:
+// an entity's unassigned USK plus t for every assembled AUTO. Stowing and
+// unstowing round up on their own the way assembly and unassembly do, and
+// neither takes anything from the construction workers.
+func TestProductionLabourIsItsOwnPairOfPoolsAndItsOwnPeople(t *testing.T) {
+	conn := openInventoryTestDatabase(t)
+	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
+		(40, 'operational', 'AUTO', 3, 5),
+		(40, 'unassembled', 'AUTO', 3, 100);`)
+	loaded := loadWorld(t, conn)
+	ship := loaded.Entity(40)
+	// 30 USK less the 4 in the CWKR cadre is 26, and five assembled AUTO-3 add
+	// fifteen more. The hundred unassembled ones are freight and add nothing.
+	if got := ship.ProductionLabour(); got != 41 {
+		t.Errorf("production labour = %d; want 41", got)
+	}
+	if got := loaded.WorkAllowed(labour.Stowing, ship); got != 41*labour.PerUnit {
+		t.Errorf("stowing allowed = %d MU; want %d", got, 41*labour.PerUnit)
+	}
+	// One MU stowed takes a whole unit of labour away from unstowing, and the
+	// construction workers are untouched by either.
+	loaded.RecordWork(labour.Stowing, ship.ID, 1)
+	if got := loaded.WorkAllowed(labour.Unstowing, ship); got != 40*labour.PerUnit {
+		t.Errorf("unstowing allowed = %d MU; want %d", got, 40*labour.PerUnit)
+	}
+	if got := loaded.WorkAllowed(cadre.Assembly, ship); got != 4*cadre.WorkPerUnit {
+		t.Errorf("assembly allowed = %d MU; want %d: freight is not construction", got, 4*cadre.WorkPerUnit)
+	}
+	// An entity with nobody to move freight moves none.
+	if got := loaded.WorkAllowed(labour.Stowing, loaded.Entity(41)); got != 0 {
+		t.Errorf("stowing allowed with no people = %d MU; want 0", got)
 	}
 }
 

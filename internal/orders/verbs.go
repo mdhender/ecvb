@@ -12,6 +12,7 @@ import (
 
 	"github.com/mdhender/ecvb/internal/cadre"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
+	"github.com/mdhender/ecvb/internal/labour"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"github.com/mdhender/ecvb/internal/transport"
 	"github.com/mdhender/ecvb/internal/units"
@@ -196,6 +197,58 @@ func init() {
 				}
 				order.Stow = true
 			}
+			var err error
+			if order.Units, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+	})
+
+	register(&Spec{
+		Verb:     "stow",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "move units out of unassembled inventory into cargo, ready to be carried",
+		Syntax: []string{
+			"ship SHIP-ID stow QUANTITY UNIT, QUANTITY UNIT, ...",
+			"colony COLONY-ID stow QUANTITY UNIT, QUANTITY UNIT, ...",
+		},
+		Phase: PhaseStow,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := StowParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := StowParams{Kind: subject.Kind, EntityID: subject.ID}
+			var err error
+			if order.Units, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+	})
+
+	register(&Spec{
+		Verb:     "unstow",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "move units out of cargo into unassembled inventory, ready to be sold",
+		Syntax: []string{
+			"ship SHIP-ID unstow QUANTITY UNIT, QUANTITY UNIT, ...",
+			"colony COLONY-ID unstow QUANTITY UNIT, QUANTITY UNIT, ...",
+		},
+		Phase: PhaseUnstow,
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := UnstowParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := UnstowParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
 			if order.Units, err = line.unitList(); err != nil {
 				return nil, err
@@ -803,14 +856,21 @@ type unitWork struct {
 // would stop one step short at the far end.
 var assembleSources = []string{units.SectionUnassembled, units.SectionCargo}
 
+// route is where one lot of units comes from and where it goes, for the order
+// asking. It also refuses a tag that order cannot move at all, which differs
+// between them: an assemble puts things together and a stow only carries them,
+// so a resource is a mistake in the one and freight in the other.
+type route func(tag, unit string) (from []string, to string, err error)
+
 // bindUnitWork resolves the tags an order named into the moves through
 // inventory it is asking for.
 //
-// Which section a unit works in is a property of the unit code, so it cannot
-// change during a turn and belongs here rather than in Apply. So does naming
-// something that is never assembled at all, and naming the same unit twice --
-// both are mistakes in the file rather than things the world might yet oblige.
-func bindUnitWork(items []UnitQuantity, assembling, stow bool) ([]unitWork, error) {
+// Which sections a unit moves between is a property of the unit code and the
+// verb, so it cannot change during a turn and belongs here rather than in
+// Apply. So does naming something the order can never move, and naming the
+// same unit twice -- both are mistakes in the file rather than things the
+// world might yet oblige.
+func bindUnitWork(items []UnitQuantity, where route) ([]unitWork, error) {
 	var found bindErrors
 	seen := make(map[string]bool, len(items))
 	work := make([]unitWork, 0, len(items))
@@ -825,17 +885,10 @@ func bindUnitWork(items []UnitQuantity, assembling, stow bool) ([]unitWork, erro
 			continue
 		}
 		seen[item.Tag] = true
-		assembled, assemblable := units.AssembledSection(unit)
-		if !assemblable {
-			found = append(found, notAssemblable(item.Tag, unit))
+		from, to, err := where(item.Tag, unit)
+		if err != nil {
+			found = append(found, err)
 			continue
-		}
-		from, to := assembleSources, assembled
-		if !assembling {
-			from, to = []string{assembled}, units.SectionUnassembled
-			if stow {
-				to = units.SectionCargo
-			}
 		}
 		work = append(work, unitWork{tag: item.Tag, unit: unit, techLevel: techLevel,
 			quantity: item.Quantity, from: from, to: to})
@@ -844,6 +897,47 @@ func bindUnitWork(items []UnitQuantity, assembling, stow bool) ([]unitWork, erro
 		return nil, found
 	}
 	return work, nil
+}
+
+// toWork puts a unit to work. Nothing in the order says where it goes; the
+// unit code does.
+func toWork(tag, unit string) ([]string, string, error) {
+	assembled, assemblable := units.AssembledSection(unit)
+	if !assemblable {
+		return nil, "", notAssemblable(tag, unit)
+	}
+	return assembleSources, assembled, nil
+}
+
+// outOfWork takes a unit apart again, leaving it in unassembled inventory or,
+// when the order said `and stow`, straight in cargo.
+func outOfWork(stow bool) route {
+	return func(tag, unit string) ([]string, string, error) {
+		assembled, assemblable := units.AssembledSection(unit)
+		if !assemblable {
+			return nil, "", notAssemblable(tag, unit)
+		}
+		if stow {
+			return []string{assembled}, units.SectionCargo, nil
+		}
+		return []string{assembled}, units.SectionUnassembled, nil
+	}
+}
+
+// asFreight moves a unit between unassembled inventory and cargo without
+// taking it apart or putting it together.
+//
+// What may be named is wider than what may be assembled, because nothing is
+// being made: the bulk resources are freight like anything else, and unstowing
+// them is what readies them for the market. Population and cadres are still
+// refused, neither being inventory at all.
+func asFreight(from, to string) route {
+	return func(tag, unit string) ([]string, string, error) {
+		if units.IsPopulation(unit) || units.IsCadre(unit) {
+			return nil, "", notFreight(tag, unit)
+		}
+		return []string{from}, to, nil
+	}
 }
 
 // notAssemblable says why a thing an order named is never put together, in the
@@ -857,6 +951,16 @@ func notAssemblable(tag, unit string) error {
 	default:
 		return fmt.Errorf("%s is a resource; it is measured rather than made, and is never assembled", tag)
 	}
+}
+
+// notFreight says why a thing a stow or an unstow named is never stowed. Only
+// two things are not: people ride a transport rather than being loaded onto
+// one, and a cadre is not a thing at all.
+func notFreight(tag, unit string) error {
+	if units.IsPopulation(unit) {
+		return fmt.Errorf("%s is population; people are carried rather than stowed", tag)
+	}
+	return fmt.Errorf("%s is a cadre, an assignment of people rather than a unit, and is never stowed", tag)
 }
 
 // ASSEMBLE and UNASSEMBLE ------------------------------------------------
@@ -882,12 +986,12 @@ func (p AssembleParams) Bind(b *Binder) ([]Bound, error) {
 	if err != nil {
 		return nil, err
 	}
-	work, err := bindUnitWork(p.Units, true, false)
+	work, err := bindUnitWork(p.Units, toWork)
 	if err != nil {
 		return nil, err
 	}
 	return []Bound{&workBound{params: p, entity: entity, pool: cadre.Assembly,
-		verb: "assembled", work: work}}, nil
+		verb: "assembled", rate: cadreRate, work: work}}, nil
 }
 
 // UnassembleParams is an UNASSEMBLE as written. Stow says the units are put
@@ -918,28 +1022,107 @@ func (p UnassembleParams) Bind(b *Binder) ([]Bound, error) {
 	if err != nil {
 		return nil, err
 	}
-	work, err := bindUnitWork(p.Units, false, p.Stow)
+	work, err := bindUnitWork(p.Units, outOfWork(p.Stow))
 	if err != nil {
 		return nil, err
 	}
 	return []Bound{&workBound{params: p, entity: entity, pool: cadre.Unassembly,
-		verb: "unassembled", work: work}}, nil
+		verb: "unassembled", rate: cadreRate, work: work}}, nil
 }
 
-// workBound is an ASSEMBLE or an UNASSEMBLE. They are one thing in two
-// directions: the same cadre does both, at the same rate, and the only
-// differences are which way the units move through the sections and which of
-// the two work pools the order draws on.
+// STOW and UNSTOW ------------------------------------------------------
+
+// StowParams is a STOW as written: an entity and the units it is to put down
+// in cargo.
+type StowParams struct {
+	Kind     string         `json:"-"`
+	EntityID int64          `json:"-"`
+	Units    []UnitQuantity `json:"units"`
+}
+
+// Actor is the entity whose production labour moves the freight.
+func (p StowParams) Actor() int64 { return p.EntityID }
+
+// Input is the order as the player wrote it.
+func (p StowParams) Input() string { return unitListInput(p.Units) }
+
+// Bind settles which sections the units move between, which the verb decides
+// and a turn cannot change.
+func (p StowParams) Bind(b *Binder) ([]Bound, error) {
+	entity, err := b.actor(p.EntityID, p.Kind)
+	if err != nil {
+		return nil, err
+	}
+	work, err := bindUnitWork(p.Units, asFreight(units.SectionUnassembled, units.SectionCargo))
+	if err != nil {
+		return nil, err
+	}
+	return []Bound{&workBound{params: p, entity: entity, pool: labour.Stowing,
+		verb: "stowed", rate: labourRate, work: work}}, nil
+}
+
+// UnstowParams is an UNSTOW as written: an entity and the units it is to take
+// back out of cargo.
+type UnstowParams struct {
+	Kind     string         `json:"-"`
+	EntityID int64          `json:"-"`
+	Units    []UnitQuantity `json:"units"`
+}
+
+// Actor is the entity whose production labour moves the freight.
+func (p UnstowParams) Actor() int64 { return p.EntityID }
+
+// Input is the order as the player wrote it.
+func (p UnstowParams) Input() string { return unitListInput(p.Units) }
+
+// Bind settles which sections the units move between.
+func (p UnstowParams) Bind(b *Binder) ([]Bound, error) {
+	entity, err := b.actor(p.EntityID, p.Kind)
+	if err != nil {
+		return nil, err
+	}
+	work, err := bindUnitWork(p.Units, asFreight(units.SectionCargo, units.SectionUnassembled))
+	if err != nil {
+		return nil, err
+	}
+	return []Bound{&workBound{params: p, entity: entity, pool: labour.Unstowing,
+		verb: "unstowed", rate: labourRate, work: work}}, nil
+}
+
+// workBound is any of the four orders that move units between the sections of
+// one entity. They are one thing in four directions: each is rationed by a
+// pool of workers at 500 MU a turn, each fills partway when the workers or the
+// stock run out, and each fails only when the result would not fit. What
+// separates them is which way the units move, which pool the order draws on,
+// and who the workers are.
 type workBound struct {
 	params Params
 	entity *world.Entity
-	// pool is the construction-work pool this order draws on. The two never
-	// pool with each other, so which one an order is in is the whole of what
-	// separates the rounding of the one from the rounding of the other.
+	// pool is the pool of work this order draws on. Two pools of one kind
+	// never pool with each other, so which one an order is in is the whole of
+	// what separates the rounding of the one from the rounding of the other.
 	pool string
-	// verb is the past tense the note reads in: assembled, unassembled.
+	// verb is the past tense the note reads in: assembled, unassembled,
+	// stowed, unstowed.
 	verb string
+	// rate is the note's account of who does this kind of work and how much of
+	// it they get through in a turn, for an order that outran them.
+	rate func(*world.Entity) string
 	work []unitWork
+}
+
+// cadreRate and labourRate say who did the work and what they are worth in a
+// turn, for the note an order that outran them carries.
+func cadreRate(entity *world.Entity) string {
+	return fmt.Sprintf("its %d %s do %s MU of work a turn",
+		entity.ConstructionWorkers(), cadre.Unit,
+		formatQuantity(entity.ConstructionWorkers()*cadre.WorkPerUnit))
+}
+
+func labourRate(entity *world.Entity) string {
+	return fmt.Sprintf("its %s units of production labour move %s MU of freight a turn",
+		formatQuantity(entity.ProductionLabour()),
+		formatQuantity(entity.ProductionLabour()*labour.PerUnit))
 }
 
 // Params is the order as it will be stored.
@@ -949,11 +1132,10 @@ func (o *workBound) Params() Params { return o.params }
 // than burned.
 func (o *workBound) Fuel() int64 { return 0 }
 
-// Apply does as much of the work as the entity's construction workers and its
-// stock allow.
+// Apply does as much of the work as the entity's workers and its stock allow.
 //
 // A shortage is a rate rather than a failure: an order that asks for more than
-// the cadre can do this turn, or for more than the entity holds, does what it
+// the pool can do this turn, or for more than the entity holds, does what it
 // can and says so. It fails for one reason only -- that the result would not
 // fit -- because an entity cannot hold more than it encloses, and that is not
 // something doing less of the order would fix.
@@ -963,7 +1145,7 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 	done := int64(0)
 	shifts := make([]world.Shift, 0, len(o.work))
 	var short []string
-	cadreBound := false
+	workersBound := false
 	for _, want := range o.work {
 		// The work is the mass being handled, so a heavier unit is more work.
 		// A unit that masses nothing is no work at all and is not rationed.
@@ -976,7 +1158,7 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 			quantity := min(want.quantity-moved, o.entity.Held(section, want.unit, want.techLevel))
 			if unitMass > 0 {
 				if room := (allowed - done) / unitMass; room < quantity {
-					quantity, cadreBound = max(room, 0), true
+					quantity, workersBound = max(room, 0), true
 				}
 				done += quantity * unitMass
 			}
@@ -1007,10 +1189,8 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 	item := succeeded(at, at, 0)
 	if len(short) != 0 {
 		reason := "it holds no more"
-		if cadreBound {
-			reason = fmt.Sprintf("its %d %s do %s MU of work a turn",
-				o.entity.ConstructionWorkers(), cadre.Unit,
-				formatQuantity(o.entity.ConstructionWorkers()*cadre.WorkPerUnit))
+		if workersBound {
+			reason = o.rate(o.entity)
 		}
 		item.Note = fmt.Sprintf("%s %d %s %s; %s",
 			noun(o.entity), o.entity.ID, o.verb, strings.Join(short, ", "), reason)

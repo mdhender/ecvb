@@ -418,6 +418,94 @@ somewhere to be put; an entity cannot hold more than it encloses.
 Unassembling `LFSU` can kill people: only assembled life support supports
 anyone. See [Unit Glossary](units.md).
 
+## STOW
+
+```text
+ship SHIP-ID stow QUANTITY UNIT, QUANTITY UNIT, ...
+colony COLONY-ID stow QUANTITY UNIT, QUANTITY UNIT, ...
+```
+
+Stowing moves units out of unassembled inventory and into cargo, which is where
+a transport picks a load up: units must be in **cargo** to be transferred, so a
+`STOW` is what readies a load for a `TRANSFER`.
+
+Examples:
+
+```text
+ship 18 stow 18,000 FOOD, 800 HDRV-1
+colony 24 stow 12,000 METL
+```
+
+It neither takes a unit apart nor puts one together, so it reaches things an
+`ASSEMBLE` never can: `GOLD`, `FUEL`, `METL`, and `MNRL` are freight like
+anything else. Population is not -- people ride a transport rather than being
+loaded onto one -- and a cadre is not a thing at all; naming either is a
+mistake in the file.
+
+`UNASSEMBLE ... AND STOW` already does both halves in one order and is charged
+to the construction workers throughout, so it is the cheaper route whenever the
+units were assembled to begin with. A plain `STOW` is for units that never
+were: bought, unstowed, or left over from a build.
+
+Stowing is not needed to assemble anything. `ASSEMBLE` draws from cargo as well
+as from unassembled inventory.
+
+**A shortage fills the order partway rather than failing it.** A stow that asks
+for more than the entity holds, or for more than its production labour moves
+this turn, moves what it can and says how much that was.
+
+Stowing resolves at stage 6b of the turn, after `UNASSEMBLE` and before any
+transfer, so one file may unassemble at step a, stow at step b, and transfer
+the load away in the same turn.
+
+## UNSTOW
+
+```text
+ship SHIP-ID unstow QUANTITY UNIT, QUANTITY UNIT, ...
+colony COLONY-ID unstow QUANTITY UNIT, QUANTITY UNIT, ...
+```
+
+Unstowing moves units out of cargo and back into unassembled inventory. Units
+must be **unassembled** to be bought or sold, so an `UNSTOW` is what readies
+what a transfer set down for the market.
+
+Examples:
+
+```text
+colony 24 unstow 800 HDRV-1, 18,000 FOOD
+colony 24 unstow 9,000 METL
+```
+
+It reaches the same things a `STOW` does and refuses the same two, and it is
+subject to the same shortage rule.
+
+Unstowing resolves at stage 10a of the turn, after every transfer and before
+`ASSEMBLE`, so what a transfer set down this turn can be unstowed in the same
+turn. It is **not** needed to assemble anything.
+
+### What production labour does
+
+`STOW` and `UNSTOW` are freight handling rather than construction, so it is not
+the `CWKR` cadre that carries them out and no cadre is drafted for them.
+**Production labour** does: an entity's unassigned `USK` plus *t* for every
+assembled `AUTO` it carries. Automation stands in for an unskilled worker
+wherever unskilled work is done, and moving freight is unskilled work however
+the term reads. A worker already assigned to a cadre is not production labour
+at all, having been spoken for; automation is the other way round, being
+production labour and never a cadre. See [Unit Glossary](units.md).
+
+One unit of it moves **500 MU a turn**, the same rate a construction worker
+assembles at, where the work is the mass being handled. Work of the same kind
+is **pooled across an entity**, the way construction work is.
+
+**Stowing and unstowing never pool with each other.** One unit does one task a
+turn, so labour that stowed cannot also unstow: each total rounds up on its
+own, and an entity that stowed 1 MU has spent a whole worker on it.
+
+A stow or an unstow that would leave the entity overpacked **fails**, and
+nothing moves. Only `AUTO` can bring that about, being the one unit that takes
+more room unassembled than it does in cargo.
+
 ## TRANSFER
 
 ```text

@@ -13,7 +13,8 @@ this plan removes them before adding the orders.
 
 **Status: steps 0 through 4 are done and the plan's own verification suite is
 green. Step 5 has begun: NAME is built (`e3eada9`), batch 1 -- `assemble`,
-`unassemble`, `transfer` -- is built, and `docs/accepted-orders.md`
+`unassemble`, `transfer` -- and batch 1b -- `stow`, `unstow` -- are built, and
+`docs/accepted-orders.md`
 is now accepted rather than proposed. The parser now reads that surface: every
 order line is subject first, and `we` is a subject. The accepted verbs are
 mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-five
@@ -29,14 +30,14 @@ a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
 See "What the code still has to be told" below for the list, verb by verb.**
 
-**Three verbs are specified and unbuilt, and are what to build next: `stow` and
-`unstow`, which need nothing that batch 1 did not already establish, and the
+**One verb is specified and unbuilt, and is what to build next: the
 ship-and-colony forms of `create`, whose plan of record is
 `docs/plan/entity_build_bom_process.md` and four of whose eight listed costs
-batch 1 paid. See "Step 5 -- add the orders" for what each has left. The `jump`
+batch 1 paid. See "Step 5 -- add the orders" for what it has left. The `jump`
 rework is **built**: a crossing takes \(\lceil d / t \rceil\) turns, a ship in
 transit is nowhere and unreachable, and the whole fuel bill is drawn on
-departure.**
+departure. `stow` and `unstow` are built too, and brought `AUTO` and production
+labour with them.**
 
 ---
 
@@ -49,7 +50,7 @@ departure.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 30 orders | **batch 1 built and under the golden net** (3 of 30); `stow`/`unstow` and ship-and-colony `create` specified and unbuilt; the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118` |
+| 5 — add the 30 orders | **batches 1 and 1b built and under the golden net** (5 of 30); ship-and-colony `create` specified and unbuilt; the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `00ecbb3` |
 
 ### What step 0 built
 
@@ -624,15 +625,14 @@ rather than syntax:
 - **ASSEMBLE / UNASSEMBLE / TRANSFER** -- **built.** See "Batch 1 is built"
   below. The four rules that were open here were answered by the user and are
   now written down in `docs/orders.md`, `docs/units.md`, and `docs/model.md`.
-- **STOW / UNSTOW** -- accepted and **not built**. Two verbs added to
-  `docs/accepted-orders.md` after batch 1 landed: `ship 18 stow 18,000 FOOD, 800
-  HDRV-1` moves units from unassembled inventory to cargo and `colony 24 unstow
-  800 HDRV-1, 18,000 FOOD` moves them back, as many of each as the stock and the
-  cadre allow. They are the freight half of what `unassemble and stow` does in
-  one order. They land on `docs/turn-sequence.md` as steps rather than stages --
-  `stow` at 6b, because units must be in cargo to be transferred at 9, and
-  `unstow` at 10a, because units must be unassembled to be sold at 11 -- which is
-  why the turn is forty-five phases now and not forty-three.
+- **STOW / UNSTOW** -- **built.** See "Batch 1b is built" below. `ship 18 stow
+  18,000 FOOD, 800 HDRV-1` moves units from unassembled inventory to cargo and
+  `colony 24 unstow 800 HDRV-1, 18,000 FOOD` moves them back, as many of each as
+  the stock and the labour allow. They are the freight half of what `unassemble
+  and stow` does in one order, and they land on `docs/turn-sequence.md` as steps
+  rather than stages -- `stow` at 6b, because units must be in cargo to be
+  transferred at 9, and `unstow` at 10a, because units must be unassembled to be
+  sold at 11 -- which is why the turn is forty-five phases and not forty-three.
 
   They were first given to a `LABR` cadre, and `LABR` has since been removed
   from the game. **What carries them out is production labour, and no cadre is
@@ -647,14 +647,6 @@ rather than syntax:
   the construction workers throughout and to no unskilled worker -- which makes
   it the cheaper route whenever the units were assembled to begin with, and
   leaves a plain `stow` for units that never were.
-
-  **That was the last of it: these two are now specified and buildable.** The
-  surface is the `unitList` grammar batch 1 already reads, the sections are ones
-  `world` already moves units between, the partial-fill shape is the one all
-  three of batch 1's orders have, and the labour rule is `cadre.WorkAllowed`
-  with a different pool of workers -- `Entity.Unassigned("USK")` rather than the
-  `CWKR` count -- and a different pair of pools. Nothing new has to be built to
-  hold any of it.
 - **AUTO** -- a new unit, and the one rules decision taken since. Automation
   masses \(4t\) MU, burns no fuel, and an assembled unit does the work of
   \(t\) `USK` wherever unskilled work is done. It cannot stand in for the `USK`
@@ -695,10 +687,10 @@ rather than syntax:
   confusion with it: nothing is now called both a cadre and a pool of labour.
 
   `AUTO` is also the first unit whose cargo volume differs from its unassembled
-  volume (\(2t\) against \(4t\)). `units.Metrics` folds those two together --
-  `VolumeIn` returns `CargoVolume` for both sections -- so it needs a fourth
-  independent number before an `AUTO` can be weighed at all. No kit holds one,
-  so that change moves no golden.
+  volume (\(2t\) against \(4t\)). `units.Metrics` folded those two together, so
+  it grew a fourth independent number -- `UnassembledVolume` -- when batch 1b
+  landed. **Built**, and it moved no golden: no kit holds an `AUTO`, and every
+  other unit still reads the same in both sections.
 - **CREATE** -- **designed, and no longer waiting on rules.**
   `docs/plan/entity_build_bom_process.md` settles it end to end and
   `docs/plan/bom-rewrite.md` records what changed on the way. Every question
@@ -872,6 +864,53 @@ pool. The scenario's turn 1 now runs the whole pipeline to its end: 107
 unassembles and stows, carries to 101, and 101 assembles what arrived, in that
 turn.
 
+### Batch 1b is built
+
+`stow` and `unstow` cost what batch 1 said they would: two `Spec`s, two phases,
+two doc sections, and tests. Nothing about the pipeline had to change.
+
+Three things underneath them did. **`units.Metrics` grew a fourth volume.**
+Cargo and unassembled inventory had been one number read twice, which is true of
+every unit but `AUTO`; `UnassembledVolume` is now its own field and `VolumeIn`
+has a case for it. No kit holds an `AUTO`, so no golden moved.
+**`internal/labour`** is a new mechanic package on the `internal/<mechanic>`
+template: the code of the automation unit, the 500 MU a turn, and the names of
+the two pools. It deliberately does not import `internal/cadre` for the rate --
+they are separate rules that agree on a number, and a cadre is exactly what
+production labour is not. **`Entity.ProductionLabour`** is the pool itself:
+unassigned `USK` plus \(t\) for every assembled `AUTO`, read off what the entity
+holds every time it is asked for, because nothing is drafted for it and nothing
+is assigned into it.
+
+`World.WorkAllowed` became a table rather than a branch. There are now two pairs
+of pools -- assembly and unassembly for a `CWKR`, stowing and unstowing for
+production labour -- and each row says which pool it rounds up separately from
+and which workers do it. Adding a third pair would be two more rows.
+
+The four rationed orders are one `Bound`. `workBound` already carried the pool
+and the past tense the note reads in; it gained one field, the account of who
+did the work, and `bindUnitWork` gained a `route` in place of two booleans. That
+is what let `stow` differ from `assemble` in the one way that matters: a stow
+takes a unit apart or puts one together **not at all**, so it reaches the bulk
+resources an `assemble` refuses, and unstowing `GOLD` is what readies it for the
+market. Only population and cadres are refused, neither being inventory.
+
+The scenario gained a freight yard, entity 108, which has no cadre and never
+assembles anything: ten unskilled workers and five assembled `AUTO-2` are twenty
+units of production labour, moving 10,000 MU a turn between them. Its three
+turns are a stow rationed by the labour, an unstow after a stow that had already
+spent a whole unit of it, and a stow at 6b feeding an unstow at 10a in one turn.
+The rings in the golden moved, which is not a rules change: a landing ring is a
+deterministic draw keyed on the game seed and the order's sequence number, and
+adding orders to a file shifts the sequence numbers after them.
+
+One thing was noticed and deliberately not changed. The note an order that
+outran its workers carries names the entity's *whole* rate -- "its 20 units of
+production labour move 10,000 MU of freight a turn" -- even when an earlier
+order of the turn is what left it short. That is exactly what the `CWKR` note
+already does, and the pool being drawn down in stage order is the rule rather
+than an accident, so both were left reading the same way.
+
 ### The cadres are named, and one of them is specified
 
 `CWKR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
@@ -898,8 +937,9 @@ four cadres are still names.
 A new order becomes: one `Spec` (parse + bind + apply), a section in
 `docs/orders.md`, and tests.
 
-**Where this stands.** Three of the thirty are built -- batch 1's `assemble`,
-`unassemble`, and `transfer` -- and none of the rest are waiting on the
+**Where this stands.** Five of the thirty are built -- batch 1's `assemble`,
+`unassemble`, and `transfer`, and batch 1b's `stow` and `unstow` -- and none of
+the rest are waiting on the
 pipeline: an order costs a `Spec`, a doc section, and tests now, which is what
 steps 0 through 4 were for. They are waiting on what the verbs *do*. That is the
 list in "What the code still has to be told", and it is the 1978 text the user
@@ -911,17 +951,9 @@ mutations it establishes, and because it was the only batch whose rules were
 settled. Four more rules were asked and answered while building it, and three
 more since; see "Batch 1 is built" above.
 
-**Two things are unblocked and can be built today.**
+**One thing is unblocked and can be built today.**
 
-- **`stow` and `unstow`** -- batch 1b, and the smaller of the two. Every rule
-  they need is settled and every mechanism they need exists: the `unitList`
-  grammar, the sections `world` already moves units between, the partial-fill
-  shape all three of batch 1's orders have, and `cadre.WorkAllowed` over a
-  different pool of workers. What is new is one thing only: the pool is
-  `Entity.Unassigned("USK")` plus \(t\) per assembled `AUTO` rather than a cadre
-  count. `AUTO` cannot be weighed until `units.Metrics` grows a fourth volume,
-  which no kit is affected by.
-- **`create`, ship and colony forms** -- batch 2, and the larger.
+- **`create`, ship and colony forms** -- batch 2, and what is left.
   `docs/plan/entity_build_bom_process.md` is its plan of record and settles it
   end to end. **Batch 1 paid four of the eight costs listed there**: inventory
   mutation in `internal/world`, the cadre table, the two tokenizer readers, and
@@ -939,11 +971,12 @@ The three **group** `create` forms are not in that, and neither is the rest of
 batch 2. They wait on what a factory, a farm, or a mine produces per turn, and
 on a `work_group` column for what a factory is `making`.
 
-The accepted doc carries thirty-seven verbs. Seven are built -- `move`, `jump`,
-`probe`, `name`, and batch 1's `assemble`, `unassemble`, and `transfer` -- and
+The accepted doc carries thirty-seven verbs. Nine are built -- `move`, `jump`,
+`probe`, `name`, batch 1's `assemble`, `unassemble`, and `transfer`, and batch
+1b's `stow` and `unstow` -- and
 one of those still needs reworking: `name`, for naming another faction's ships
-and colonies. `jump` is finished, crossings and all. Thirty remain, batched so
-that each exercises what the next needs:
+and colonies. `jump` is finished, crossings and all. Twenty-eight remain,
+batched so that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. **Built.**
    `world` now owns the inventory table outright, `internal/cadre` and
@@ -953,9 +986,11 @@ that each exercises what the next needs:
 
    1b. **`stow` and `unstow`** — accepted after the rest of batch 1 landed, and
    the same family: they move units between unassembled inventory and cargo, so
-   that a load is ready to be transferred or sold. **Specified and unbuilt**, and
-   nothing else waits on them. They are here rather than in a batch of their own
-   because they need exactly what batch 1 established and nothing more.
+   that a load is ready to be transferred or sold. **Built.** See "Batch 1b is
+   built" below. They were here rather than in a batch of their own because they
+   needed exactly what batch 1 established and nothing more, and that held: the
+   only new mechanisms are `internal/labour`, `Entity.ProductionLabour`, and a
+   fourth volume on `units.Metrics`.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
    first batch to exercise a multi-line order end to end. **No longer blocked on

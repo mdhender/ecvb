@@ -33,12 +33,16 @@ type Phase struct {
 // The phases of a turn. Production and combat will be new entries here and a
 // Phase on their orders' Specs; nothing else has to learn about them.
 var (
-	// The three inventory phases are stages 6, 9, and 10 of
-	// docs/turn-sequence.md, and they are in that order on purpose: units must
-	// be unassembled to be carried, so a file may unassemble at one entity,
-	// transfer to another, and assemble again there, all in one turn.
+	// The five inventory phases are stages 6a, 6b, 9, 10a, and 10b of
+	// docs/turn-sequence.md, and they are in that order on purpose. Stage 6
+	// moves units away from the sections they work in and stage 10 moves them
+	// back toward them, with the transports running between; units must be in
+	// cargo to be carried, so a file may unassemble and stow at one entity,
+	// transfer to another, and unstow or assemble there, all in one turn.
 	PhaseUnassemble = &Phase{Name: "unassemble"}
+	PhaseStow       = &Phase{Name: "stow"}
 	PhaseTransfer   = &Phase{Name: "transfer"}
+	PhaseUnstow     = &Phase{Name: "unstow"}
 	PhaseAssemble   = &Phase{Name: "assemble"}
 	PhaseProbe      = &Phase{Name: "probe"}
 	PhaseSensor     = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
@@ -59,7 +63,7 @@ var (
 // turn's landings and a ship cannot be caught by a jump order written the turn
 // it arrives.
 var phases = []*Phase{
-	PhaseUnassemble, PhaseTransfer, PhaseAssemble,
+	PhaseUnassemble, PhaseStow, PhaseTransfer, PhaseUnstow, PhaseAssemble,
 	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
 }
 

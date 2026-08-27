@@ -10,13 +10,15 @@ func TestBulkResourcesMassAndOccupyOneUnit(t *testing.T) {
 	// manufactured unit costs.
 	for _, unit := range []string{"FUEL", "GOLD", "METL", "MNRL"} {
 		got := MetricsFor(unit, 0, false)
-		if want := (Metrics{Mass: 1, CargoVolume: 1, OperationalVolume: 1, ComponentVolume: 1}); got != want {
+		if want := (Metrics{Mass: 1, CargoVolume: 1, UnassembledVolume: 1,
+			OperationalVolume: 1, ComponentVolume: 1}); got != want {
 			t.Errorf("%s metrics = %+v; want %+v", unit, got, want)
 		}
 	}
 	// Another unit without a technology level keeps the general rule.
 	got := MetricsFor("CNGD", 0, false)
-	if want := (Metrics{Mass: 6, CargoVolume: 6, OperationalVolume: 12, ComponentVolume: 24}); got != want {
+	if want := (Metrics{Mass: 6, CargoVolume: 6, UnassembledVolume: 6,
+		OperationalVolume: 12, ComponentVolume: 24}); got != want {
 		t.Errorf("CNGD metrics = %+v; want %+v", got, want)
 	}
 }
@@ -118,6 +120,35 @@ func TestMetricsForStoredReadsAZeroLevelAsNoLevel(t *testing.T) {
 	}
 	if got := MetricsForStored("SNSR", 1); got != MetricsFor("SNSR", 1, true) {
 		t.Errorf("stored SNSR-1 = %+v; want the level-1 metrics", got)
+	}
+}
+
+// AUTO is the one unit whose cargo volume differs from its unassembled
+// volume: it packs down for carrying and does not fold up any smaller sitting
+// idle in the hold. It is why Metrics carries four volumes rather than three.
+func TestAutomationPacksDownForCarryingAndNowhereElse(t *testing.T) {
+	got := MetricsFor("AUTO", 2, true)
+	if want := (Metrics{Mass: 8, CargoVolume: 4, UnassembledVolume: 8,
+		OperationalVolume: 8, ComponentVolume: 8}); got != want {
+		t.Errorf("AUTO-2 metrics = %+v; want %+v", got, want)
+	}
+	if got := got.VolumeIn(SectionCargo); got != 4 {
+		t.Errorf("AUTO-2 cargo volume = %d; want 4, half what it takes unassembled", got)
+	}
+	if got := got.VolumeIn(SectionUnassembled); got != 8 {
+		t.Errorf("AUTO-2 unassembled volume = %d; want 8", got)
+	}
+	// Automation does unskilled work rather than propelling or sensing, so it
+	// is assembled into operational inventory like everything else that is not
+	// one of the six.
+	if section, assemblable := AssembledSection("AUTO"); !assemblable || section != SectionOperational {
+		t.Errorf("AUTO assembles into (%q, %v); want operational", section, assemblable)
+	}
+	// A bare AUTO has no technology level to be worth anything at, so it falls
+	// back to the general rule rather than to a level-zero unit that would
+	// mass nothing.
+	if got := MetricsFor("AUTO", 0, false); got.Mass != 6 {
+		t.Errorf("AUTO with no level masses %d; want the general 6", got.Mass)
 	}
 }
 

@@ -156,11 +156,19 @@ separately is what would let them drift. `internal/fuel` keeps the draw-order
 rule and `internal/jumpdrive` and `internal/sensors` the arithmetic of a drive
 and an array, but none of the three touch SQL any more.
 
+`Entity.ProductionLabour` is the second pool of workers, beside the `CWKR`
+cadre: unassigned `USK` plus \(t\) for every assembled `AUTO`, which is what
+`stow` and `unstow` are rationed by. `internal/labour` holds the rate and the
+two pool names. It is deliberately not a cadre -- nothing is drafted for it and
+nothing is assigned into it, so `world` keeps no membership and reads the total
+off what the entity holds. `World.WorkAllowed` is one table over both pairs of
+pools, so which workers a kind of work draws on is a row rather than a branch.
+
 Per-turn state lives beside the loaded copy and is thrown away with it: the
 probe budget, how many orders of a kind an entity has been given, the MU of
-construction work each of its two pools has done, and the transports it has
-committed. A World is loaded for one operation, so all four start empty every
-turn without anything having to clear them.
+work each of its four pools has done, and the transports it has committed. A
+World is loaded for one operation, so all four start empty every turn without
+anything having to clear them.
 
 ### Phases
 
@@ -168,7 +176,7 @@ A turn is the table in `spec.go` and nothing else:
 
 ```go
 var phases = []*Phase{
-	PhaseUnassemble, PhaseTransfer, PhaseAssemble,
+	PhaseUnassemble, PhaseStow, PhaseTransfer, PhaseUnstow, PhaseAssemble,
 	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
 }
 ```
@@ -204,21 +212,25 @@ five are orders *and* a sweep -- combat, the market, espionage, ship movement,
 the news service -- where the orders declare intent and one sweep settles all of
 them against each other.
 
-Three orders move units through inventory, and they resolve in that order --
-stages 6, 9, and 10 of `docs/turn-sequence.md` -- so one file may unassemble at
-one entity, `transfer` to another, and `assemble` again there, all in one turn.
-The far end of that only works because `assemble` draws from `unassembled`
-first and from `cargo` after it: a transport sets its load down in cargo and
-nowhere else.
-Two rules shape all three. **A shortage is a rate rather than a failure**: an
-order that outruns the `CWKR` cadre, the stock on hand, or the transports does
-what it can and carries no more; it is not refused, and what it did not do does
-not carry over. That is `Outcome.Note`, which is a warning at check and submit
-and a `note` on the engine log line -- not an `error_message`, because the order
-succeeded. **The one thing that fails an assemble or an unassemble is space**:
-an entity cannot hold more than it encloses, and doing less of the order would
-not fix it. `internal/cadre` holds the 500 MU-a-turn rule and the two pools;
-`internal/transport` holds what a hull carries, who crews it, and what it burns.
+Five orders move units through inventory, and they resolve in that order --
+stages 6a, 6b, 9, 10a, and 10b of `docs/turn-sequence.md` -- so one file may
+`unassemble` and `stow` at one entity, `transfer` to another, and `unstow` or
+`assemble` again there, all in one turn. The far end of that works even without
+an `unstow`, because `assemble` draws from `unassembled` first and from `cargo`
+after it: a transport sets its load down in cargo and nowhere else.
+Two rules shape all five. **A shortage is a rate rather than a failure**: an
+order that outruns the `CWKR` cadre, the entity's production labour, the stock
+on hand, or the transports does what it can and carries no more; it is not
+refused, and what it did not do does not carry over. That is `Outcome.Note`,
+which is a warning at check and submit and a `note` on the engine log line --
+not an `error_message`, because the order succeeded. **The one thing that fails
+one of them is space**: an entity cannot hold more than it encloses, and doing
+less of the order would not fix it. All four of the rationed orders are one
+`workBound`, differing only in which way the units move, which pool they draw
+on, and who the workers are. `internal/cadre` holds the 500 MU-a-turn rule and
+the assembly pools, `internal/labour` the same rate for freight and the stowing
+pools; `internal/transport` holds what a hull carries, who crews it, and what
+it burns.
 
 A cadre is an assignment of real population, and `internal/cadre.Composition` is
 what says which -- one `CWKR` is one `SKW` plus one `USK`. Two things follow, and
@@ -255,8 +267,8 @@ that is now a `create` prerequisite alone.
    turn. `Check` runs exactly the same thing and keeps nothing.
 2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
    `orders.Phases()` in order: **every order of one phase resolves before any
-   order of the next**, today unassemble, transfer, assemble, probe, sensor,
-   move, jump, arrival, naming. Expected game-rule
+   order of the next**, today unassemble, stow, transfer, unstow, assemble,
+   probe, sensor, move, jump, arrival, naming. Expected game-rule
    failures are recorded on the order row (`status = 'failed'` plus
    `error_message`, final location equal to start location) and do not abort the
    turn; database/state errors roll the turn back. State flips

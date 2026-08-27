@@ -78,9 +78,9 @@ That is what keeps the number a player writes and the number a report shows in
 the same unit, and it means nothing is consumed by putting automation to work
 and nothing has to be chosen to give back when it stops.
 
-`internal/units` does not weigh `AUTO` yet, and cannot: its table gives every
-unit one volume for both cargo and unassembled inventory, and `AUTO` needs the
-two to differ.
+`internal/units` weighs `AUTO`. Its `Metrics` carries four volumes rather than
+three, cargo and unassembled inventory having become separate numbers for this
+one unit; every other unit still reads the same in both.
 
 ## `CNGD`
 

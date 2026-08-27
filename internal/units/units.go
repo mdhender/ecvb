@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/mdhender/ecvb/internal/jumpdrive"
+	"github.com/mdhender/ecvb/internal/labour"
 	"github.com/mdhender/ecvb/internal/sensors"
 )
 
@@ -28,13 +29,19 @@ const (
 	SectionCargo       = "cargo"
 )
 
-// Metrics is what one unit masses and what it occupies in each of the sections
-// it may be held in. Assembling a unit usually costs volume: a manufactured
-// unit takes twice its cargo volume operational and four times it as a
-// component.
+// Metrics is what one unit masses and what it occupies in each of the four
+// sections it may be held in. Assembling a unit usually costs volume: a
+// manufactured unit takes twice its cargo volume operational and four times it
+// as a component.
+//
+// Unassembled inventory and cargo are both freight and take the same room for
+// every unit but one: AUTO packs down for carrying and does not fold up any
+// smaller sitting idle in the hold. That is why the two are separate numbers
+// rather than one read twice.
 type Metrics struct {
 	Mass              int64
 	CargoVolume       int64
+	UnassembledVolume int64
 	OperationalVolume int64
 	ComponentVolume   int64
 }
@@ -45,19 +52,20 @@ type Metrics struct {
 var PopulationMetrics = Metrics{
 	Mass:              2,
 	CargoVolume:       2,
+	UnassembledVolume: 2,
 	OperationalVolume: 2,
 	ComponentVolume:   2,
 }
 
-// VolumeIn is what one unit occupies in a section. Unassembled inventory and
-// cargo are both freight and take the same room; only assembling a unit costs
-// anything extra.
+// VolumeIn is what one unit occupies in a section.
 func (m Metrics) VolumeIn(section string) int64 {
 	switch section {
 	case SectionComponent:
 		return m.ComponentVolume
 	case SectionOperational:
 		return m.OperationalVolume
+	case SectionUnassembled:
+		return m.UnassembledVolume
 	default:
 		return m.CargoVolume
 	}
@@ -194,7 +202,18 @@ func MetricsFor(unit string, techLevel int, hasTechLevel bool) Metrics {
 	// and takes 1 VU wherever it is held, with none of the multipliers that
 	// installing a manufactured unit costs.
 	if IsBulkResource(unit) && !hasTechLevel {
-		return Metrics{Mass: 1, CargoVolume: 1, OperationalVolume: 1, ComponentVolume: 1}
+		return Metrics{Mass: 1, CargoVolume: 1, UnassembledVolume: 1, OperationalVolume: 1, ComponentVolume: 1}
+	}
+	// Automation is the one unit whose cargo volume differs from its
+	// unassembled volume. A unit at technology level t masses 4t MU and takes
+	// 4t VU assembled, 4t VU unassembled, and 2t VU in cargo: it packs down for
+	// carrying and does not fold up any smaller sitting idle in the hold. It
+	// works in operational inventory and is never a component, so the component
+	// number is the volume it would take if one were ever put there.
+	if unit == labour.Automation && hasTechLevel {
+		size := int64(4 * techLevel)
+		return Metrics{Mass: size, CargoVolume: size / 2, UnassembledVolume: size,
+			OperationalVolume: size, ComponentVolume: size}
 	}
 	base := int64(6)
 	if hasTechLevel {
@@ -203,6 +222,7 @@ func MetricsFor(unit string, techLevel int, hasTechLevel bool) Metrics {
 	metrics := Metrics{
 		Mass:              base,
 		CargoVolume:       base,
+		UnassembledVolume: base,
 		OperationalVolume: 2 * base,
 		ComponentVolume:   4 * base,
 	}

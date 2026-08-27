@@ -9,3 +9,5 @@ we name (0,0,0) system A "Home System"
 colony 107 unassemble 90 STRC-10             # every VU it has: the units would have nowhere to go
 colony 107 transfer 5,000 GOLD to colony 101   # more than it holds and more than its transports carry
 colony 107 transfer 100 GOLD to ship 100       # 100 crossed to system B last turn and is out of reach
+colony 108 stow 1,500 METL           # three of the twenty, and they cannot unstow as well
+colony 108 unstow 9,000 METL         # stage 6b feeds stage 10a; seventeen left move 8,500

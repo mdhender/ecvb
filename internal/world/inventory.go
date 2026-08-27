@@ -9,6 +9,7 @@ import (
 	"github.com/mdhender/ecvb/internal/cadre"
 	"github.com/mdhender/ecvb/internal/fuel"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
+	"github.com/mdhender/ecvb/internal/labour"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"github.com/mdhender/ecvb/internal/transport"
 	"github.com/mdhender/ecvb/internal/units"
@@ -128,6 +129,26 @@ func (e *Entity) Unassigned(class string) int64 {
 // ConstructionWorkers is the CWKR cadre the entity has assigned.
 func (e *Entity) ConstructionWorkers() int64 { return e.Cadre[cadre.Unit] }
 
+// ProductionLabour is the unskilled work the entity can put to a task this
+// turn: its unassigned USK plus t for every assembled AUTO it carries.
+//
+// It is Unassigned rather than the raw population because a worker already in
+// a cadre has been spoken for and is not available for a second job.
+// Automation is the other way round -- it is production labour and never a
+// cadre -- so an AUTO moves freight but is no use in a CWKR. Only assembled
+// units count; an AUTO held in any other section is freight.
+//
+// Nothing is assigned into it and nothing is drafted for it, so there is no
+// membership to keep: the total is read off what the entity holds every time
+// it is asked for.
+func (e *Entity) ProductionLabour() int64 {
+	total := e.Unassigned(units.ClassUnskilled)
+	for _, stack := range e.stacksIn(units.SectionOperational, labour.Automation) {
+		total += labour.Automates(stack.TechLevel, e.Inventory[stack])
+	}
+	return total
+}
+
 // Transports is the assembled TRAN the entity carries, highest technology
 // level first, because a better hull carries more for the same crew and the
 // same fuel.
@@ -140,23 +161,42 @@ func (e *Entity) Transports() []transport.Hulls {
 	return hulls
 }
 
-// WorkDone is how much work of one kind an entity's construction workers have
-// got through this turn. It is turn state, like the probe budget: a World is
+// WorkDone is how much work of one kind an entity has got through this turn.
+// It is turn state, like the probe budget: a World is
 // loaded for one operation and thrown away, so the pools start empty every
 // turn without anything having to clear them.
 func (w *World) WorkDone(kind string, entityID int64) int64 {
 	return w.work[workKey{kind: kind, entityID: entityID}]
 }
 
+// workPools pairs every pool of work with the pool it rounds up separately
+// from and with the workers who do it.
+//
+// The two pairs are two kinds of worker doing two kinds of job: a CWKR cadre
+// assembles and takes apart, and production labour moves freight. Within a
+// pair the two pools never pool with each other, because a worker does one
+// task per turn -- an entity assembling 100 MU and unassembling 100 MU needs
+// two workers and not one, and labour that stowed cannot also unstow.
+var workPools = map[string]struct {
+	other   string
+	workers func(*Entity) int64
+}{
+	cadre.Assembly:   {other: cadre.Unassembly, workers: (*Entity).ConstructionWorkers},
+	cadre.Unassembly: {other: cadre.Assembly, workers: (*Entity).ConstructionWorkers},
+	labour.Stowing:   {other: labour.Unstowing, workers: (*Entity).ProductionLabour},
+	labour.Unstowing: {other: labour.Stowing, workers: (*Entity).ProductionLabour},
+}
+
 // WorkAllowed is how much more work of a kind an entity can still do this
-// turn, given the cadre it has and what both its pools have already done.
+// turn, given the workers who do that kind of work and what they have already
+// got through in both of their pools.
 func (w *World) WorkAllowed(kind string, entity *Entity) int64 {
-	other := cadre.Assembly
-	if kind == cadre.Assembly {
-		other = cadre.Unassembly
+	pool, ok := workPools[kind]
+	if !ok {
+		return 0
 	}
-	return cadre.WorkAllowed(entity.ConstructionWorkers(),
-		w.WorkDone(kind, entity.ID), w.WorkDone(other, entity.ID))
+	return cadre.WorkAllowed(pool.workers(entity),
+		w.WorkDone(kind, entity.ID), w.WorkDone(pool.other, entity.ID))
 }
 
 // RecordWork charges work against an entity's pool for the turn.
