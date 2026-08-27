@@ -27,9 +27,13 @@ the surrounding detail, but it does not say what a group produces per turn, what
 a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
 See "What the code still has to be told" below for the list, verb by verb.
-The `jump` rework, which was the one exception, is now built: a crossing takes
-\(\lceil d / t \rceil\) turns, a ship in transit is nowhere and unreachable,
-and the whole fuel bill is drawn on departure.**
+Two pieces were exceptions -- blocked on this repository rather than on the
+rules -- and both are now cleared. The `jump` rework is **built**: a crossing
+takes \(\lceil d / t \rceil\) turns, a ship in transit is nowhere and
+unreachable, and the whole fuel bill is drawn on departure. `create` is
+**designed**: `docs/plan/entity_build_bom_process.md` settles it end to end, and
+the one schema change it was thought to need -- a fourth `game_order.status` --
+turns out not to be needed at all.**
 
 ---
 
@@ -83,7 +87,8 @@ registered form.
   as a slower on-demand end-to-end check.
 - **The CLAUDE-01 kit was refitted** from 8 × `HDRV-8` + 120 `FUEL` to
   7 × `HDRV-10` + 11,716 `FUEL` + 2,421 `STRC-10` (structure was forced: `FUEL`
-  takes 1 VU on a ship, and enclosed space must be ≥ 1.1 × occupied). All 147
+  takes 1 VU on a ship, and the kit loader wants enclosed space ≥ 1.1 ×
+  occupied). All 147
   orders across turns 0–6 now succeed. The ship sits at exactly 100% of drive
   capacity; **the user has said not to future-proof kits** — they are cheap to
   update when needed.
@@ -449,12 +454,16 @@ of a new order`.
 script: move the subject behind the verb, prefix the place-naming lines with
 `we`. `docs/orders.md` moves with them, and `doc_test.go` fails until it does.
 
-`docs/units.md` and `docs/model.md` specify the nouns completely -- the four inventory
-sections, per-unit mass and volume in each, enclosed volume from assembled
-`STRC`/`STRL` at \(t^2\) VU, the efficiencies (COPN 1, CSFC 0.2, CORB and
-SHIP 0.1), the 1.1x excess-space rule, bulk resources in external depots. They
-say nothing about what the batch-1 verbs *do*. Writing them would be authoring
-rules, not implementing them, so the user is supplying the 1978 text.
+`docs/units.md` and `docs/model.md` specify the nouns completely -- the four
+inventory sections, per-unit mass and volume in each, enclosed volume from
+assembled `STRC`/`STRL` at \(t^2\) VU, the efficiencies (COPN 1, CSFC 0.2,
+CORB and SHIP 0.1), bulk resources in external depots. The 1.1x excess-space
+check was listed here as one of them and is not a game rule at all: it is a
+check the kit loader makes on a seed file (`spaceWithTenPercentExcess`,
+`cmd/ec/kit.go:316`), so that a kit an agent built has room for a human to edit
+it afterwards. It constrains nobody's play and belongs in neither doc. What the
+two docs say nothing about is what the batch-1 verbs *do*. Writing that would be
+authoring rules, not implementing them, so the user is supplying the 1978 text.
 
 ### The turn sequence and the accepted doc are reconciled
 
@@ -527,19 +536,23 @@ This section used to read *two orders*, and used to say that one prerequisite
 blocked both. Both halves of that were wrong, and the decisions below are what
 showed it.
 
-`create` may take several turns to finish, which is why it pre-allocates its
-`CWKR` cadre and holds it for the duration, and `jump` takes
+A ship or colony create may take several turns to finish, and `jump` takes
 \(\lceil d / t \rceil\) turns to cross _d_ light years at technology level
-_t_. Only `create` is an order that keeps running. A jump *departs* -- and what
-outlives the turn is a ship in transit, which is not the order at all.
+_t_. **Neither is an order that keeps running.** A jump *departs* -- and what
+outlives the turn is a ship in transit, which is not the order at all. A create
+*commits* -- and what outlives the turn is an unfinished entity, which is not
+the order either.
 
-`create` is therefore the one that needs something the pipeline lacks.
+`create` was thought to be the one that needs something the pipeline lacks.
 `game_order.status` is a three-way CHECK -- `pending`, `succeeded`, `failed` --
 where `pending` means submitted and not yet resolved, and `ec turn open` purges
 rows older than the most recently resolved turn. An order still running when its
-turn resolves is a fourth thing: resolved, not failed, not done. **The status
-column and the purge have to learn about it before batch 2 (`create`) can be
-built.** The `jump` rework was thought to need it too, and does not.
+turn resolves would be a fourth thing: resolved, not failed, not done. **No
+order turned out to be that thing.** The `create` design settled it the way
+`jump` was settled: the order succeeds on the turn it is given and holds nothing
+-- the `with` clause is a per-turn cap on workers, not a cadre reserved for the
+duration -- and the build carries on in rows of its own, consumed by sweeps at
+stages 5, 9, and 10. The status column and the purge stay as they are.
 
 Two rules that were open here were settled, and both are now built:
 
@@ -562,10 +575,12 @@ Two rules that were open here were settled, and both are now built:
   everywhere, it spends fewer turns off the board. That is what makes building
   one worth doing.
 
-**This is what split `jump` from `create`, and it is the useful consequence.**
+**This is what split `jump` from `create`, and the split outlived its reason.**
 The crossing is not the order: the jump order departs, burns the whole fuel
 bill, and *succeeds*. So `jump` needed no fourth status and no change to the
-purge, and the fourth status is a `create` prerequisite alone.
+purge -- and neither, in the end, does `create`. The two effects that outlive
+their turn are the same shape after all, and nothing is waiting on a schema
+change to `game_order`.
 
 ### The jump rework is built
 
@@ -614,19 +629,33 @@ rather than syntax:
   the two entities are not in the same place), that the units must be in cargo
   and are stowed on arrival, and that a shortage of transports partially fills
   it. Still open: which inventory sections the units leave and arrive in, and
-  whether it crosses factions. Population moves too: `500 SOL`. This is the
-  closest of the lot to buildable.
-- **CREATE** -- the doc gives the form, the `end` terminator, that the units are
-  assembled automatically, and that a trade station is an orbital colony. The
-  `CWKR` cadre is pre-allocated and reserved for as long as the order runs,
-  which may be several turns. Open: where the new entity appears and in which
-  ring; whether the cadre is consumed or released; what the creating entity must
-  be near; what happens when the units named are short.
+  whether it crosses factions. Population moves too: `500 SOL`. One thing moved
+  under it: stage 9 is now orders **and a sweep**, because a build's delivery
+  draws on the same transports a `transfer` does, and an explicitly ordered
+  transfer is served before a build's standing claim. This is still the closest
+  of the lot to buildable.
+- **CREATE** -- **designed, and no longer waiting on rules.**
+  `docs/plan/entity_build_bom_process.md` settles it end to end and
+  `docs/plan/bom-rewrite.md` records what changed on the way. Every question
+  that stood here is answered: a ship or colony create is a standing commitment
+  that succeeds when it is given and claims its materials over turns; the `with`
+  clause is a per-turn cap rather than a cadre held for the duration; the new
+  entity appears at the creating entity's planet in the ring its kind requires;
+  the cadre is neither consumed nor released, because it was never held; and a
+  shortage of anything is a slower build rather than a failed order. The three
+  group forms finish by the opposite rule -- kill-and-fill, closing out inside
+  stage 5 -- and their production rules are still unwritten, as is a
+  `work_group` column for what a factory group is `making`. One item here is a
+  decision rather than a gap: this plan says a trade station is an orbital
+  colony, and the accepted grammar hangs `as trade-station` off all three colony
+  kinds. `docs/accepted-orders.md` wins unless that is deliberately overturned.
 - **GROUPS (add / remove / idle / activate / retool)** -- the doc settles the
   work-in-progress rules: a mine group has none, a farm group has some, retool
   drains the line before spending a turn, and an immediate retool discards it.
-  `add` assembles what it puts into a group, the way `create` does, and the
-  engine allocates the construction workers for it. Open: what a group produces
+  `add` assembles what it puts into a group, the way a *group* create does, and
+  the engine allocates the construction workers for it; a ship or colony create
+  is the one that assembles at stage 10 instead, because its materials arrive
+  over turns rather than being on hand. Open: what a group produces
   per turn, what labour it needs, and how the farm table's `HN x 100,000` cap is
   applied.
 - **MARKET (buy / sell)** -- the doc gives both forms, prices in `GOLD` or
@@ -649,19 +678,26 @@ rather than syntax:
   Needs a combat system, and `support ... defending` now carries what used to be
   a separate defend order.
 
-### The cadres are named but still not specified
+### The cadres are named, and one of them is specified
 
 `CWKR`, `LABR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
 is a temporary assignment of population rather than a unit, so it needs no row
-in `entity_population`, but nothing models an assignment at all yet.
+in `entity_population` -- but the population it assigns is real, and carries
+that population's mass and volume, so a cadre can be transported. Nothing models
+an assignment yet; a cadre table is one of `create`'s costs.
 
-`CWKR` is the one whose effect is known, and the merge settled how it is
-obtained: the engine allocates it for an `add` and for a bare `assemble`,
-without being told to, and drafting enough to cover the turn's expected work is
-the faction's job. `create` is the exception that names its own, because it is
-the only assembly that may need transports and the only one that may run for
-several turns. What a construction worker costs, and what happens when a faction
-has not drafted enough, are unwritten.
+`CWKR` is specified now. It is **one `SKW` plus one `USK`**, made by `draft`
+(`ship 18 draft 4,250 CWKR`); one does **500 MU of work a turn**; and a worker
+does **one task per turn**, so an entity's pool is drawn down in stage order --
+a group create at 5, an `add` at 8, then the `assemble` orders and the ship and
+colony builds at 10. The engine allocates it for an `add` and for a bare
+`assemble` without being told to, and drafting enough to cover the turn's
+expected work is the faction's job. `create` is the exception that names its
+own, because a ship or colony build runs for several turns and so is the only
+assembly worth throttling. What happens when a faction has not drafted enough is
+settled too: a shortfall is a rate rather than a failure, costing a build that
+turn's progress and a kill-and-fill order some of what it asked for. The other
+four cadres are still names.
 
 ## Step 5 — add the orders
 
@@ -676,11 +712,15 @@ be told", and it is the 1978 text the user is supplying, verb by verb. Nothing
 in the code has to be prepared for it first, so a batch can be built the week
 its rules land.
 
-One piece was blocked on this repository rather than on the rules, and it is
-done: the **`jump` rework** is built -- see "The jump rework is built" above.
-**`create`** still needs the fourth order status and a purge that keeps it,
-which is now its prerequisite alone, and whether it needs one at all depends on
-its design. Everything else waits on rules.
+Two pieces were blocked on this repository rather than on the rules, and neither
+is now. The **`jump` rework** is built -- see "The jump rework is built" above.
+**`create`** is designed: `docs/plan/entity_build_bom_process.md` is its plan of
+record, the fourth order status turned out not to be needed, and what it waits
+on is implementation rather than a decision. That cost is real and is listed
+there -- inventory mutation in `internal/world`, which has none today; the first
+multi-line parse; `under_construction`, `construction_item`, and a cadre table;
+and the mass-and-volume rules lifted out of `cmd/ec/kit.go` into an
+`internal/units` package. Everything else waits on rules.
 
 The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
 `probe`, `name` -- and one of those still needs reworking: `name`, for naming
@@ -691,9 +731,11 @@ Thirty-one remain, batched so that each exercises what the next needs:
    `World`'s inventory mutations, which everything below moves units through.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
-   first batch to exercise a multi-line order end to end. Blocked on the
-   fourth order status above, which is now `create`'s alone: the `jump` rework
-   turned out not to need it and is built.
+   first batch to exercise a multi-line order end to end. **No longer blocked on
+   the fourth order status**, which `create`'s design does without. It does
+   depend on batch 1 rather than merely following it: a build claims, delivers,
+   and assembles, so `world` needs batch 1's inventory mutations before `create`
+   can move anything.
 3. **Population & upkeep** — `draft`, `disband`, `pay`, `rations`. A population
    system on the `internal/fuel` / `jumpdrive` / `sensors` package template.
 4. **Market** — `buy`, `sell`, for units and for tech levels. Currency,

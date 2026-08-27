@@ -4,7 +4,11 @@
 
 _cadre_ is one of the cadre codes: `CWKR` construction worker, `LABR` laborer,
 `PLCF` police force, `SPCF` special forces, and `TRNE` trainees and recruits.
-A cadre is a temporary assignment of population, not a unit.
+A cadre is a temporary assignment of population, not a unit. The population it
+assigns is real, so a cadre has the mass and volume of the people in it and has
+to be carried like anyone else. One `CWKR` is one `SKW` plus one `USK`. What a
+construction worker does is in
+[What a construction worker does](#what-a-construction-worker-does).
 
 _commission_ is an integer percentage amount, range 1 to 100, followed by a `%`.
 
@@ -21,6 +25,10 @@ For example, 800,000 GOLD.
 _groupNo_ is the sequence number of a factory, farm, or mine group, starting at 1.
 
 _payRate_ is an integer percentage amount, at least 0, followed by a `%`.
+
+_population_ is one of the population classes: `USK` unskilled worker, `SKW`
+skilled worker, `SOL` soldier, and `NAS` non-assignable. One population unit
+stands for 100 persons.
 
 _price_ is a positive number followed by either `GOLD` or `CNGD`.
 It must include at least one digit before the decimal, if there is a decimal amount.
@@ -59,7 +67,7 @@ or granting a permission, and it takes no id because the file header already nam
 
 ### Raid Orders
 
-(`ship` | `colony`) _id_ `raid` (`ship` | `colony`) _id_ `seeking` _unit_ (`,` _unit_) _commitment_
+(`ship` | `colony`) _id_ `raid` (`ship` | `colony`) _id_ `seeking` _unitCode_ (`,` _unitCode_)? _commitment_
 
 > ship 18 raid colony 24 seeking GOLD, FUEL 22%
 
@@ -86,12 +94,70 @@ An `add` order assembles the units it puts into a group the same way, so those
 do not have to be assembled first either.
 
 Assembly is what both orders need construction workers for. Only the ship and
-colony create form names a `CWKR` cadre today; where the construction workers
-for a group create, and for an `add`, are drawn from is not yet settled.
+colony create form *names* a `CWKR` cadre, because it is the only one that runs
+for more than a turn and so the only one worth throttling. Every other assembly
+— a group create, an `add`, a bare `assemble` — draws on the same cadre pool at
+the same entity, and the engine allocates from it without being told to.
+
+**A construction worker does one task per turn.** A worker spent on a group
+create is not available to a ship build, or to an `assemble` order, in that same
+turn. The pool is drawn down in stage order as the turn runs, so a group create
+at stage 5 takes its workers before an `add` at stage 8, and both before the
+`assemble` orders and the ship and colony builds at stage 10.
+
+### The two create orders finish very differently
+
+This is the one thing about `create` most likely to catch a player out.
+
+A **ship or colony create is a commitment.** It succeeds when it is given, the
+entity appears unfinished, and the build runs for as many turns as it needs. A
+turn with no materials, no transport, or no workers costs that turn's progress
+and nothing else.
+
+A **group create is kill-and-fill.** It runs once, in the turn it was given. The
+engine assigns as much labour and fuel as it can, builds as much as that pays
+for, reports what was built, and closes the order out. **Nothing carries over.**
+A colony ordered to create 10,000,000 mines with the resources for 2 creates 2,
+and the order is finished — it does not spend the next turns working through the
+rest.
+
+### The `with` clause is a cap, not a claim
+
+The `with` _quantity_ `CWKR` clause of a ship or colony create sets a **ceiling
+on the workers the build may use in a turn**. It reserves nothing and holds
+nothing back.
+
+Every turn, the engine assigns the build up to that many construction workers
+from whatever the creating entity has idle at the time — and never more than
+that many, however many thousands are standing about. A turn that cannot fill
+the cap costs that turn's work and nothing else. A ship or colony create is a
+standing commitment to build as fast as it can, not a purchase that fails when
+it cannot be paid for in full.
+
+The workers assigned to a build do the same 500 MU of work a turn as any other
+construction worker; see [Assemble Orders](#assemble-orders).
+
+**A build's assembly is its own pool.** The workers assigned to a build are at
+the new entity doing that build's work, so their 500 MU a turn is reckoned for
+that build alone. It does not pool with `assemble` orders the creating entity
+gives in the same turn, and two builds fed by one entity do not pool with each
+other either. Each pool rounds up on its own.
+
+What they *do* share is the cadre itself. Every build and every `assemble` order
+draws construction workers from the same idle pool at the creating entity, so a
+large `assemble` order and a build can still starve each other of workers even
+though their work is counted separately. An `assemble` order is served first,
+because it was asked for by name; a build takes what is left and simply goes
+slower that turn.
+
+Because the cap is the only lever a player has over how one entity's workers are
+divided between its builds, it is worth setting deliberately rather than setting
+to the size of the payroll. Where two builds on one entity compete, the older
+build is served first, and each takes up to its own cap.
 
 ## Ship and Colony Creation
 
-(`ship` | `colony`) _id_ `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?)) `using` _quantity_ _unit_ (`,` _quantity_ _unit_) `transfering` _quantity_ _unit_ (`,` _quantity_ _unit_) `with` _quantity_ `CWKR`
+(`ship` | `colony`) _id_ `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?)) `using` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `transfering` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `with` _quantity_ `CWKR`
 
 > # line breaks and spacing do not matter in this order
 > ship 18 create ship
@@ -104,6 +170,13 @@ for a group create, and for an `add`, are drawn from is not yet settled.
 
 The ship and colony create orders must be terminated with `end`.
 This allows the order to span multiple lines.
+
+An **open-air** colony may only be created on a planet whose habitability number
+is greater than 0. That is what lets a `COPN` carry no `LFSU` at all — it
+breathes the air outside. An enclosed or orbital colony has no such restriction
+and must carry its own life support.
+
+The new entity takes the technology level of the entity that created it.
 
 ### Factory Group Creation
 
@@ -252,9 +325,35 @@ One order may assemble several kinds of units once.
 
 > colony 24 assemble 5 LFSU-1, 60 STRL-1
 
+### What a construction worker does
+
+A `CWKR` cadre is what carries out `assemble` and `unassemble` orders. One unit
+does up to 500 MU of work a turn.
+
+**Work of the same kind is pooled across an entity**, so the workers an entity
+needs are reckoned from one total rather than order by order and unit by unit.
+An entity assembling 15,120 MU of `HDRV` and 100 MU of `STRC-1` needs
+
+> ceil((15,120 + 100) / 500) = **31** workers,
+> not ceil(15,120 / 500) + ceil(100 / 500) = 31 + 1 = **32**.
+
+Pooling matters because the rounding-up is per pool, not per line, so an entity
+assembling many small lots is not charged a whole worker for each one.
+
+Unassembly is pooled the same way, at the same rate.
+
+**Assembly and unassembly do not pool with each other.** An entity assembling
+100 MU of `STRC-1` and unassembling 100 MU of `LFSU-1` needs 2 `CWKR`, not 1:
+each total is rounded up on its own.
+
 ## Unassemble Orders
 
 Unassemble returns working units to unassembled inventory, optionally moving them to cargo.
+
+Unassembly is work, and it is done by the same `CWKR` cadre at the same rate as
+assembly — 500 MU a turn per unit, pooled across the entity's unassembly but
+never pooled with its assembly. See
+[What a construction worker does](#what-a-construction-worker-does).
 
 (`ship` | `colony`) _id_ `unassemble` (`and` `stow`)? _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
@@ -411,19 +510,52 @@ second is refused for being the second.
 
 ### Draft Orders
 
-(`ship` | `colony`) _id_ `draft` _quantity_ _population_ (`,` _quantity_ _population_)*
+(`ship` | `colony`) _id_ `draft` _quantity_ (`SOL` | _cadre_) (`,` _quantity_ (`SOL` | _cadre_))*
 
 > ship 18 draft 13 SOL
 
 > colony 24 draft 3,600 SOL
 
+> ship 18 draft 4,250 CWKR
+
+> colony 24 draft 200 SOL, 1,000 CWKR
+
+Only `SOL` and the cadres may be drafted. No other population class can be.
+
+Drafting `SOL` **changes the type of a population unit**: it takes unskilled
+workers off the rolls and makes them soldiers, one for one. It is the only draft
+that changes anyone's type.
+
+Drafting a cadre assigns population rather than converting it. One `CWKR` is one
+`SKW` plus one `USK`, so `ship 18 draft 4,250 CWKR` assigns 4,250 of each to a
+cadre of 4,250 construction workers, and they are skilled and unskilled workers
+still while they serve in it.
+
+**A draft partially fills.** Short population is not an error: the order drafts
+as many as it can and says so. `colony 24 draft 3,600 SOL` on a colony with
+1,000 `USK` drafts 1,000 soldiers. A cadre is limited by whichever of its
+classes runs out first, so `ship 18 draft 4,250 CWKR` on a ship with 4,250 `SKW`
+and 900 `USK` drafts 900 construction workers.
+
 ### Disband Orders
 
-(`ship` | `colony`) _id_ `disband` _quantity_ _population_ (`,` _quantity_ _population_)*
+(`ship` | `colony`) _id_ `disband` _quantity_ (`SOL` | _cadre_) (`,` _quantity_ (`SOL` | _cadre_))*
 
 > ship 18 disband 13 SOL
 
 > colony 24 disband 3,600 SOL
+
+> ship 18 disband 1,000 CWKR
+
+Disband is the reverse of draft, and only the same things may be disbanded.
+
+Disbanding `SOL` takes soldiers off the rolls and returns them as unskilled
+workers, one for one. It is the only disband that changes anyone's type, and
+`USK` is where they go — the same pool a draft took them from.
+
+Disbanding a cadre returns the population it was assigned from to the pools it
+came from, unchanged: `ship 18 disband 1,000 CWKR` returns 1,000 `SKW` and
+1,000 `USK`.
 
 ## Pay Orders
 

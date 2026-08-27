@@ -39,6 +39,12 @@ An inventory unit stored as cargo in the starting kit.
 enclosed-space efficiency is 1. `GOLD`, `FUEL`, `METL`, and `MNRL` cargo is
 stored in external depots and consumes no enclosed space.
 
+A `COPN` may only be placed on a planet whose habitability number is greater
+than 0, and **needs no `LFSU` at all**: the air outside is breathable, which is
+what "open-air" means and what the efficiency of 1 is paying for. It is the one
+entity that carries no life support and the one whose population is not capped
+by it.
+
 ## `CORB`
 
 **Orbital colony.** An entity located in ring 1 around a planet. Its
@@ -150,8 +156,36 @@ resolves; the engine decides.
 
 ## `LFSU`
 
-A technology-level component unit used by colonies and ships in the starting
-kit.
+**Life support.** A technology-level component unit. Only units assembled in
+component inventory support anyone; `LFSU` held in any other section is freight.
+
+A unit at technology level \(t\) has a mass of \(8t\) MU, takes \(8t\) VU
+assembled and \(4t\) VU in cargo, and supports \(t^2\) population units. An
+entity's capacity is the sum over its assembled units, so 5 `LFSU-3` support
+\(5 \times 9 = 45\) population units, which is 4,500 persons.
+
+Life support runs at 100% or not at all; it cannot be throttled to save fuel.
+Each unit burns \(t\) `FUEL` per turn, so those 5 `LFSU-3` cost 15 `FUEL` a turn.
+
+On a `SHIP`, `CORB`, or `CSFC`, life support has **first call on the entity's
+fuel**, ahead of everything else it might be spent on. A `COPN` is open to the
+air and is not on that list.
+
+**Population dies back to capacity.** An entity carrying more population than
+its assembled `LFSU` supports loses the excess. This is what makes life support
+worth its mass, and it has two sharp edges. Only assembled units support anyone,
+so **unassembling `LFSU` can kill people**. And a create order will not deliver
+population to a new entity that cannot yet support it — see
+[Accepted Orders](accepted-orders.md) — which is the gate that keeps a build
+from walking into this.
+
+A `COPN` is the exception to all of this. It sits on a planet with a habitability
+number above 0, breathes the air outside, and neither carries `LFSU` nor has its
+population capped by one.
+
+Note that the assembled volume is twice the cargo volume rather than four times
+it, so the general "component inventory consumes twice its operational volume"
+rule does not apply to `LFSU`.
 
 ## `METL`
 
@@ -189,8 +223,47 @@ espionage orders act on rebels.
 
 ## `SDRV`
 
-A technology-level component unit used by colonies and ships in the starting
-kit.
+**Orbital drive engine.** A technology-level component unit that holds a `SHIP`
+or a `CORB` up in its orbit. Only units assembled in component inventory produce
+thrust; `SDRV` held in any other section is freight.
+
+A unit at technology level \(t\) has a mass of \(25t\) MU, takes \(25t\) VU
+assembled, and produces \(3000t^2\) MU of thrust per turn. In cargo it takes
+\(12.5t\) VU — the one volume in the game that is not a whole number per unit.
+Reckon it over the whole stack and round up once, \(\lceil 25tn/2 \rceil\) VU
+for \(n\) units, so the half is never stored.
+
+One `SKW` unit crews 100 units that are **run**, not 100 that are installed, and
+each unit that is run burns \(t\) `FUEL` per turn. Spare drives therefore cost
+nothing but their mass and volume to carry. The engine works out how many units
+to run and assigns the `SKW` itself; neither is ordered.
+
+Its call on that fuel depends on the ring it is in. In rings 1 through 10 it
+comes second, behind life support and ahead of everything else; from ring 11 up
+it comes last.
+
+**None of that is drawn yet.** Nothing in the game today asks an entity to run
+its drives, so assembled `SDRV` is mass and volume and nothing more. The fuel,
+the crew, and the priority above all arrive with the rule below.
+
+### Falling is a combat rule
+
+A `SHIP` or `CORB` at a planet is meant to run enough units to produce thrust at
+least equal to its own mass, and one that cannot **descends one ring a turn**
+until it reaches ring 0 and is destroyed.
+
+**That penalty belongs to combat and is not written yet.** It does not apply to
+an entity under construction, and it is not a standing check made against every
+entity every turn. An entity carrying too little `SDRV` for its mass is
+under-powered rather than doomed, and stays that way until there is a combat
+system to make it matter.
+
+The ring-dependent fuel priority above is what makes the rule bite when it
+arrives: an entity that has already been driven down to ring 10 has ten turns
+left, and from there its drives outrank everything but life support.
+
+As with `LFSU`, the assembled volume is twice the cargo volume rather than four
+times it, so the general component-volume multiplier does not apply.
 
 ## `SHIP`
 
@@ -253,8 +326,29 @@ it consumes enclosed space normally.
 
 ## `TRAN`
 
-A technology-level operational inventory unit used by orbital colonies in the
-starting kit.
+**Transport.** A technology-level unit that moves units and population between
+two entities at the same place.
+
+A unit at technology level \(t\) has a mass of 4 MU — flat, not \(2t\) — and
+takes \(4t\) VU both assembled and in cargo, so the usual component and
+operational multipliers do not apply to it. In a turn one unit carries at most
+\(20t^2\) MU **and** at most \(60t^2\) VU; both limits hold, and with today's
+unit table it is nearly always the mass that binds.
+
+One `SKW` unit operates up to 10 transports in a turn, allocated by the engine
+rather than by the player. Fuel is reckoned over all the transports an entity
+used, not one at a time, which keeps it in whole numbers:
+\(\lceil \sum t^2 / 10 \rceil\) `FUEL`. Ten `TRAN-1` and five `TRAN-2` in one
+turn cost \(\lceil (10 + 20)/10 \rceil = 3\) `FUEL`; a single `TRAN-1` costs 1.
+
+**A transport goes there and comes back.** A turn's capacity covers the round
+trip, so carrying a `CWKR` cadre out to a build site and home again at the end
+of the shift is charged once, not twice. (Combat may destroy a transport on the
+way; that is a combat rule and is not written yet.)
+
+Fuel per MU moved does not depend on technology level: capacity is \(20t^2\) and
+fuel is \(t^2/10\), so the ratio is flat. A better transport buys fewer hulls and
+fewer crew, not cheaper freight.
 
 ## `TRNE`
 

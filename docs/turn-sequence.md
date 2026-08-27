@@ -28,12 +28,18 @@ built.
   settled between the fleets that met rather than one order at a time, and the
   market matches offers across every faction that made one.
 
-Six stages are pure sweeps (1, 2, 3, 18, 19, 21) and four are orders and a sweep
-(4, 11, 14, 22), where the orders declare intent and one sweep settles all of
-them against each other. The rest are orders, except stages 13 and 15, which mix
-the two a milder way: a step of orders and then a whole step that is a sweep --
-the passive sensor reading in 13, the ships landing in 15 -- settling nothing
-between the orders, only doing what the stage does apart from anyone's.
+Six stages are pure sweeps (1, 2, 3, 18, 19, 21) and seven are orders and a
+sweep (4, 5, 9, 10, 11, 14, 22), where the orders declare intent and one sweep
+settles all of them against each other. Seven more are orders and nothing else
+(6, 7, 8, 12, 16, 17, 20). The last two, 13 and 15, mix the two a milder way: a
+step of orders and then a whole step that is a sweep -- the passive sensor
+reading in 13, the ships landing in 15 -- settling nothing between the orders,
+only doing what the stage does apart from anyone's.
+
+Stage 5 is the one to read carefully, because its sweep is not the combat or
+market kind. What it settles is not this turn's orders against each other but
+every standing build against the creating entity's stock: the same shape, a
+different set of competitors.
 
 A lettered sub-step is a step of a stage, and steps run in the lettered order:
 every order of step a resolves before any order of step b, whichever way round
@@ -92,7 +98,7 @@ Combat may allocate and assign transports. This could reduce availability for la
 
 ### 5. Creation orders are processed
 
-**Orders.**
+**Orders and a sweep.**
 
 `create` -- ship, colony (open-air, enclosed, or orbital, optionally as a trade
 station), factory group, farm group, and mine group.
@@ -102,23 +108,44 @@ Create orders are executed in the order they are written in the input.
 This is the stage that was *set up*. Every `create` form resolves here, in one
 stage, because a Spec carries one phase and `create` is one verb.
 
-A create order assembles the units it is given, so it does not wait for
-assembly at stage 10. It spends what the creating entity already holds:
-creation is upstream of transfers (9), the market (11), and movement (15), so a
-create cannot spend units that arrived this turn, and a ship cannot move
-somewhere and plant a colony there in the same turn.
+**The five forms finish by two opposite rules.** A ship or colony create is a
+commitment: it succeeds the moment it is given, an unfinished entity appears,
+and the build runs for as many turns as it needs. A group create is
+kill-and-fill: it runs once, here, and the engine builds as much as the labour
+and fuel it can find will pay for and then closes the order out. A colony
+ordered to create 10,000,000 mines with the resources for 2 creates 2, and the
+order is finished. Nothing carries over.
+
+A group create assembles the units it is given, so it does not wait for
+assembly at stage 10. A ship or colony create does not: it acquires its
+materials over turns, and they are assembled at stage 10 like everything else.
+
+What stage 5 settles for a build is the **claim** -- which build has first call
+on what the creating entity holds. The sweep takes each creating entity's builds
+in seniority order, which is the order of their entity ids, and walks each
+build's lines in the order the player wrote them. A claim lives one turn and is
+released at the end of it, so next turn's claiming runs afresh and a senior
+build's priority is renewed rather than banked. Claiming moves nothing and needs
+no transports: delivery is at stage 9 and assembly at stage 10.
+
+Claiming is here because creation's ordering has always been settled here, and
+it keeps what the old rule was protecting: creation is upstream of transfers
+(9), the market (11), and movement (15), so a build cannot claim units that
+arrived this turn, and a ship cannot move somewhere and plant a colony there in
+the same turn.
 
 Creation is upstream of the group-change stages (7, 8), so a group created this
 turn can be retooled or added to in the same file.
 
-Creation may allocate and assign transports. This could reduce availability for later actions.
-
 `create` is the only order that names its construction workers, and it names
-them for two reasons that belong to it alone: it is the only assembly that may
-need transports, and a create order may take several turns to finish. The
-faction pre-allocates the `CWKR` cadre and it stays reserved for the duration.
-Everywhere else the engine allocates construction workers itself -- see stage
-8.
+them for a reason that belongs to it alone: a ship or colony build runs for
+several turns, so it is the only assembly a player needs to be able to throttle.
+The `with` clause is a **ceiling on the workers a build may use in a turn**, not
+a reservation. It holds nothing back: the engine assigns up to that many from
+whatever is idle when stage 10 comes round, never more however many thousands
+are standing about, and a turn that cannot fill the cap costs that turn's work
+and nothing else. Everywhere else the engine allocates construction workers
+itself -- see stage 8.
 
 ### 6. Dis-assembly orders are processed
 
@@ -170,7 +197,14 @@ need construction workers.
 The engine allocates the `CWKR` cadre for an `add`, and for a bare `assemble`
 at stage 10, without being told to. Drafting enough construction workers to
 cover the turn's expected work is the faction's responsibility, not the order's,
-which is why no order but `create` names a cadre.
+which is why no order but `create` names a cadre -- and `create` names one
+because it runs for several turns, not because it is allocated any differently.
+
+**A construction worker does one task per turn**, so one entity's cadre pool is
+drawn down in stage order as the turn runs: a group create at stage 5 takes its
+workers first, then an `add` here, then the `assemble` orders and the ship and
+colony builds at stage 10. No precedence rule is needed for that; the sequence
+already decides it.
 
 Removal unassembles what it takes out and optionally stows it, and the engine
 salvages what it can of the work in progress. A mine group has no work in
@@ -179,7 +213,7 @@ working until the line drains.
 
 ### 9. Transfers are processed
 
-**Orders.**
+**Orders and a sweep.**
 
 `transfer`
 
@@ -189,17 +223,47 @@ there are not enough transports. Transfers are after dis-assembly (6) and
 before assembly (10), which is what makes the unassemble-move-assemble pipeline
 work inside one turn.
 
-Transfers are executed in the order they are written in the input.
+This is also where a build's **delivery** happens: what it claimed at stage 5
+moves from the creating entity to the unfinished one, and the build's
+construction workers ride out on the same transports. One sweep settles every
+transfer order and every build's delivery against the transports each entity
+has, so file order cannot silently decide who got the last hull. That is what
+makes `transfer` an intent-declaring order in the sense combat and the market
+already use.
+
+> **Explicitly ordered work outranks a standing commitment.** A `transfer` order
+> is served before a build's claim, here, and an `assemble` order before a
+> build's own assembly at stage 10. A build takes what is left, which is all it
+> ever needs to do: a build never fails for want, it only slows.
+
+Everything a transport carries is set down in `cargo`, so delivery does not
+assemble. Assembling it is stage 10's work, whether an order asked for it or a
+build is working down its own list.
+
+Transfers are executed in the order they are written in the input, which is the
+tie-break inside the sweep rather than the whole of the rule.
 
 ### 10. Assembly orders are processed
 
-**Orders.**
+**Orders and a sweep.**
 
 `assemble`
 
 Unassembled units become working ones, usually taking more volume than they
 did. Units that arrived by transfer at stage 9 can be assembled here in the
 same turn.
+
+A build **completes** here too: the workers carried out at stage 9 work off what
+is on site, in the order the player wrote the lines, and then go home. The stage
+is a sweep for the same reason stage 9 is -- the `assemble` orders and the
+builds draw construction workers from one pool at the creating entity -- and it
+is settled by the same rule. An `assemble` order is served first because it was
+asked for by name; a build takes what is left and goes slower that turn.
+
+The workers are shared but the **work is not pooled**. A build's workers are at
+the new entity doing that build's work, so what they get through is reckoned for
+that build alone and rounds up on its own. It does not pool with the creating
+entity's `assemble` orders, nor with a sibling build.
 
 ### 11. All market and trade station activity takes place
 
@@ -422,11 +486,16 @@ sequence is what turned that into four questions, and all four are now answered.
   three group kinds all resolve at stage 5. The consequence is that a group is
   created before it can be retooled (7) or resized (8), which is the useful
   direction, and that nothing created this turn produces until the production
-  stages of a later one -- a create may take several turns to finish.
+  stages of a later one. What one step does not make one is *finishing*: a
+  group create closes out inside stage 5, and a ship or colony create runs for
+  as many turns as its build needs.
 - **`add` assembles what it adds.** A group holds working units -- `remove`
-  unassembles what it takes out -- and `create` assembles what it is given.
-  `add` does the same, so stage 8 does not have to wait on assembly at stage
-  10. Assembly is what both orders need construction workers for.
+  unassembles what it takes out -- and a group create assembles what it is
+  given. `add` does the same, so stage 8 does not have to wait on assembly at
+  stage 10. Assembly is what both orders need construction workers for. A ship
+  or colony create is the exception on both counts: its materials arrive over
+  turns rather than being on hand when the order is given, so it assembles at
+  stage 10 like everything else.
 
 No step of any stage holds more than one verb. `create` is the only verb whose
 several *forms* share a step, and that is unremarkable: `name` has six forms in
@@ -453,7 +522,8 @@ grammar.
 
 ## What outlives the turn that ordered it
 
-Two effects outlast the turn that ordered them, and they are not the same shape.
+Two effects outlast the turn that ordered them, and they turned out to be the
+same shape.
 
 `jump` is the smaller of the two, because the crossing is not the order. The
 order departs and is done -- fuel drawn, ship off the board, `succeeded` -- and
@@ -463,20 +533,23 @@ consumes those rows. **So `jump` needs no new order state at all**: it needs the
 in-transit row, a nullable location on `entity` so a crossing ship is genuinely
 nowhere, and a sweep on the jump phase, which is a seam the engine already has.
 
-`create` is the larger one, and it is the only order that actually outlives
-itself: it holds its `CWKR` cadre for the duration (stage 5), so the *order* is
-still running rather than merely having left something behind. Today
-`game_order.status` is a three-way `CHECK` -- `pending`, `succeeded`, `failed`
--- where `pending` means submitted and not yet resolved, and `ec turn open`
-purges rows older than the most recently resolved turn. An order still running
-at the end of its turn is a fourth thing: resolved, not failed, not done. The
-status column and the purge have to learn about it before `create` can be built.
+`create` is the larger one and takes the same shape after all. A ship or colony
+create succeeds the moment it is given, and it holds nothing: the `with` clause
+is a per-turn cap rather than a reservation, so no cadre is tied up between
+turns. What continues is not the order but the build -- an unfinished entity,
+with rows of its own naming who is feeding it, what it still wants, and how many
+workers it may use in a turn. The sweeps at stages 5, 9, and 10 consume those
+rows, and the last line to complete deletes them. **So `create` needs no new
+order state either**, and in particular no fourth `game_order.status`: nothing
+changes in the status `CHECK`, in `loadOrders`, or in what `ec turn open`
+purges.
 
-Splitting the two is worth the paragraph. It was written here as one problem
-blocking both orders; it is one problem blocking one order, and `jump` can go
-first and alone. Whether `create` is better modelled the same way -- as work in
-progress recorded beside the order rather than as a state of it -- is the open
-question, and the answer decides whether the fourth status is needed at all.
+Splitting the two was still worth the paragraph. It was written here as one
+problem blocking both orders; it was two questions with one answer, and `jump`
+could go first and alone. The open question -- whether `create` is better
+modelled as work in progress recorded beside the order than as a state of it --
+is settled the way `jump` was: beside it, and the fourth status is not needed.
+`docs/plan/entity_build_bom_process.md` carries the design.
 
 ## What the sequence still does not settle
 
@@ -486,10 +559,12 @@ sequence says when they happen and nothing about what they do: production
 rebellion and rebel increases (18, 19), population growth (21), and the news
 service (22). `docs/plan/beta-plan.md` carries the open questions per order.
 
-One of them is settled rather than open: the engine allocates the `CWKR` cadre
-for every assembly except `create`, and the faction's job is to have drafted
-enough. What a construction worker costs, and what happens when a faction has
-not drafted enough of them, are still unwritten.
+Construction workers are no longer among them. The engine allocates the `CWKR`
+cadre for every assembly except `create`, and the faction's job is to have
+drafted enough; a worker does one task and 500 MU of work a turn; and a
+shortfall is a rate rather than a failure, costing a build that turn's progress
+and a kill-and-fill order some of what it asked for. `docs/accepted-orders.md`
+carries those rules.
 
 ## Stages, phases, and what is built
 
@@ -498,18 +573,25 @@ stage, so the twenty-two stages below come to forty-three phases. Six of those
 phases are built -- `probe`, `sensor`, `move`, `jump`, `arrival`, `name` -- and
 two stages, 13 and 15, are built entire.
 
+A stage that is orders and a sweep gets no extra entry for the sweep:
+`Phase.Sweep` runs after that phase's own orders, so creation's claim, the
+delivery sweep at 9, and the assembly sweep at 10 ride on the `create`,
+`transfer`, and `assemble` phases the way combat's and the market's do. Only a
+sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
+13, `arrival` in 15. Forty-three stands.
+
 | Stage | Phases, in order | Shape | Built |
 | --- | --- | --- | --- |
 | 1. Mining production | `mining` | sweep | no |
 | 2. Farming production | `farming` | sweep | no |
 | 3. Factory production | `manufacturing` | sweep | no |
 | 4. Combat | `raid`, `support`, `attack`, `invade` | orders + sweep | no |
-| 5. Creation | `create` | orders | no |
+| 5. Creation | `create` | orders + sweep | no |
 | 6. Dis-assembly | `unassemble` | orders | no |
 | 7. Build change | `retool` | orders | no |
 | 8. Group change | `idle`, `remove`, `add`, `activate` | orders | no |
-| 9. Transfers | `transfer` | orders | no |
-| 10. Assembly | `assemble` | orders | no |
+| 9. Transfers | `transfer` | orders + sweep | no |
+| 10. Assembly | `assemble` | orders + sweep | no |
 | 11. Market and trade stations | `sell`, `buy` | orders + sweep | no |
 | 12. Surveys | `survey` | orders | no |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |
