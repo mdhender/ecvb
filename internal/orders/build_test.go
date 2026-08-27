@@ -50,8 +50,60 @@ func TestCreateWithNoEndIsRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unterminated create was accepted; want it refused")
 	}
-	if !strings.Contains(err.Error(), "runs until `end`") {
+	if !strings.Contains(err.Error(), "runs until `end`, and the file ended first") {
 		t.Errorf("error = %q; want it to say the file ended first", err)
+	}
+}
+
+// A missing `end` stops at the next order rather than eating the rest of the
+// file. A player who left one out has one mistake, and should be told about it
+// and about everything else wrong in the same pass -- not fix it and find three
+// more waiting.
+func TestAMissingEndDoesNotSwallowTheRestOfTheFile(t *testing.T) {
+	body := `colony 50 create ship
+  using 60 STRC-8
+  transfering 25 FOOD
+  with 5 CWKR
+ship 51 fly to orbit 4
+colony 50 assemble 6 SNSR-99
+`
+	_, err := Parse(strings.NewReader(header + body))
+	if err == nil {
+		t.Fatal("the file was accepted; want it refused")
+	}
+	// Three problems, and the create's names the line that gave it away.
+	for _, want := range []string{
+		"line 4: CREATE runs until `end`, and line 8 begins another order",
+		`line 8: unknown order "fly"`,
+		`line 9: invalid unit tag "SNSR-99"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q;\n  want it to hold %q", err, want)
+		}
+	}
+}
+
+// A blank line or a comment inside a multi-line order is part of it, not the
+// end of it.
+func TestBlankLinesAndCommentsInsideACreateAreNotTheEndOfIt(t *testing.T) {
+	body := `colony 50 create ship
+  using 60 STRC-8
+
+  # the food is for the crew
+  transfering 25 FOOD
+  with 5 CWKR
+end
+`
+	submission, err := Parse(strings.NewReader(header + body))
+	if err != nil {
+		t.Fatalf("a create with a blank line and a comment in it was refused: %v", err)
+	}
+	if len(submission.Orders) != 1 {
+		t.Fatalf("orders = %d; want 1", len(submission.Orders))
+	}
+	want := "ship using 60 STRC-8 transfering 25 FOOD with 5 CWKR"
+	if got := submission.Orders[0].Params.Input(); got != want {
+		t.Errorf("read back as %q; want %q", got, want)
 	}
 }
 

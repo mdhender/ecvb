@@ -101,10 +101,29 @@ func newLine(number int, text string) *Line {
 	return &Line{Number: number, tokens: tokenize(text)}
 }
 
-// extend adds another physical line's tokens to this one, for the orders that
+// absorb adds another physical line's tokens to this one, for the orders that
 // run to a terminator rather than to the end of a line. The Number stays the
 // line the order began on, which is where a player looks for it.
-func (l *Line) extend(text string) { l.tokens = append(l.tokens, tokenize(text)...) }
+func (l *Line) absorb(other *Line) { l.tokens = append(l.tokens, other.tokens...) }
+
+// begins reports whether the line opens an order. Every order names its subject
+// first, so the first word is the whole of the test.
+//
+// It is what tells a gather that it has run past the end of the order it was
+// reading: a continuation of a create is a clause or a lot of units, and never
+// a subject.
+func (l *Line) begins() bool {
+	word, ok := l.peek()
+	if !ok || word.quoted {
+		return false
+	}
+	for _, subject := range []string{SubjectShip, SubjectColony, SubjectFaction} {
+		if strings.EqualFold(word.text, subject) {
+			return true
+		}
+	}
+	return false
+}
 
 // holds reports whether an unquoted keyword appears anywhere in the line. It is
 // how the file scanner knows a multi-line order has reached its terminator

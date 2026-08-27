@@ -66,18 +66,20 @@ func Parse(r io.Reader) (Submission, error) {
 	var found problems
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 4096), 1024*1024)
-	number := 0
-	for scanner.Scan() {
-		number++
-		line := newLine(number, scanner.Text())
-		switch number {
+	file := &lines{scanner: scanner}
+	for {
+		line, ok := file.next()
+		if !ok {
+			break
+		}
+		switch line.Number {
 		case 1:
 			if err := parseGameLine(line, &submission); err != nil {
-				found = append(found, problem{number, err.Error()})
+				found = append(found, problem{line.Number, err.Error()})
 			}
 		case 2:
 			if err := parseIdentityLine(line, &submission); err != nil {
-				found = append(found, problem{number, err.Error()})
+				found = append(found, problem{line.Number, err.Error()})
 			}
 		default:
 			if line.empty() {
@@ -90,7 +92,7 @@ func Parse(r io.Reader) (Submission, error) {
 			// Line whatever the player's line breaks were.
 			if spec, form, ok := opensOrder(line); ok && spec.Terminator != nil {
 				if until := spec.Terminator(form); until != "" {
-					if err := gather(scanner, line, spec, until, &number); err != nil {
+					if err := gather(file, line, spec, until); err != nil {
 						found = append(found, problem{line.Number, err.Error()})
 						continue
 					}
@@ -107,10 +109,10 @@ func Parse(r io.Reader) (Submission, error) {
 	if err := scanner.Err(); err != nil {
 		return Submission{}, fmt.Errorf("read orders: %w", err)
 	}
-	if number < 1 {
+	if file.number < 1 {
 		found = append(found, problem{1, `expected game "CODE" turn NUMBER`})
 	}
-	if number < 2 {
+	if file.number < 2 {
 		found = append(found, problem{2, `expected id player "EMAIL" or id faction NUMBER`})
 	}
 	if len(found) != 0 {
@@ -118,6 +120,33 @@ func Parse(r io.Reader) (Submission, error) {
 	}
 	return submission, nil
 }
+
+// lines reads an order file a physical line at a time and lets one line be put
+// back.
+//
+// The pushback is what a multi-line order costs: gathering one has to read
+// ahead to find out it has run past the end, and the line it stopped at is the
+// next order rather than something to throw away.
+type lines struct {
+	scanner *bufio.Scanner
+	number  int
+	pending *Line
+}
+
+func (f *lines) next() (*Line, bool) {
+	if f.pending != nil {
+		line := f.pending
+		f.pending = nil
+		return line, true
+	}
+	if !f.scanner.Scan() {
+		return nil, false
+	}
+	f.number++
+	return newLine(f.number, f.scanner.Text()), true
+}
+
+func (f *lines) push(line *Line) { f.pending = line }
 
 func parseGameLine(line *Line, submission *Submission) error {
 	badHeader := fmt.Errorf(`expected game "CODE" turn NUMBER`)
@@ -205,16 +234,25 @@ func opensOrder(line *Line) (spec *Spec, form string, ok bool) {
 
 // gather reads on until the order's terminator, appending each physical line to
 // the one the order began on. The terminator itself is left in the line: it is
-// part of the order's grammar, so the order's own Parse consumes it and a file
-// that ran out first says so here.
-func gather(scanner *bufio.Scanner, line *Line, spec *Spec, until string, number *int) error {
+// part of the order's grammar, so the order's own Parse consumes it.
+//
+// A missing terminator stops at the next line that opens an order rather than
+// running to the end of the file. Reading on would swallow every order after
+// it, so a player would fix the one mistake the file reported and find three
+// more waiting -- and a file is meant to be reported whole.
+func gather(file *lines, line *Line, spec *Spec, until string) error {
 	for !line.holds(until) {
-		if !scanner.Scan() {
+		next, ok := file.next()
+		if !ok {
 			return fmt.Errorf("%s runs until `%s`, and the file ended first",
 				strings.ToUpper(spec.Verb), until)
 		}
-		*number++
-		line.extend(scanner.Text())
+		if next.begins() {
+			file.push(next)
+			return fmt.Errorf("%s runs until `%s`, and line %d begins another order",
+				strings.ToUpper(spec.Verb), until, next.Number)
+		}
+		line.absorb(next)
 	}
 	return nil
 }
