@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 4
+id faction 11
+	ship 2 move to orbti 6
+				ship 2 move to orbti 6
+ééé ship 2 move to orbit 6
+ship 2 move to éééééééééééééééééééééééééééééééééééééééé 6
+ship 2 move to 世世世世世世世世世世世世世世世世世世世世世世世世世世世世世世 6
+世界 ship 2 move to orbit 6
+ship 2 ́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́move to orbit 6
+ship 2 move to orbit 6
+ship 2 move to orbit 6
+ship 2 move to orbit 6
+ship 2 move to ‮orbti 6
+ship 2 move to orbtí 6
+ship 2 jump to (1,2f3)
+ship 2 broadcast system B orbit 82"hello"
+ship 2 jump o (1,2,3)
+shhip 2 broadcast system B orbit 8 "hello"
+colony5 pay USK 15%, SKW 20%
+ship 2 broadcast system B orbit 8l"hello"
+shi
+colony 5 sell 100 FOOD1,000.50 GOLD 75%
+ship 2 probe system A orbiFt 1 2 3
+ship 2 broadcast system B erbit 8 "hello"

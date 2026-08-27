@@ -164,15 +164,15 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		return validatedSubmission{}, err
 	}
 	if !exists {
-		return validatedSubmission{}, problems{{1, fmt.Sprintf("game %q does not exist", submission.GameCode)}}
+		return validatedSubmission{}, problems{onLine(1, "game %q does not exist", submission.GameCode)}
 	}
 	game := loaded.Game()
 	var found problems
 	if game.Turn != submission.Turn {
-		found = append(found, problem{1, fmt.Sprintf("game %q is on turn %d, not turn %d", game.Code, game.Turn, submission.Turn)})
+		found = append(found, onLine(1, "game %q is on turn %d, not turn %d", game.Code, game.Turn, submission.Turn))
 	}
 	if game.State != "open" {
-		found = append(found, problem{1, fmt.Sprintf("game %q turn %d is resolved and not accepting orders", game.Code, game.Turn)})
+		found = append(found, onLine(1, "game %q turn %d is resolved and not accepting orders", game.Code, game.Turn))
 	}
 	factionID, identityProblems, err := resolveFaction(conn, game.ID, submission.Identity)
 	if err != nil {
@@ -180,7 +180,7 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	}
 	found = append(found, identityProblems...)
 	if factionID == 0 {
-		return validatedSubmission{}, found
+		return validatedSubmission{}, found.inFileOrder()
 	}
 
 	binder := &Binder{World: loaded, FactionID: factionID}
@@ -203,7 +203,7 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 				// resolves, so the file is refused rather than stored. Every
 				// reason is reported: a player fixing a file sees the list.
 				for _, each := range eachError(err) {
-					found = append(found, problem{order.Line, each.Error()})
+					found = append(found, onLine(order.Line, "%s", each))
 				}
 				continue
 			}
@@ -243,7 +243,7 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 		}
 	}
 	if len(found) != 0 {
-		return validatedSubmission{}, found
+		return validatedSubmission{}, found.inFileOrder()
 	}
 	slices.SortStableFunc(warnings, func(a, b Warning) int { return cmp.Compare(a.Line, b.Line) })
 	return validatedSubmission{
@@ -270,7 +270,7 @@ func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, 
 		email := strings.ToLower(strings.TrimSpace(identity.PlayerEmail))
 		address, parseErr := mail.ParseAddress(email)
 		if parseErr != nil || address.Address != email {
-			return 0, problems{{2, fmt.Sprintf("invalid player email %q", email)}}, nil
+			return 0, problems{onLine(2, "invalid player email %q", email)}, nil
 		}
 		var factionID int64
 		err := sqlitex.ExecuteTransient(conn, `
@@ -286,7 +286,7 @@ func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, 
 			return 0, nil, fmt.Errorf("find player %q: %w", email, err)
 		}
 		if factionID == 0 {
-			return 0, problems{{2, fmt.Sprintf("player %q does not belong to this game", email)}}, nil
+			return 0, problems{onLine(2, "player %q does not belong to this game", email)}, nil
 		}
 		return factionID, nil, nil
 	}
@@ -302,7 +302,7 @@ func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, 
 		return 0, nil, fmt.Errorf("find faction %d: %w", identity.FactionID, err)
 	}
 	if !belongs {
-		return 0, problems{{2, fmt.Sprintf("faction %d does not belong to this game", identity.FactionID)}}, nil
+		return 0, problems{onLine(2, "faction %d does not belong to this game", identity.FactionID)}, nil
 	}
 	return identity.FactionID, nil, nil
 }

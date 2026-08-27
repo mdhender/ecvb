@@ -443,7 +443,7 @@ ship 40 jump to (2,4,6)
 	if err == nil {
 		t.Fatalf("Submit accepted two jumps for one ship in one turn")
 	}
-	const want = "line 6: ship 40 is in transit and arrives on turn 3; it can be given no orders until then"
+	const want = "line 6: ship 40 is in transit; it arrives on turn 3 and can be given orders from turn 4"
 	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("Submit error = %v; want it to contain %q", err, want)
 	}
@@ -474,7 +474,7 @@ func TestSubmitRefusesASecondMoveOrJumpForOneShip(t *testing.T) {
 			// is the same refusal arrived at from the other side and says so.
 			name:  "two jumps",
 			lines: "ship 40 move to orbit 11\nship 40 jump to (1,2,3)\nship 40 jump to (2,4,6)\n",
-			want:  "line 6: ship 40 is in transit and arrives on turn 3",
+			want:  "line 6: ship 40 is in transit; it arrives on turn 3",
 		},
 		{
 			// A jump that failed leaves the ship where it was, so nothing else

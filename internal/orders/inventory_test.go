@@ -44,12 +44,13 @@ func TestQuantitiesRefuseWhatTheGrammarDoesNotAllow(t *testing.T) {
 		{"colony 50 assemble 5000 SNSR-1", "a quantity over 999 separates every three digits with a comma, as in 5,000"},
 		{"colony 50 assemble 0 SNSR-1", "a quantity is greater than zero"},
 		{"colony 50 assemble 012 SNSR-1", "carries no leading zero"},
-		{"colony 50 assemble six SNSR-1", `invalid a quantity "six"`},
+		{"colony 50 assemble six SNSR-1", `invalid quantity "six"`},
 		{"colony 50 assemble 6 SNSR-99", `invalid unit tag "SNSR-99"`},
 		{"colony 50 assemble 6 snsr!", `invalid unit code "SNSR!"`},
-		// A line that never matched the shape of its order is answered with
-		// that order's forms rather than with the token that ran out.
-		{"colony 50 assemble 6", "expected ship SHIP-ID assemble QUANTITY UNIT"},
+		// A line that ran out before its order did is told what was missing,
+		// and shown that order's forms after it.
+		{"colony 50 assemble 6", "expected a unit code, found the end of the order"},
+		{"colony 50 assemble 6", "  colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ..."},
 	} {
 		_, err := parseOne(item.line)
 		if err == nil {

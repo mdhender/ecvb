@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 4
+id faction 10
+id player ""
+id player "not an address"
+id faction
+id faction 0
+id faction -1
+id nobody 1
+game "FUZZ-01" turn 0 extra
+id faction 1 extra
+
+   
+	
+
+ship 2 move to orbit 6
+game "FUZZ-01" turn 0
+colony 5 create ship using 60 STRC-8 transfering 25 FOO" with 5 CWKR end
+we name (1,2,3) system A orit 8 "x"
+we name (1,2,
+shi
+coloy 5 pay USK 15%, SKW 20%
+ship 2 probe system A
+colony l assemble 1,000 SNSR-1, 500 STRC-2
+colony 5 create ship using 60 STRC-8 transering 25 FOOD with 5 CWKR end

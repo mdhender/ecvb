@@ -41,7 +41,7 @@ GAME=CLAUDE-01
 DB=games/claude
 ORDERS=games/claude/orders
 OUT="${1:-games/claude/reports}"
-LAST_TURN=6
+LAST_TURN=9
 # Faction 2 is the uncontrolled agent the game load creates; the ten player
 # factions are not contiguous with the player numbers.
 FACTIONS="1 3 4 5 6 7 8 9 10 11"

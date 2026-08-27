@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 2
+id faction 9
+colony 5 assemble 6 SNSR-1 6 STRC-2
+colony 5 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
+colony 5 unassemble 10 STRC-10, 5 STRC-10
+colony 5 transfer 1 GOLD to
+colony 5 transfer 1 GOLD to ship
+colony 5 transfer to ship 6
+colony 5 assemble 6 SNSR-99
+colony 5 assemble 6 snsr!
+colony 5 assemble 6 
+colony 5 assemble 6 -
+colony 5 assemble 6 -1
+colony 5 assemble 6 SNSR-
+colony 5 assemble 6 SNSR-0
+colony 5 assemble 6 SNSR-11
+colony 5 buy tech-level T	-4 800,000 GOLD
+colony 5 pa
+ship 2 broadcast sysem B orbit 8 "hello"
+colony 5 sell 100 FOOD 1,000.50 GOLD
+ship 2 broadcast system B orbit 8 "heslo"
+colony 5 assemble 1,000 SNSR-1, 500 BSTRC-2
+colony 5 create ship usi
+.e name (1,2,3) system A orbit 8 "x"

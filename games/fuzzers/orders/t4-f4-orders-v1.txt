@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 4
+id faction 4
+colony 5 buy tech-level TL-4 1 CNGD
+colony 5 sell 100 FOOD . GOLD
+colony 5 sell 100 FOOD .. GOLD
+colony 5 sell 100 FOOD 0.0.0.0 GOLD
+colony 5 sell 100 FOOD 1,00.5,000 GOLD
+colony 5 sell 100 FOOD ,1 GOLD
+colony 5 sell 100 FOOD 1,00 GOLD
+colony 5 sell 100 FOOD 5000 GOLD
+colony 5 sell 100 FOOD 0 GOLD
+colony 5 sell 100 FOOD 0.0 GOLD
+colony 5 sell 100 FOOD 00.5 GOLD
+colony 5 sell 100 FOOD -1 GOLD
+colony 5 sell 100 FOOD 1 SILVER
+colony 5 sell 100 FOOD 1
+ship 2 bradcast system B orbit 8 "hello"
+ship 2 mwve to orbit 6
+colony 5 create ship u2ing 60 STRC-8 transfering 25 FOOD with 5 CWKR end
+ship O broadcast system B orbit 8 "hello"
+colony 5 sell 100 FOD 1,000.50 GOLD 75%
+ship 2 probe ystem A orbit 1 2 3
+e name (1,2,3) system A orbit 8 "x"
+colony 5 create

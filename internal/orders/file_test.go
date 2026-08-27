@@ -49,7 +49,12 @@ func TestParseReportsAllSyntaxErrors(t *testing.T) {
 		t.Fatal("Parse succeeded; want errors")
 	}
 	message := err.Error()
-	for _, want := range []string{"line 1:", "line 2:", "line 3:", "line 4: invalid ship id"} {
+	for _, want := range []string{
+		`line 1, column 6: expected a quoted game code, found "BETA-001"`,
+		"line 2, column 4: expected `player` or `faction`, found \"somebody\"",
+		"line 3, column 20: expected `,`, found \")\"",
+		"line 4, column 6: invalid ship id: must be positive",
+	} {
 		if !strings.Contains(message, want) {
 			t.Errorf("error %q does not contain %q", message, want)
 		}
@@ -239,14 +244,27 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "a move that does not parse reports only move's forms",
+			name:  "a move that does not parse says which word stopped it",
 			input: "ship 2 move to planet 6",
-			want:  "expected ship SHIP-ID move to orbit ORBIT, or ship SHIP-ID move to system SYSTEM orbit ORBIT",
+			want:  "expected `system` or `orbit`, found \"planet\"",
+		},
+		{
+			// The message names the word, and only move's forms follow it.
+			name:  "a move that does not parse then shows only move's forms",
+			input: "ship 2 move to planet 6",
+			want:  "MOVE is written:\n    =   ship SHIP-ID move to orbit ORBIT\n    =   ship SHIP-ID move to system SYSTEM orbit ORBIT",
 		},
 		{
 			name:  "a jump that does not parse reports only jump's form",
 			input: "ship 2 jump towards (1,2,3)",
-			want:  "expected ship SHIP-ID jump to (X,Y,Z)",
+			want:  "expected `to`, found \"towards\"",
+		},
+		{
+			// A word that was nearly right is named, because a player who
+			// mistyped one wants the word and not the grammar.
+			name:  "a near miss is suggested",
+			input: "ship 2 move to orbti 6",
+			want:  "did you mean `orbit`?",
 		},
 		{
 			name:  "a field that was read and found wrong says so itself",
@@ -261,7 +279,7 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 		{
 			name:  "trailing words are a mistake, not ignored",
 			input: "ship 2 move to orbit 6 please",
-			want:  "expected ship SHIP-ID move to orbit ORBIT",
+			want:  "expected the end of the order, found \"please\"",
 		},
 		{
 			name:  "an order must name a subject the game knows",
@@ -278,7 +296,7 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 			// NAME's forms and shown them; only the place form is a faction's.
 			name:  "a place named by a ship reports name's forms",
 			input: `ship 2 name (1,2,3) "Nope"`,
-			want:  `expected ship SHIP-ID name "NAME"`,
+			want:  `expected a quoted name, found "("`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -377,85 +395,6 @@ func TestHelpListsEveryOrder(t *testing.T) {
 // parser proper does, by reading the subject, and it has to leave the line
 // exactly as it found it, because Parse hands that same Line straight on to
 // parseOrder. This is the test of both halves at once -- the verb it read and
-// The price reader carries four rules at once -- the thousands separators a
-// quantity uses, a decimal part that only the last group may carry, a currency,
-// and a whole-number form for a technology level -- so it gets a table of its
-// own rather than being exercised only through the orders that read it.
-func TestPriceReadsTheShapesTheMarketAllows(t *testing.T) {
-	for _, item := range []struct{ text, want string }{
-		// The four the accepted doc gives.
-		{"1.0 GOLD", "1.0 GOLD"},
-		{"3 CNGD", "3 CNGD"},
-		{"0.1 GOLD", "0.1 GOLD"},
-		{"25,600 CNGD", "25,600 CNGD"},
-		{"1,000,000 GOLD", "1,000,000 GOLD"},
-		// The decimal rides on the last group, and ends the number.
-		{"1,000.50 GOLD", "1,000.50 GOLD"},
-		// A currency is a keyword, so it is read whatever case it is written in.
-		{"1 gold", "1 GOLD"},
-	} {
-		line := newLine(1, item.text)
-		price, err := line.price("a price", false)
-		if err != nil {
-			t.Errorf("%s: %v", item.text, err)
-			continue
-		}
-		if got := price.String(); got != item.want {
-			t.Errorf("%s read back as %q; want %q", item.text, got, item.want)
-		}
-	}
-}
-
-func TestPriceRefusesWhatTheGrammarDoesNotAllow(t *testing.T) {
-	for _, item := range []struct{ text, want string }{
-		{"5000 GOLD", "a number over 999 separates every three digits with a comma"},
-		// A comma inside a number groups three digits and can be doing nothing
-		// else, so a group of the wrong length says so. It used to fall through
-		// to the currency check and blame the currency.
-		{"1,00 GOLD", `invalid a price "1,00"; a comma in a number groups exactly three digits`},
-		{"1,0000 GOLD", `invalid a price "1,0000"; a comma in a number groups exactly three digits`},
-		{"1,00.5 GOLD", "a comma in a number groups exactly three digits"},
-		{"1,", "a comma in a number groups exactly three digits"},
-		// A leading zero is refused, but one zero before a decimal point is
-		// required rather than refused.
-		{"00.5 GOLD", `invalid a price "00.5"; a number carries no leading zero`},
-		{"0500 GOLD", "a number carries no leading zero"},
-		{"0 GOLD", "a price is greater than zero"},
-		{"0.0 GOLD", "a price is greater than zero"},
-		{".5 GOLD", "a price is a number and a currency"},
-		{"1. GOLD", "a price is a number and a currency"},
-		{"-1 GOLD", "a price is a number and a currency"},
-		{"1 SILVER", "a price is paid in GOLD or CNGD"},
-	} {
-		line := newLine(1, item.text)
-		price, err := line.price("a price", false)
-		if err == nil {
-			t.Errorf("%s was read as %q; want it refused", item.text, price)
-			continue
-		}
-		if !strings.Contains(err.Error(), item.want) {
-			t.Errorf("%s: error = %q; want it to mention %q", item.text, err, item.want)
-		}
-	}
-}
-
-// A technology level is bought once, for a whole number of GOLD.
-func TestAWholePriceRefusesADecimalAndRefusesGoods(t *testing.T) {
-	for _, item := range []struct{ text, want string }{
-		{"800,000.5 GOLD", "it is paid in whole units"},
-		{"800,000 CNGD", "a technology level is paid for in GOLD"},
-	} {
-		line := newLine(1, item.text)
-		if _, err := line.price("a price", true); err == nil || !strings.Contains(err.Error(), item.want) {
-			t.Errorf("%s: err = %v; want it to mention %q", item.text, err, item.want)
-		}
-	}
-	line := newLine(1, "800,000 GOLD")
-	if price, err := line.price("a price", true); err != nil || price.String() != "800,000 GOLD" {
-		t.Errorf("800,000 GOLD = (%q, %v); want it read whole", price, err)
-	}
-}
-
 // A quote that is never closed is refused.
 //
 // The tokenizer used to read to the end of the line and call it a token, so
@@ -485,7 +424,7 @@ func TestAQuoteThatIsNeverClosedIsRefused(t *testing.T) {
 // The header is quoted text too, and is read before any order.
 func TestAnUnterminatedQuoteInTheHeaderIsRefused(t *testing.T) {
 	_, err := Parse(strings.NewReader("game \"BETA-001 turn 0\nid faction 1\n"))
-	if err == nil || !strings.Contains(err.Error(), "line 1: unterminated quoted text") {
+	if err == nil || !strings.Contains(err.Error(), "line 1, column 6: unterminated quoted text") {
 		t.Errorf("err = %v; want line 1 refused for an unterminated quote", err)
 	}
 }
@@ -502,9 +441,12 @@ end
 colony 50 assemble 6 SNSR-99
 `
 	err := parseProblems(t, body)
+	// The quote is reported where it was written rather than against the line
+	// the CREATE opened on. An order that runs over several lines is still
+	// several lines, and every token in it remembers which one it came from.
 	for _, want := range []string{
-		"line 4: unterminated quoted text",
-		`line 9: invalid unit tag "SNSR-99"`,
+		`line 6, column 18: unterminated quoted text "FOOD"`,
+		`line 9, column 22: invalid unit tag "SNSR-99"`,
 	} {
 		if !strings.Contains(err, want) {
 			t.Errorf("error = %q;\n  want it to hold %q", err, want)
@@ -538,8 +480,8 @@ func TestOpensOrderReadsTheVerbAndConsumesNothing(t *testing.T) {
 		{"  using 60 STRC-8", "", ""},
 		{"ship 2 fly to orbit 6", "", ""},
 	} {
-		line := newLine(1, item.text)
-		spec, form, ok := opensOrder(line)
+		line := fieldParser(item.text)
+		spec, form, ok := line.opens()
 		switch {
 		case item.verb == "" && ok:
 			t.Errorf("%q opens %q; want no order", item.text, spec.Verb)

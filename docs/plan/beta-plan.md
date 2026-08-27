@@ -44,6 +44,15 @@ fail when the turn resolves with the reason. What they are missing is a rule
 rather than a parser -- see "What the code still has to be told" -- and the day
 one lands, its Spec moves to `verbs.go` with a Bound of its own.
 
+**The parser is now a recursive descent written for its error messages.**
+`token.go` and `parse.go` became `lex.go`, `parser.go`, `fields.go`, `file.go`,
+and `diagnostic.go`. Every token carries the line and column it came from, so a
+mistake three lines into a CREATE is reported there; a line that matched no
+form of its order is told what was expected where, offered the word it was
+nearly, and shown the forms after that rather than instead of it. No verb's
+`Parse` changed and every golden is untouched -- see "The parser was then
+rewritten as a recursive descent" below.
+
 **The parser is under a net of its own now.** `acceptedExamples` holds one line
 of every form, three properties run over it -- it parses, it reads back in the
 player's words, it survives being stored and decoded -- and a fourth test holds
@@ -80,15 +89,16 @@ and it needed it" below.
   (submit → resolve → report → open) against a migrated database and diffs
   every engine log and report against `testdata/golden`. `-update` rewrites
   them. `TestSubmitRejects` covers the 11 failures that reject a whole file.
-- **`games/claude/replay.sh [--json] [OUTDIR]`** — replays the seven-turn
-  CLAUDE-01 corpus. With `--json`, two runs produce 147 byte-identical files.
+- **`games/claude/replay.sh [--json] [OUTDIR]`** — replays the ten-turn
+  CLAUDE-01 corpus. With `--json`, two runs produce byte-identical files.
 
 ### What step 1 built
 
 Tokenize once, dispatch on verb. An order registers one `Spec` in
 `internal/orders/verbs.go` (verb, summary, syntax, parse) and nothing else in
-the pipeline needs to know it exists. Shared field readers live on `*Line` in
-`token.go`. Errors split: a line that never matched its order's *shape* gets
+the pipeline needs to know it exists. Shared field readers live on the parser
+-- `*Line` in `token.go` then, `*Parser` in `fields.go` since the rewrite
+below. Errors split: a line that never matched its order's *shape* gets
 that verb's syntax; a field read and found *wrong* reports itself. Added `#`
 comments, spacing-insensitive coordinates, rejection of trailing words,
 `ec orders help [ORDER]`, and a test that fails if `docs/orders.md` omits a
@@ -443,7 +453,10 @@ subject it was given is new, and better than what is built: `jump is a ship
 order` rather than `expected ship`. After the verb the existing split is
 untouched -- a `syntaxErr` shows that verb's `Syntax`, a plain error reports as
 written. Inside a multi-line order an error names both numbers: `line 12: in the
-create order beginning on line 8: ...`.
+create order beginning on line 8: ...`. (Superseded by "The parser was then
+rewritten as a recursive descent" below: the shape error now says what was
+expected where and shows the forms after it, and a mistake inside a multi-line
+order needs no second number because it is reported on its own line.)
 
 **Resynchronising after a missing `end`.** Without this, one forgotten `end`
 swallows the rest of the file and the player gets forty errors describing one
@@ -1076,13 +1089,16 @@ the file was refused with a single error and every later mistake went unreported
 It now stops at the next line that opens an order -- every order names its
 subject first, so a line beginning `ship`, `colony`, or `we` is never a
 continuation -- and pushes that line back to be parsed as itself. That is what
-`lines` in `parse.go` is for, and it is what a multi-line order costs: gathering
-one has to read ahead to find out it has overrun.
+`lines` in `parse.go` was for, and it is what a multi-line order costs:
+gathering one has to read ahead to find out it has overrun. (The rewrite below
+deleted the pushback: the file is lexed whole first, so a gather looks forward
+in a slice and says which line to resume on.)
 
 **`opensOrder` no longer counts words to find the verb.** It read the second
 token after `we` and the third otherwise, which was a second copy of the subject
 grammar living where nothing would compare it against `parseSubject`. It now
-runs `parseSubject` itself on a cursor `Line.mark` puts back. Whether the
+runs `parseSubject` itself on a cursor `Line.mark` puts back (a `Parser.clone`
+since the rewrite below). Whether the
 subject was any *good* is deliberately not asked: a create is still a create
 when its id is mistyped or its subject is missing altogether, and it still has
 to be read to its `end`, or the player is told about the one thing they got
@@ -1125,6 +1141,55 @@ it was worth running for.
   blamed the currency, so a player who wrote `1,00` was told to write `GOLD`.
   Both are fixed and the reader now has a table of its own. It is still the
   first place to look when a market order reads oddly.
+
+### The parser was then rewritten as a recursive descent
+
+Hardening the parser fixed what it got wrong. It did not change what it said
+when a player got something wrong, and that was the weaker half: a line that
+matched no form of its order was answered with a list of the order's forms and
+nothing else -- `expected ship SHIP-ID move to orbit ORBIT, or ship SHIP-ID
+move to system SYSTEM orbit ORBIT` -- which tells a player everything except
+which word of theirs was the problem. A mistake three lines into a CREATE was
+reported against the line the CREATE opened on, because gathering an order
+collapsed its lines onto the first one.
+
+`token.go` and `parse.go` are now `lex.go`, `parser.go`, `fields.go`,
+`file.go`, and `diagnostic.go`. The descent itself did not change shape --
+every verb's `Parse` was already a production and none of them were rewritten
+-- so what the rewrite is, is the machinery underneath them, chosen for the
+message rather than for speed or space:
+
+- **Every token carries a `Position` and a width.** A mistake is reported on
+  the line and at the column the player wrote it, and the caret is drawn the
+  length of the word that failed.
+- **The whole file is read into a `source` first**, so a diagnostic can show
+  its line. That also deleted the pushback the old scanner needed: a multi-line
+  order is now gathered by looking forward in a slice.
+- **The parser keeps the furthest point the descent reached and every
+  expectation recorded there.** `ship 2 move to planet 6` now reports
+  ``expected `system` or `orbit`, found "planet"`` and shows MOVE's forms after
+  it, rather than instead of it. A lookahead that must leave no trace takes a
+  `clone()` rather than saving the cursor, so the expectations of a reading
+  that was thrown away do not survive it.
+- **A word that was nearly right is named.** `orbti` is offered `orbit`, by
+  optimal string alignment so a transposition costs one edit. Nothing under
+  three characters is offered anything: a `5` where a `,` was wanted is not a
+  mistyped comma, and a suggestion nobody meant teaches a player to stop
+  reading the next one.
+- **Giving up on a multi-line order skips to the next line that opens one.**
+  One mistake in a CREATE body was four complaints; it is one.
+
+`errShape` replaced `syntaxErr` and carries no message, because the message is
+built at the top from the furthest point reached. `badSyntax` is gone: what it
+used to spell out is now an expectation recorded by the reader that wanted it.
+`*Line` became `*Parser`, which is what it always was -- an order, not a line.
+
+Verified against the regression net: every golden in `internal/replay` is
+untouched, which is the whole of the claim that a well-formed file reads
+exactly as it did. Twelve assertions in the order tests changed, all of them
+about the shape of a message; where one asserted a substring it now asserts the
+whole rendered block, because the shape of a message is as much the parser's
+job as the words in it.
 
 ### The cadres are named, and one of them is specified
 

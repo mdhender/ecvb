@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 9
+id faction 5
+colony 5 attack ship 1 101%
+colony 5 attack ship 1 999999999999999999999%
+colony 5 attack ship 1 7.5%
+colony 5 attack ship 1 %75
+colony 5 rations 75
+colony 5 rations %
+colony 5 pay USK 15 %
+colony 5 sell tech-level TL- 1 GOLD
+colony 5 sell tech-level TL 1 GOLD
+colony 5 sell tech-level TL-0 1 GOLD
+colony 5 sell tech-level TL-11 1 GOLD
+colony 5 sell tech-level TL-99999999999999999999 1 GOLD
+colony 5 sell tech-level tl-4 1 GOLD
+colony 5 sell tech-level TL-4.5 1 GOLD
+colony 5 buy tech-level TL-l4 800,000 GOLD
+ship 2 broadcast system B orbit 8 "hello"
+ship 2 jump Io (1,2,3)
+we name (1,2,3) system A orbit 8 "x
+s hip 2 move to orbit 6
+colony 5 buy tech-level TL-4 8001000 GOLD
+coony 5 pay USK 15%, SKW 20%
+ship 2 jump to 1,2,3)

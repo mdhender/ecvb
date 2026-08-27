@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 7
+id faction 4
+colony 5 sell 100 FOOD 1,00.5,000 GOLD
+colony 5 sell 100 FOOD ,1 GOLD
+colony 5 sell 100 FOOD 1,00 GOLD
+colony 5 sell 100 FOOD 5000 GOLD
+colony 5 sell 100 FOOD 0 GOLD
+colony 5 sell 100 FOOD 0.0 GOLD
+colony 5 sell 100 FOOD 00.5 GOLD
+colony 5 sell 100 FOOD -1 GOLD
+colony 5 sell 100 FOOD 1 SILVER
+colony 5 sell 100 FOOD 1
+colony 5 sell 100 FOOD
+colony 5 sell 100 FOOD 1.5 gold
+colony 5 sell 100 FOOD 1,000.50.25 GOLD
+colony 5 sell 100 FOOD 999999999999999999999999.5 GOLD
+col
+colony 5 assemble 1,000 SNSR-1, 50
+colony 5 sell 100 FOOD 
+ship 2 broadcas, system B orbit 8 "hello"
+colony 5
+ship
+ship 2 jump o (1,2,3)
+colony 5 buy tech-level TL-4 800,000 G

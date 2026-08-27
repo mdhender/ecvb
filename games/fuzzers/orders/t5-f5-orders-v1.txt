@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 5
+id faction 5
+colony 5 rations 75
+colony 5 rations %
+colony 5 pay USK 15 %
+colony 5 sell tech-level TL- 1 GOLD
+colony 5 sell tech-level TL 1 GOLD
+colony 5 sell tech-level TL-0 1 GOLD
+colony 5 sell tech-level TL-11 1 GOLD
+colony 5 sell tech-level TL-99999999999999999999 1 GOLD
+colony 5 sell tech-level tl-4 1 GOLD
+colony 5 sell tech-level TL-4.5 1 GOLD
+colony 5 attack ship 1 %
+colony 5 attack ship 1 %%%%
+colony 5 attack ship 1 75
+colony 5 attack ship 1 75 %
+colony 5 create ship using 60 STRC-8 transfering 25 FMOD with 5 CWKR end
+ship 2 broadcast, system B orbit 8 "hello"
+ship 2 probe system A orbit 1 2 3
+colony5 pay USK 15%, SKW 20%
+colony 5 buy tech-level TL-4 800,u000 GOLD
+colony 5 sell 100 FOOD 1,000.50 GO.D 75%
+2hip 2 broadcast system B orbit 8 "hello"
+colony 5 create ship using 60 STRC-8 transfering 2 FOOD with 5 CWKR end

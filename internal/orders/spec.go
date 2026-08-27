@@ -178,7 +178,7 @@ const (
 	SubjectFaction = "we"
 )
 
-// Subject is what an order was given to, read off the front of the line.
+// Subject is what an order was given to, read off the front of the order.
 type Subject struct {
 	// Kind is the word the player wrote: ship, colony, or we.
 	Kind string
@@ -192,7 +192,7 @@ type Subject struct {
 // Phase is when the order takes effect.
 type Spec struct {
 	// Verb is the keyword that names the order, lowercase. It follows the
-	// subject rather than opening the line.
+	// subject rather than opening the order.
 	Verb string
 	// Subjects are the subjects that may be given this order. A line whose
 	// subject is not one of them is refused before Parse ever sees it, so no
@@ -211,7 +211,7 @@ type Spec struct {
 	Unbuilt bool
 	// Terminator is the keyword that ends an order which may run over several
 	// physical lines, and returns empty for the orders that are one line each.
-	// nil means the order is always one line.
+	// nil means the order is read from one physical line.
 	//
 	// It is asked with the word that follows the verb, because whether an order
 	// spans lines can depend on its form: a create is the only order with a
@@ -226,7 +226,7 @@ type Spec struct {
 	// Parse reads the rest of the line, after the subject and the verb. The
 	// subject is handed in already read, so an order never parses its own
 	// actor.
-	Parse func(subject Subject, line *Line) (Params, error)
+	Parse func(subject Subject, p *Parser) (Params, error)
 	// Decode is Parse's counterpart for an order read back out of the
 	// database: it rebuilds the parameters from the stored JSON and the actor,
 	// which is a column of its own rather than part of the JSON.
@@ -292,13 +292,20 @@ func Lookup(verb string) (*Spec, bool) {
 	return spec, ok
 }
 
-// verbList names every order, for the error a mistyped verb gets.
-func verbList() string {
+// verbNames is every registered order, for the list a mistyped verb is shown
+// and for the suggestion offered alongside it.
+func verbNames() []string {
 	specs := Specs()
 	names := make([]string, len(specs))
 	for i, spec := range specs {
 		names[i] = spec.Verb
 	}
+	return names
+}
+
+// verbList names every order, for the error a mistyped verb gets.
+func verbList() string {
+	names := verbNames()
 	if len(names) == 0 {
 		return "no orders"
 	}

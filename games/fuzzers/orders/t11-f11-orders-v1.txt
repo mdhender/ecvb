@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 11
+id faction 11
+	ship 2 move to orbti 6
+				ship 2 move to orbti 6
+ééé ship 2 move to orbit 6
+ship 2 move to éééééééééééééééééééééééééééééééééééééééé 6
+ship 2 move to 世世世世世世世世世世世世世世世世世世世世世世世世世世世世世世 6
+世界 ship 2 move to orbit 6
+ship 2 ́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́move to orbit 6
+ship 2 move to orbit 6
+ship 2 move to orbit 6
+ship 2 move to orbit 6
+ship 2 move to ‮orbti 6
+ship 2 move to orbtí 6
+colony 5 create ship Iusing 60 STRC-8 transfering 25 FOOD with 5 CWKR end
+colony 5 sell 100 FOOD 1,000.50 GOLD75%
+ship 2 jump to (12,3)
+we name (1,2,3) system A or
+colony 5 sell 100 FOOD 1,00.50 GOLD 75%
+ship 2 p6obe system A orbit 1 2 3
+colony 5 assemble 1,
+colony 5 pay" USK 15%, SKW 20%
+ship 2 probe sysdtem A orbit 1 2 3
+colony 5 assemble 1,000 SNSR-1, 500 STRC-

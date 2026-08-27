@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 1
+id faction 9
+colony 5 transfer 1 GOLD to
+colony 5 transfer 1 GOLD to ship
+colony 5 transfer to ship 6
+colony 5 assemble 6 SNSR-99
+colony 5 assemble 6 snsr!
+colony 5 assemble 6 
+colony 5 assemble 6 -
+colony 5 assemble 6 -1
+colony 5 assemble 6 SNSR-
+colony 5 assemble 6 SNSR-0
+colony 5 assemble 6 SNSR-11
+colony 5 assemble 6 SNSR-1,
+colony 5 assemble 6 SNSR-1, ,
+colony 5 assemble 6 SNSR-1,,6 STRC-2
+ship 2 broadcast system B orbit8 "hello"
+colony 5 assemble 1,000 SNSR-e, 500 STRC-2
+ship 2 broadcast sstem B orbit 8 "hello"
+we name (B,2,3) system A orbit 8 "x"
+ship 2 broadcast sysbtem B orbit 8 "hello"
+
+colony 5 create ship using 60 STRC-8 tranfering 25 FOOD with 5 CWKR end
+s,hip 2 move to orbit 6

@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 6
+id faction 3
+colony 5 assemble 012 SNSR-1
+colony 5 assemble -1 SNSR-1
+colony 5 assemble +1 SNSR-1
+colony 5 assemble 1e3 SNSR-1
+colony 5 assemble 1.0 SNSR-1
+colony 5 assemble 999999999999999999999999 SNSR-1
+colony 5 assemble 9223372036854775808 SNSR-1
+colony 5 assemble 1,000,000,000,000,000,000,000 SNSR-1
+ship 2 move to orbit 99999999999999999999999999
+ship 2 move to orbit -1
+ship 2 move to orbit +6
+ship 2 move to orbit 0
+ship 99999999999999999999999 move to orbit 6
+ship -1 move to orbit 6
+colony 5 ay USK 15%, SKW 20%
+colony 5 buy tech-level TL-4 800,000 OLD
+colony 5 pay pSK 15%, SKW 20%
+colony 5 sell 100 FOOD 1,000".50 GOLD 75%
+co
+colon 5 pay USK 15%, SKW 20%
+colony 5 buy tech-level TL-4 8g00,000 GOLD
+codlony 5 buy tech-level TL-4 800,000 GOLD

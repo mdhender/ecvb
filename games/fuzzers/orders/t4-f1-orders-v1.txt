@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 4
+id faction 1
+#
+# 
+ship 2 move to orbit 6 #
+ship 2 name "a" "b"
+we name (1,2,3) "" ""
+ship "2" move to orbit 6
+"ship" 2 move to orbit 6
+ship 2 "move" to orbit 6
+ship 2 move "to" orbit 6
+ship 2 move to "orbit" 6
+ship 2 move to orbit "6"
+ship 2 name "line\nbreak"
+ship 2 name "tab	here"
+ship 2 name "
+ship 2 broadcast system B
+ship12 broadcast system B orbit 8 "hello"
+colony 5
+colony 5 assemble 1,000 SNSR-
+colony 5 sell 100 FOOD 1
+colony 5 assemble 1,000 世SNSR-1, 500 STRC-2
+ship 2 jump to (1,2,世)
+shcip 2 move to orbit 6

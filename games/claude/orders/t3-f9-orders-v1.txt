@@ -2,5 +2,4 @@ game "CLAUDE-01" turn 3
 id faction 9
 
 ship 32 probe system A orbit 4
-ship 32 move to orbit 11
-ship 32 jump to (10,-14,-5)
+ship 32 move to system A orbit 4

@@ -73,9 +73,9 @@ colony 50 assemble 6 SNSR-99
 	}
 	// Three problems, and the create's names the line that gave it away.
 	for _, want := range []string{
-		"line 4: CREATE runs until `end`, and line 8 begins another order",
-		`line 8: unknown order "fly"`,
-		`line 9: invalid unit tag "SNSR-99"`,
+		"line 4, column 1: CREATE runs until `end`, and line 8 begins another order",
+		`line 8, column 9: unknown order "fly"`,
+		`line 9, column 22: invalid unit tag "SNSR-99"`,
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error = %q;\n  want it to hold %q", err, want)
@@ -100,9 +100,13 @@ end
 	if err == nil {
 		t.Fatal("a create with a mistyped id was accepted; want it refused")
 	}
-	want := `line 4: invalid colony id: "fifty" is not a number`
+	// The whole of what the player is shown, because the shape of a message
+	// is as much the parser's job as the words in it.
+	want := `line 4, column 8: invalid colony id: "fifty" is not a number
+  4 | colony fifty create ship
+    |        ^^^^^`
 	if err.Error() != want {
-		t.Errorf("error = %q;\n  want exactly %q", err, want)
+		t.Errorf("error =\n%v\n  want exactly\n%s", err, want)
 	}
 }
 
@@ -127,12 +131,12 @@ colony 50 assemble 6 SNSR-99
 		t.Fatal("the file was accepted; want it refused")
 	}
 	// The create's own line, and the mistake after it. Nothing from its body.
-	if got := strings.Count(err.Error(), "\n") + 1; got != 2 {
+	if got := countProblems(t, err); got != 2 {
 		t.Errorf("problems = %d; want 2:\n%v", got, err)
 	}
 	for _, want := range []string{
-		"line 4: expected an order to begin with ship, colony, or we",
-		`line 9: invalid unit tag "SNSR-99"`,
+		`line 4, column 1: expected an order to begin with ship, colony, or we; found "create"`,
+		`line 9, column 22: invalid unit tag "SNSR-99"`,
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error = %q;\n  want it to hold %q", err, want)
@@ -533,4 +537,16 @@ func TestABuildDeliversOnlyWhatTheNewEntityHasRoomFor(t *testing.T) {
 	if got := buildScalar(t, conn, "SELECT sum(claimed) FROM construction_item WHERE entity_id = ?;", id); got != int64(0) {
 		t.Errorf("claims held over = %v; want none", got)
 	}
+}
+
+// countProblems is how many separate things the parser found wrong. A
+// diagnostic is a block of several lines now, so counting them means asking
+// the error rather than counting newlines.
+func countProblems(t *testing.T, err error) int {
+	t.Helper()
+	report, ok := err.(problems)
+	if !ok {
+		t.Fatalf("error is a %T; want the parser's report", err)
+	}
+	return len(report)
 }

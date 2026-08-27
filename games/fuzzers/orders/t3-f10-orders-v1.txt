@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 3
+id faction 10
+   
+	
+
+ship 2 move to orbit 6
+game "FUZZ-01" turn 0
+id faction 1
+game
+id
+game turn 0
+game "" turn 0
+game "FUZZ-01" turn
+game "FUZZ-01" turn -1
+game "FUZZ-01" turn 99999999999999999999
+id player
+ship 2 probe system A orbit 1 i 3
+colony 5 pay US 15%, SKW 20%
+colony 5 bu tech-level TL-4 800,000 GOLD
+colony 5 buy tec-level TL-4 800,000 GOLD
+colony 5 buy tech-lhevel TL-4 800,000 GOLD
+colony 5 buy 
+colony 5 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKR en"
+ship 

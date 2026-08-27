@@ -81,14 +81,15 @@ func TestTheParserRefusesAMalformedUnbuiltOrder(t *testing.T) {
 		{"colony 50 attack ship 18 75 %", "a percentage is digits and a % sign"},
 		{"colony 50 rations 75 %", "a percentage is digits and a % sign"},
 		{"colony 50 pay USK 15 %", "a percentage is digits and a % sign"},
-		{"colony 50 sell 100 FOOD 3 CNGD 5 %", "expected ship SHIP-ID sell"},
-		// A line that never matched the shape of its order is answered with that
-		// order's forms rather than with the token that failed.
-		{"colony 50 attack planet 18 75%", "expected ship SHIP-ID attack (ship | colony) ID PERCENT%"},
+		{"colony 50 sell 100 FOOD 3 CNGD 5 %", "expected `,` or the end of the order, found \"5\""},
+		// A line that never matched the shape of its order is told what was
+		// expected where, and shown that order's forms after it.
+		{"colony 50 attack planet 18 75%", "expected `ship` or `colony`, found \"planet\""},
+		{"colony 50 attack planet 18 75%", "  ship SHIP-ID attack (ship | colony) ID PERCENT%"},
 		{"colony 50 raid ship 18 seeking GOLD, FUEL, METL 22%", "a raid seeks one unit or two"},
 		{"colony 50 rations 75", "a percentage is digits and a % sign"},
 		{"colony 50 draft 100 USK", "only SOL and the cadres may be drafted"},
-		{"colony 50 pay GOLD 15%", "expected ship SHIP-ID pay CLASS PERCENT%"},
+		{"colony 50 pay GOLD 15%", "expected `USK`, `SKW`, `SOL`, or `NAS`, found \"GOLD\""},
 		{"colony 50 sell tech-level TL-99 800,000 GOLD", "a level runs from 1 to 10"},
 		{"colony 50 sell tech-level TL-4 800,000 CNGD", "a technology level is paid for in GOLD"},
 		{"colony 50 sell tech-level TL-4 800,000.5 GOLD", "it is paid in whole units"},

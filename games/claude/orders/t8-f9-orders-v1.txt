@@ -1,0 +1,5 @@
+game "CLAUDE-01" turn 8
+id faction 9
+
+ship 32 move to orbit 11
+ship 32 jump to (10,-14,-5)

@@ -4,6 +4,8 @@
 !beta/**
 !claude/
 !claude/**
+!fuzzers/
+!fuzzers/**
 # sqlite files
 *.db
 *.db-*

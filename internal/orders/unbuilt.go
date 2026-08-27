@@ -102,12 +102,12 @@ type entityRef struct {
 func (e entityRef) String() string { return fmt.Sprintf("%s %d", e.Kind, e.ID) }
 
 // entityRef reads a ship or colony and its id.
-func (l *Line) entityRef() (entityRef, error) {
-	kind, ok := l.keyword(SubjectShip, SubjectColony)
+func (p *Parser) entityRef() (entityRef, error) {
+	kind, ok := p.keyword(SubjectShip, SubjectColony)
 	if !ok {
-		return entityRef{}, badSyntax("expected ship or colony")
+		return entityRef{}, errShape
 	}
-	id, err := l.entityID(kind)
+	id, err := p.entityID(kind)
 	if err != nil {
 		return entityRef{}, err
 	}
@@ -130,22 +130,22 @@ func (p place) String() string {
 }
 
 // planet reads coordinates, a system letter, and an orbit.
-func (l *Line) planet() (place, error) {
+func (p *Parser) planet() (place, error) {
 	var at place
 	var err error
-	if at.X, at.Y, at.Z, err = l.coordinates(); err != nil {
+	if at.X, at.Y, at.Z, err = p.coordinates(); err != nil {
 		return place{}, err
 	}
-	if err = l.expect("system"); err != nil {
+	if err = p.expect("system"); err != nil {
 		return place{}, err
 	}
-	if at.System, err = l.systemLetter(); err != nil {
+	if at.System, err = p.systemLetter(); err != nil {
 		return place{}, err
 	}
-	if err = l.expect("orbit"); err != nil {
+	if err = p.expect("orbit"); err != nil {
 		return place{}, err
 	}
-	if at.Orbit, err = l.number("orbit"); err != nil {
+	if at.Orbit, err = p.number("orbit"); err != nil {
 		return place{}, err
 	}
 	return at, nil
@@ -153,12 +153,12 @@ func (l *Line) planet() (place, error) {
 
 // share reads a percentage that is a share of something -- a combat commitment,
 // a market commission -- which cannot be none of it or more than all of it.
-func (l *Line) share(what string) (int, error) { return l.percentage(what, 1, 100) }
+func (p *Parser) share(what string) (int, error) { return p.percentage(what, 1, 100) }
 
 // rate reads a percentage that is a multiple of a standard -- a pay rate, a
 // ration rate -- which has no ceiling: a faction may overpay or overfeed, and
 // the accepted grammar puts no bound on either.
-func (l *Line) rate(what string) (int, error) { return l.percentage(what, 0, math.MaxInt32) }
+func (p *Parser) rate(what string) (int, error) { return p.percentage(what, 0, math.MaxInt32) }
 
 // actorOf is the subject an entity order was given to. Every order given to a
 // ship or a colony carries one, so Actor is written once rather than thirty
@@ -221,13 +221,13 @@ func init() {
 			Decode: func(actor int64, encoded string) (Params, error) {
 				return decode(encoded, BattleParams{actorOf: actorOf{EntityID: actor}, Verb: verb})
 			},
-			Parse: func(subject Subject, line *Line) (Params, error) {
+			Parse: func(subject Subject, p *Parser) (Params, error) {
 				order := BattleParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}, Verb: verb}
 				var err error
-				if order.Target, err = line.entityRef(); err != nil {
+				if order.Target, err = p.entityRef(); err != nil {
 					return nil, err
 				}
-				order.Commitment, err = line.share("a commitment")
+				order.Commitment, err = p.share("a commitment")
 				return order, err
 			},
 		})
@@ -245,31 +245,34 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, RaidParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := RaidParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
 			var err error
-			if order.Target, err = line.entityRef(); err != nil {
+			if order.Target, err = p.entityRef(); err != nil {
 				return nil, err
 			}
-			if err = line.expect("seeking"); err != nil {
+			if err = p.expect("seeking"); err != nil {
 				return nil, err
 			}
 			// A raid names one unit or two, and no more: it is a snatch rather
 			// than a shopping list.
 			for {
-				tag, err := line.unitTag()
+				at := p.pos
+				tag, err := p.unitTag()
 				if err != nil {
 					return nil, err
 				}
 				order.Seeking = append(order.Seeking, tag)
-				if _, ok := line.keyword(","); !ok {
+				// The unit that took the raid past two is the one to point at.
+				if len(order.Seeking) > 2 {
+					return nil, p.at(at, "a raid seeks one unit or two, and this one names %d",
+						len(order.Seeking))
+				}
+				if _, ok := p.keyword(","); !ok {
 					break
 				}
 			}
-			if len(order.Seeking) > 2 {
-				return nil, fmt.Errorf("a raid seeks one unit or two, and this one names %d", len(order.Seeking))
-			}
-			order.Commitment, err = line.share("a commitment")
+			order.Commitment, err = p.share("a commitment")
 			return order, err
 		},
 	})
@@ -288,15 +291,15 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, SupportParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := SupportParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
 			var err error
-			if order.Ally, err = line.entityRef(); err != nil {
+			if order.Ally, err = p.entityRef(); err != nil {
 				return nil, err
 			}
-			stance, ok := line.keyword(stanceAttacking, stanceDefending)
+			stance, ok := p.keyword(stanceAttacking, stanceDefending)
 			if !ok {
-				return nil, badSyntax("expected attacking or defending")
+				return nil, errShape
 			}
 			order.Stance = stance
 			// Naming the other side is optional either way: support given
@@ -305,18 +308,18 @@ func init() {
 			// as defending that ship rather than from it.
 			named := false
 			if stance == stanceDefending {
-				_, named = line.keyword("against")
-			} else if word, ok := line.peek(); ok && !word.quoted {
+				_, named = p.keyword("against")
+			} else if word, ok := p.peek(); ok && !word.quoted {
 				named = strings.EqualFold(word.text, SubjectShip) || strings.EqualFold(word.text, SubjectColony)
 			}
 			if named {
-				other, err := line.entityRef()
+				other, err := p.entityRef()
 				if err != nil {
 					return nil, err
 				}
 				order.Against = &other
 			}
-			order.Commitment, err = line.share("a commitment")
+			order.Commitment, err = p.share("a commitment")
 			return order, err
 		},
 	})
@@ -407,18 +410,18 @@ var groupKinds = []string{groupFactory, groupFarm, groupMine}
 
 // groupAllows refuses a group order the subject cannot be given. A factory and
 // a mine belong to a colony; only a farm group may be worked from a ship.
-func groupAllows(subject, group string) error {
+func groupAllows(p *Parser, at int, subject, group string) error {
 	if subject == SubjectShip && group != groupFarm {
-		return fmt.Errorf("a %s belongs to a colony, and this order was given to a ship", group)
+		return p.at(at, "a %s belongs to a colony, and this order was given to a ship", group)
 	}
 	return nil
 }
 
 // groupLots refuses a list where the grammar reads one lot. Only a factory
 // group names several units at once; a farm and a mine take one.
-func groupLots(group string, units []UnitQuantity) error {
+func groupLots(p *Parser, at int, group string, units []UnitQuantity) error {
 	if group != groupFactory && len(units) != 1 {
-		return fmt.Errorf("a %s order names one unit, and this one names %d", group, len(units))
+		return p.at(at, "a %s order names one unit, and this one names %d", group, len(units))
 	}
 	return nil
 }
@@ -447,10 +450,10 @@ func init() {
 			Decode: func(actor int64, encoded string) (Params, error) {
 				return decode(encoded, GroupUnitsParams{actorOf: actorOf{EntityID: actor}, Verb: verb, Preposition: preposition})
 			},
-			Parse: func(subject Subject, line *Line) (Params, error) {
+			Parse: func(subject Subject, p *Parser) (Params, error) {
 				order := GroupUnitsParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID},
 					Verb: verb, Preposition: preposition}
-				return order, order.read(subject, line)
+				return order, order.read(subject, p)
 			},
 		})
 	}
@@ -467,16 +470,16 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, GroupUnitsParams{actorOf: actorOf{EntityID: actor}, Verb: "remove", Preposition: "from"})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := GroupUnitsParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID},
 				Verb: "remove", Preposition: "from"}
-			if err := order.read(subject, line); err != nil {
+			if err := order.read(subject, p); err != nil {
 				return nil, err
 			}
 			// Removal unassembles what it takes out and may stow it, the same
 			// way an unassemble order may.
-			if _, ok := line.keyword("and"); ok {
-				if err := line.expect("stow"); err != nil {
+			if _, ok := p.keyword("and"); ok {
+				if err := p.expect("stow"); err != nil {
 					return nil, err
 				}
 				order.Stow = true
@@ -497,23 +500,23 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, RetoolParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := RetoolParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
 			// The plain form drains the line before it retools, which may take
 			// three turns; `immediately` discards the work in progress and
 			// spends the retooling turn now.
-			_, order.Immediately = line.keyword("immediately")
-			if err := line.expect(groupFactory); err != nil {
+			_, order.Immediately = p.keyword("immediately")
+			if err := p.expect(groupFactory); err != nil {
 				return nil, err
 			}
 			var err error
-			if order.Group, err = line.number("a group number"); err != nil {
+			if order.Group, err = p.number("a group number"); err != nil {
 				return nil, err
 			}
-			if err = line.expect("making"); err != nil {
+			if err = p.expect("making"); err != nil {
 				return nil, err
 			}
-			order.Making, err = line.unitTag()
+			order.Making, err = p.unitTag()
 			return order, err
 		},
 	})
@@ -535,26 +538,28 @@ type GroupUnitsParams struct {
 
 // read consumes the units, the preposition, and the group, which is the same
 // for all four verbs.
-func (p *GroupUnitsParams) read(subject Subject, line *Line) error {
+func (g *GroupUnitsParams) read(subject Subject, p *Parser) error {
+	units := p.pos
 	var err error
-	if p.Units, err = line.unitList(); err != nil {
+	if g.Units, err = p.unitList(); err != nil {
 		return err
 	}
-	if err = line.expect(p.Preposition); err != nil {
+	if err = p.expect(g.Preposition); err != nil {
 		return err
 	}
-	kind, ok := line.keyword(groupKinds...)
+	named := p.pos
+	kind, ok := p.keyword(groupKinds...)
 	if !ok {
-		return badSyntax("expected %s, %s, or %s", groupFactory, groupFarm, groupMine)
+		return errShape
 	}
-	p.Group = kind
-	if p.GroupNo, err = line.number("a group number"); err != nil {
+	g.Group = kind
+	if g.GroupNo, err = p.number("a group number"); err != nil {
 		return err
 	}
-	if err := groupAllows(subject.Kind, kind); err != nil {
+	if err := groupAllows(p, named, subject.Kind, kind); err != nil {
 		return err
 	}
-	return groupLots(kind, p.Units)
+	return groupLots(p, units, kind, g.Units)
 }
 
 // Input is the order as the player wrote it.
@@ -621,41 +626,41 @@ func init() {
 			Decode: func(actor int64, encoded string) (Params, error) {
 				return decode(encoded, MarketParams{actorOf: actorOf{EntityID: actor}, Verb: verb})
 			},
-			Parse: func(subject Subject, line *Line) (Params, error) {
+			Parse: func(subject Subject, p *Parser) (Params, error) {
 				order := MarketParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}, Verb: verb}
 				var err error
 				// A technology level trades in the same market and is not
 				// cargo: it is paid for in whole GOLD, needs no transports, and
 				// is bought once rather than by quantity.
-				if _, ok := line.keyword("tech-level"); ok {
-					if order.TechLevel, err = line.techLevel(); err != nil {
+				if _, ok := p.keyword("tech-level"); ok {
+					if order.TechLevel, err = p.techLevel(); err != nil {
 						return nil, err
 					}
-					if order.Price, err = line.price("a price", true); err != nil {
+					if order.Price, err = p.price("a price", true); err != nil {
 						return nil, err
 					}
 				} else {
 					for {
 						var lot MarketLot
-						if lot.Quantity, err = line.quantity("a quantity"); err != nil {
+						if lot.Quantity, err = p.quantity("a quantity"); err != nil {
 							return nil, err
 						}
-						if lot.Tag, err = line.unitTag(); err != nil {
+						if lot.Tag, err = p.unitTag(); err != nil {
 							return nil, err
 						}
-						if lot.Price, err = line.price("a price", false); err != nil {
+						if lot.Price, err = p.price("a price", false); err != nil {
 							return nil, err
 						}
 						order.Lots = append(order.Lots, lot)
-						if _, ok := line.keyword(","); !ok {
+						if _, ok := p.keyword(","); !ok {
 							break
 						}
 					}
 				}
 				// A commission is optional: an order that names none pays the
 				// default the market sets.
-				if word, ok := line.peek(); ok && !word.quoted && strings.HasSuffix(word.text, "%") {
-					if order.Commission, err = line.share("a commission"); err != nil {
+				if word, ok := p.peek(); ok && !word.quoted && strings.HasSuffix(word.text, "%") {
+					if order.Commission, err = p.share("a commission"); err != nil {
 						return nil, err
 					}
 				}
@@ -732,7 +737,7 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, SurveyParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			return SurveyParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}, nil
 		},
 	})
@@ -770,37 +775,37 @@ func init() {
 			Decode: func(actor int64, encoded string) (Params, error) {
 				return decode(encoded, SpyParams{actorOf: actorOf{EntityID: actor}, Verb: item.verb, Object: item.object})
 			},
-			Parse: func(subject Subject, line *Line) (Params, error) {
+			Parse: func(subject Subject, p *Parser) (Params, error) {
 				order := SpyParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID},
 					Verb: item.verb, Object: item.object}
 				for _, word := range strings.Fields(item.object) {
-					if err := line.expect(word); err != nil {
+					if err := p.expect(word); err != nil {
 						return nil, err
 					}
 				}
 				var err error
 				if item.target {
-					target, err := line.entityRef()
+					target, err := p.entityRef()
 					if err != nil {
 						return nil, err
 					}
 					order.Target = &target
 				}
 				if item.faction {
-					if order.Faction, err = line.entityID("faction"); err != nil {
+					if order.Faction, err = p.entityID("faction"); err != nil {
 						return nil, err
 					}
-					if err = line.expect("spies"); err != nil {
+					if err = p.expect("spies"); err != nil {
 						return nil, err
 					}
 				}
-				if err = line.expect("using"); err != nil {
+				if err = p.expect("using"); err != nil {
 					return nil, err
 				}
-				if order.Spies, err = line.quantity("a quantity of spies"); err != nil {
+				if order.Spies, err = p.quantity("a quantity of spies"); err != nil {
 					return nil, err
 				}
-				return order, line.expect("spies")
+				return order, p.expect("spies")
 			},
 		})
 	}
@@ -817,27 +822,27 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, BroadcastParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := BroadcastParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
-			if err := line.expect("system"); err != nil {
+			if err := p.expect("system"); err != nil {
 				return nil, err
 			}
 			var err error
-			if order.System, err = line.systemLetter(); err != nil {
+			if order.System, err = p.systemLetter(); err != nil {
 				return nil, err
 			}
-			if err = line.expect("orbit"); err != nil {
+			if err = p.expect("orbit"); err != nil {
 				return nil, err
 			}
-			if order.Orbit, err = line.number("orbit"); err != nil {
+			if order.Orbit, err = p.number("orbit"); err != nil {
 				return nil, err
 			}
-			if order.Message, err = line.quoted("a message"); err != nil {
+			if order.Message, err = p.quoted("a message"); err != nil {
 				return nil, err
 			}
 			// The signature is optional: a broadcast may be anonymous.
-			if word, ok := line.peek(); ok && word.quoted {
-				if order.Signature, err = line.quoted("a signature"); err != nil {
+			if word, ok := p.peek(); ok && word.quoted {
+				if order.Signature, err = p.quoted("a signature"); err != nil {
 					return nil, err
 				}
 			}
@@ -942,19 +947,19 @@ func init() {
 			Decode: func(actor int64, encoded string) (Params, error) {
 				return decode(encoded, DraftParams{actorOf: actorOf{EntityID: actor}, Verb: verb})
 			},
-			Parse: func(subject Subject, line *Line) (Params, error) {
+			Parse: func(subject Subject, p *Parser) (Params, error) {
 				order := DraftParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}, Verb: verb}
 				for {
-					quantity, err := line.quantity("a quantity")
+					quantity, err := p.quantity("a quantity")
 					if err != nil {
 						return nil, err
 					}
-					code, ok := line.keyword(draftable...)
+					code, ok := p.keyword(draftable...)
 					if !ok {
-						return nil, fmt.Errorf("only %s and the cadres may be %sed", units.ClassSoldier, verb)
+						return nil, p.here("only %s and the cadres may be %sed", units.ClassSoldier, verb)
 					}
 					order.Lots = append(order.Lots, UnitQuantity{Quantity: quantity, Tag: code})
-					if _, ok := line.keyword(","); !ok {
+					if _, ok := p.keyword(","); !ok {
 						return order, nil
 					}
 				}
@@ -974,20 +979,20 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, PayParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := PayParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
 			for {
-				class, ok := line.keyword(units.ClassUnskilled, units.ClassSkilled,
+				class, ok := p.keyword(units.ClassUnskilled, units.ClassSkilled,
 					units.ClassSoldier, units.ClassNonAssignable)
 				if !ok {
-					return nil, badSyntax("expected a population class")
+					return nil, errShape
 				}
-				rate, err := line.rate("a pay rate")
+				rate, err := p.rate("a pay rate")
 				if err != nil {
 					return nil, err
 				}
 				order.Rates = append(order.Rates, PayRate{Class: class, Rate: rate})
-				if _, ok := line.keyword(","); !ok {
+				if _, ok := p.keyword(","); !ok {
 					return order, nil
 				}
 			}
@@ -1006,10 +1011,10 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, RationsParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := RationsParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
 			var err error
-			order.Rate, err = line.rate("a ration rate")
+			order.Rate, err = p.rate("a ration rate")
 			return order, err
 		},
 	})
@@ -1086,23 +1091,23 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, ControlParams{actorOf: actorOf{EntityID: actor}})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := ControlParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}}
 			// Taking control is a physical act, so the place is named the short
 			// way: the entity is already there, and only its own system's
 			// orbits are within reach.
-			if _, ok := line.keyword("system"); ok {
+			if _, ok := p.keyword("system"); ok {
 				var err error
-				if order.System, err = line.systemLetter(); err != nil {
+				if order.System, err = p.systemLetter(); err != nil {
 					return nil, err
 				}
-				if err = line.expect("orbit"); err != nil {
+				if err = p.expect("orbit"); err != nil {
 					return nil, err
 				}
-				order.Orbit, err = line.number("orbit")
+				order.Orbit, err = p.number("orbit")
 				return order, err
 			}
-			target, err := line.entityRef()
+			target, err := p.entityRef()
 			if err != nil {
 				return nil, err
 			}
@@ -1123,19 +1128,19 @@ func init() {
 		Decode: func(actor int64, encoded string) (Params, error) {
 			return decode(encoded, ReleaseParams{})
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			var order ReleaseParams
 			// Releasing is administrative and needs no entity at the place, so
 			// a planet is named the long way, by coordinates.
-			if word, ok := line.peek(); ok && !word.quoted && word.text == "(" {
-				at, err := line.planet()
+			if word, ok := p.peek(); ok && !word.quoted && word.text == "(" {
+				at, err := p.planet()
 				if err != nil {
 					return nil, err
 				}
 				order.Place = &at
 				return order, nil
 			}
-			target, err := line.entityRef()
+			target, err := p.entityRef()
 			if err != nil {
 				return nil, err
 			}
@@ -1164,34 +1169,34 @@ func init() {
 			Decode: func(actor int64, encoded string) (Params, error) {
 				return decode(encoded, PermissionParams{Verb: verb})
 			},
-			Parse: func(subject Subject, line *Line) (Params, error) {
+			Parse: func(subject Subject, p *Parser) (Params, error) {
 				order := PermissionParams{Verb: verb}
-				kind, ok := line.keyword(permissionTrade, permissionColonize)
+				kind, ok := p.keyword(permissionTrade, permissionColonize)
 				if !ok {
-					return nil, badSyntax("expected %s or %s", permissionTrade, permissionColonize)
+					return nil, errShape
 				}
 				order.Permission = kind
 				var err error
-				if order.Place, err = line.planet(); err != nil {
+				if order.Place, err = p.planet(); err != nil {
 					return nil, err
 				}
 				// A trade permission is about one station at the planet; a
 				// colonize permission is about the planet itself.
 				if kind == permissionTrade {
-					if err = line.expect("station"); err != nil {
+					if err = p.expect("station"); err != nil {
 						return nil, err
 					}
-					if order.Station, err = line.number("a station number"); err != nil {
+					if order.Station, err = p.number("a station number"); err != nil {
 						return nil, err
 					}
 				}
-				if err = line.expect("to"); err != nil {
+				if err = p.expect("to"); err != nil {
 					return nil, err
 				}
-				if err = line.expect("faction"); err != nil {
+				if err = p.expect("faction"); err != nil {
 					return nil, err
 				}
-				order.Faction, err = line.entityID("faction")
+				order.Faction, err = p.entityID("faction")
 				return order, err
 			},
 		})
@@ -1282,38 +1287,41 @@ func (p PermissionParams) Bind(b *Binder) ([]Bound, error) { return unbuilt(b, p
 // parseCreateGroup reads the three group forms of a create. The group kind is
 // already consumed, because it is what told the parser which half of the verb
 // this is.
-func parseCreateGroup(subject Subject, line *Line, group string) (Params, error) {
+func parseCreateGroup(subject Subject, p *Parser, group string) (Params, error) {
 	order := CreateGroupParams{actorOf: actorOf{Kind: subject.Kind, EntityID: subject.ID}, Group: group}
-	if err := groupAllows(subject.Kind, group); err != nil {
+	// The group kind is the word before the cursor: it is what told the parser
+	// which half of the verb this is, so it is already consumed.
+	if err := groupAllows(p, p.pos-1, subject.Kind, group); err != nil {
 		return nil, err
 	}
-	if err := line.expect("with"); err != nil {
+	if err := p.expect("with"); err != nil {
 		return nil, err
 	}
+	units := p.pos
 	var err error
-	if order.Units, err = line.unitList(); err != nil {
+	if order.Units, err = p.unitList(); err != nil {
 		return nil, err
 	}
-	if err := groupLots(group, order.Units); err != nil {
+	if err := groupLots(p, units, group, order.Units); err != nil {
 		return nil, err
 	}
 	switch group {
 	case groupFactory:
 		// A factory group must say what it will make.
-		if err = line.expect("making"); err != nil {
+		if err = p.expect("making"); err != nil {
 			return nil, err
 		}
-		order.Making, err = line.unitTag()
+		order.Making, err = p.unitTag()
 	case groupMine:
 		// A mine group's deposit is fixed for its life, which is why moving a
 		// mine is a remove and a fresh create rather than an order of its own.
-		if err = line.expect("working"); err != nil {
+		if err = p.expect("working"); err != nil {
 			return nil, err
 		}
-		if err = line.expect("deposit"); err != nil {
+		if err = p.expect("deposit"); err != nil {
 			return nil, err
 		}
-		order.Deposit, err = line.number("a deposit number")
+		order.Deposit, err = p.number("a deposit number")
 	}
 	return order, err
 }

@@ -120,7 +120,7 @@ register(&Spec{
     Summary:  "move a ship inside its stellium, to a planet or to the stellium orbit",
     Syntax:   []string{"ship SHIP-ID move to orbit ORBIT", ...},
     Phase:    PhaseMove,
-    Parse:    func(subject Subject, line *Line) (Params, error) { ... },
+    Parse:    func(subject Subject, p *Parser) (Params, error) { ... },
 })
 ```
 
@@ -132,16 +132,52 @@ against the forms its subject may be given. `Subjects` is that list, and a line
 whose subject is not on it is refused before `Parse` ever runs, so no order
 checks who it was given to. `we` is the faction itself and carries no id.
 
-`Parse` receives the subject already read and consumes the rest from a `*Line`
-using the shared field readers in `token.go` -- `entityID`, `number`,
-`systemLetter`, `coordinates`, `orbitList`, `quoted` -- rather than a regex per
-surface form, and returns the order's own `Params` type, so a field belongs to
-the one order that has it.
+`Parse` receives the subject already read and consumes the rest from a
+`*Parser` using the shared field readers in `fields.go` -- `entityID`,
+`number`, `systemLetter`, `coordinates`, `orbitList`, `quoted` -- rather than a
+regex per surface form, and returns the order's own `Params` type, so a field
+belongs to the one order that has it.
 
-Syntax errors are of two kinds and are treated differently. A line that never
-matched the shape of its order returns a `syntaxErr` (every `expect` does), and
-the player is shown that verb's `Syntax`. A field that was read and found wrong
-returns a plain error, which is reported as written.
+### The parser
+
+It is a recursive descent, and it is written for the message it gives when a
+file is wrong rather than for how fast it reads one that is right. Five files:
+
+| File | What it is |
+| --- | --- |
+| `lex.go` | one pass per physical line; every token keeps its `Position` and its width |
+| `parser.go` | the cursor: `Parser`, the expectation set, the two error kinds |
+| `fields.go` | the field productions every order is built out of |
+| `file.go` | the top of the descent -- header, order, subject, and the gather |
+| `diagnostic.go` | how a problem is rendered, and the did-you-mean |
+
+Three things follow from valuing the message, and each costs something:
+
+- **Every token remembers where it came from**, so a mistake inside a CREATE is
+  reported on the line the player wrote it on. The parser before this one
+  collapsed a gathered order onto the line it opened on.
+- **The whole file is read into a `source` before anything is parsed**, so a
+  diagnostic can show its line and draw a caret under the word. That is memory
+  the old parser did not spend, and it is also what deleted its pushback: a
+  multi-line order is gathered by looking forward in a slice.
+- **The parser remembers the furthest point the descent reached and everything
+  that could have stood there** (`Parser.want`, `wantKeyword`). A grammar with
+  alternatives fails several times over, and the failure that got closest to the
+  end of the line is the reading the player meant. A lookahead that must leave
+  no trace takes a `clone()` rather than saving the cursor, so the expectations
+  of a reading that was thrown away do not survive it.
+
+Syntax errors are still of two kinds and are still treated differently. A line
+that never matched the shape of its order returns `errShape` -- a marker with
+no message, because the message is built at the top from the furthest point
+reached -- and the player is shown what was expected there, a suggestion if a
+word was nearly right, and then that verb's `Syntax`. A field that was read and
+found wrong (`Parser.fail`) returns a diagnostic pointing at its own token,
+which is reported as written.
+
+Giving up on a multi-line order skips to the next line that opens one
+(`resumeAt`), so one mistake in a CREATE body is one complaint rather than one
+for every line after it.
 
 `ec orders help [ORDER]` prints the registry, and a test fails if `docs/orders.md`
 does not document every registered form.
@@ -377,7 +413,7 @@ plus named tables of header and rows, and renders that one model as either
 text or JSON, so a report is never written twice.
 
 `games/claude/replay.sh [--json] [OUTPUT-DIR]` replays the whole committed
-CLAUDE-01 corpus, seven turns and ten factions, from a fresh database. With
+CLAUDE-01 corpus, ten turns and ten factions, from a fresh database. With
 `--json` two runs produce byte-identical output.
 
 ## The regression net

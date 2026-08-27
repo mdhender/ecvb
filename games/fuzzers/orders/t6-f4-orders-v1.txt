@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 6
+id faction 4
+colony 5 sell 100 FOOD 0.0 GOLD
+colony 5 sell 100 FOOD 00.5 GOLD
+colony 5 sell 100 FOOD -1 GOLD
+colony 5 sell 100 FOOD 1 SILVER
+colony 5 sell 100 FOOD 1
+colony 5 sell 100 FOOD
+colony 5 sell 100 FOOD 1.5 gold
+colony 5 sell 100 FOOD 1,000.50.25 GOLD
+colony 5 sell 100 FOOD 999999999999999999999999.5 GOLD
+colony 5 buy tech-level TL-4 800,000.5 GOLD
+colony 5 buy tech-level TL-4 1 CNGD
+colony 5 sell 100 FOOD . GOLD
+colony 5 sell 100 FOOD .. GOLD
+colony 5 sell 100 FOOD 0.0.0.0 GOLD
+colony 5 assemble 1,000 SNSR)1, 500 STRC-2
+colony 5 pay USK 15%, SKW 2a%
+colony 5 sell 100 FOOD .1,000.50 GOLD 75%
+ship 2 probe systemA orbit 1 2 3
+ship 2 broadcast system B orbit 8 "hllo"
+colony 5 buy tech-level L-4 800,000 GOLD
+ship 2 move to orit 6
+colony 5 create ship using 60 STRC-8 tr

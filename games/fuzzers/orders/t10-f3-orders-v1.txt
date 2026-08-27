@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 10
+id faction 3
+colony 5 assemble 9223372036854775808 SNSR-1
+colony 5 assemble 1,000,000,000,000,000,000,000 SNSR-1
+ship 2 move to orbit 99999999999999999999999999
+ship 2 move to orbit -1
+ship 2 move to orbit +6
+ship 2 move to orbit 0
+ship 99999999999999999999999 move to orbit 6
+ship -1 move to orbit 6
+ship 0.5 move to orbit 6
+ship 2.0 move to orbit 6
+colony 5 assemble , SNSR-1
+colony 5 assemble ,,,,,,,, SNSR-1
+colony 5 assemble 1,,,000 SNSR-1
+colony 5 assemble 1, SNSR-1
+ship 2 probe Usystem A orbit 1 2 3
+ship 2 probe system A orbit 1I 2 3
+ship 2 probe smystem A orbit 1 2 3
+colony 5 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWR end
+ship 2 broadcast systemp B orbit 8 "hello"
+ship 2 probe sysrem A orbit 1 2 3
+colony 5 create ship using 60 STRC-8 transfering 25 FOOD withg5 CWKR end
+colony 5 sell 1t0 FOOD 1,000.50 GOLD 75%

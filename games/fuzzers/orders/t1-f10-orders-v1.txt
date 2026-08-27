@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 1
+id faction 10
+id faction -1
+id nobody 1
+game "FUZZ-01" turn 0 extra
+id faction 1 extra
+
+   
+	
+
+ship 2 move to orbit 6
+game "FUZZ-01" turn 0
+id faction 1
+game
+id
+game turn 0
+s
+colony 5 sell 100 FOOD 1,000.5n0 GOLD 75%
+colony 5 create ship using 60 STRC-8 transfering 25 rOOD with 5 CWKR end
+ship 2 broadc(ast system B orbit 8 "hello"
+colony 5 buy tech-level TL-4 800,000 GObLD
+colony 5 asse
+colony 5 sell 100 FOOD 1,000.50 GOLD 5%
+colony 5 buy tech-leve TL-4 800,000 GOLD

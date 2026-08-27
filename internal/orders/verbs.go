@@ -39,13 +39,13 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := JumpParams{ShipID: subject.ID}
-			if err := line.expect("to"); err != nil {
+			if err := p.expect("to"); err != nil {
 				return nil, err
 			}
 			var err error
-			if order.X, order.Y, order.Z, err = line.coordinates(); err != nil {
+			if order.X, order.Y, order.Z, err = p.coordinates(); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -69,23 +69,23 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := MoveParams{ShipID: subject.ID}
 			var err error
-			if err := line.expect("to"); err != nil {
+			if err := p.expect("to"); err != nil {
 				return nil, err
 			}
 			// A move may name a system of the ship's stellium, or leave the
 			// system out and mean the one the ship is already in.
-			if _, ok := line.keyword("system"); ok {
-				if order.System, err = line.systemLetter(); err != nil {
+			if _, ok := p.keyword("system"); ok {
+				if order.System, err = p.systemLetter(); err != nil {
 					return nil, err
 				}
 			}
-			if err := line.expect("orbit"); err != nil {
+			if err := p.expect("orbit"); err != nil {
 				return nil, err
 			}
-			if order.Orbit, err = line.number("orbit"); err != nil {
+			if order.Orbit, err = p.number("orbit"); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -113,7 +113,7 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := NameParams{Kind: subject.Kind, Entity: subject.ID}
 			var err error
 			// Naming something you own is an order to the thing itself, so the
@@ -125,42 +125,42 @@ func init() {
 				// carries the order out. What is not the same is that it can be
 				// refused for a faction never encountered, and no encounter is
 				// recorded yet -- so those two forms parse and do not yet act.
-				if as, ok := line.keyword("player", "faction"); ok {
+				if as, ok := p.keyword("player", "faction"); ok {
 					other := &FactionRef{As: as}
-					if other.ID, err = line.entityID("faction"); err != nil {
+					if other.ID, err = p.entityID("faction"); err != nil {
 						return nil, err
 					}
-					if word, ok := line.peek(); ok && !word.quoted &&
+					if word, ok := p.peek(); ok && !word.quoted &&
 						(strings.EqualFold(word.text, SubjectShip) || strings.EqualFold(word.text, SubjectColony)) {
-						entity, err := line.entityRef()
+						entity, err := p.entityRef()
 						if err != nil {
 							return nil, err
 						}
 						other.Entity = &entity
 					}
 					order.Faction = other
-					order.Name, err = line.quoted("name")
+					order.Name, err = p.quoted("name")
 					return order, err
 				}
 				place := &Place{}
-				if place.X, place.Y, place.Z, err = line.coordinates(); err != nil {
+				if place.X, place.Y, place.Z, err = p.coordinates(); err != nil {
 					return nil, err
 				}
-				if _, ok := line.keyword("system"); ok {
-					if place.System, err = line.systemLetter(); err != nil {
+				if _, ok := p.keyword("system"); ok {
+					if place.System, err = p.systemLetter(); err != nil {
 						return nil, err
 					}
 					// Only a system can hold a planet, so an orbit may only
 					// follow one.
-					if _, ok := line.keyword("orbit"); ok {
-						if place.Orbit, err = line.number("orbit"); err != nil {
+					if _, ok := p.keyword("orbit"); ok {
+						if place.Orbit, err = p.number("orbit"); err != nil {
 							return nil, err
 						}
 					}
 				}
 				order.Place = place
 			}
-			if order.Name, err = line.quoted("name"); err != nil {
+			if order.Name, err = p.quoted("name"); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -212,53 +212,53 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
-			if group, ok := line.keyword(groupKinds...); ok {
-				return parseCreateGroup(subject, line, group)
+		Parse: func(subject Subject, p *Parser) (Params, error) {
+			if group, ok := p.keyword(groupKinds...); ok {
+				return parseCreateGroup(subject, p, group)
 			}
 			order := CreateParams{Kind: subject.Kind, EntityID: subject.ID}
-			form, ok := line.keyword(buildsShip, buildsOpenAir, buildsEnclosed, buildsOrbital)
+			form, ok := p.keyword(buildsShip, buildsOpenAir, buildsEnclosed, buildsOrbital)
 			if !ok {
-				return nil, badSyntax("expected ship, a kind of colony, or a kind of group")
+				return nil, errShape
 			}
 			order.Builds = form
 			if form != buildsShip {
-				if err := line.expect("colony"); err != nil {
+				if err := p.expect("colony"); err != nil {
 					return nil, err
 				}
 				// What a trade station confers is stage 11's business and is
 				// not written. The grammar accepts it now so that a build
 				// begun today is the thing the player asked for when it is.
-				if _, ok := line.keyword("as"); ok {
-					if err := line.expect("trade-station"); err != nil {
+				if _, ok := p.keyword("as"); ok {
+					if err := p.expect("trade-station"); err != nil {
 						return nil, err
 					}
 					order.TradeStation = true
 				}
 			}
 			var err error
-			if err = line.expect("using"); err != nil {
+			if err = p.expect("using"); err != nil {
 				return nil, err
 			}
-			if order.Using, err = line.unitList(); err != nil {
+			if order.Using, err = p.unitList(); err != nil {
 				return nil, err
 			}
-			if err = line.expect("transfering"); err != nil {
+			if err = p.expect("transfering"); err != nil {
 				return nil, err
 			}
-			if order.Transfering, err = line.unitList(); err != nil {
+			if order.Transfering, err = p.unitList(); err != nil {
 				return nil, err
 			}
-			if err = line.expect("with"); err != nil {
+			if err = p.expect("with"); err != nil {
 				return nil, err
 			}
-			if order.Workers, err = line.quantity("a quantity of " + cadre.Unit); err != nil {
+			if order.Workers, err = p.quantity("a quantity of " + cadre.Unit); err != nil {
 				return nil, err
 			}
-			if err = line.expect(cadre.Unit); err != nil {
+			if err = p.expect(cadre.Unit); err != nil {
 				return nil, err
 			}
-			return order, line.expect("end")
+			return order, p.expect("end")
 		},
 	})
 
@@ -278,10 +278,10 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := AssembleParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
-			if order.Units, err = line.unitList(); err != nil {
+			if order.Units, err = p.unitList(); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -306,18 +306,18 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := UnassembleParams{Kind: subject.Kind, EntityID: subject.ID}
 			// Stowing puts the units down in cargo instead of leaving them in
 			// unassembled inventory, which is what a transfer needs.
-			if _, ok := line.keyword("and"); ok {
-				if err := line.expect("stow"); err != nil {
+			if _, ok := p.keyword("and"); ok {
+				if err := p.expect("stow"); err != nil {
 					return nil, err
 				}
 				order.Stow = true
 			}
 			var err error
-			if order.Units, err = line.unitList(); err != nil {
+			if order.Units, err = p.unitList(); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -340,10 +340,10 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := StowParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
-			if order.Units, err = line.unitList(); err != nil {
+			if order.Units, err = p.unitList(); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -366,10 +366,10 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := UnstowParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
-			if order.Units, err = line.unitList(); err != nil {
+			if order.Units, err = p.unitList(); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -394,21 +394,21 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := TransferParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
-			if order.Units, err = line.unitList(); err != nil {
+			if order.Units, err = p.unitList(); err != nil {
 				return nil, err
 			}
-			if err := line.expect("to"); err != nil {
+			if err := p.expect("to"); err != nil {
 				return nil, err
 			}
-			kind, ok := line.keyword(SubjectShip, SubjectColony)
+			kind, ok := p.keyword(SubjectShip, SubjectColony)
 			if !ok {
-				return nil, badSyntax("expected ship or colony")
+				return nil, errShape
 			}
 			order.RecipientAs = kind
-			if order.Recipient, err = line.entityID(kind); err != nil {
+			if order.Recipient, err = p.entityID(kind); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -433,20 +433,20 @@ func init() {
 			}
 			return order, nil
 		},
-		Parse: func(subject Subject, line *Line) (Params, error) {
+		Parse: func(subject Subject, p *Parser) (Params, error) {
 			order := ProbeParams{Kind: subject.Kind, EntityID: subject.ID}
 			var err error
 			// A probe that names a system reads any system of the entity's
 			// stellium; one that does not reads the system it is in.
-			if _, ok := line.keyword("system"); ok {
-				if order.System, err = line.systemLetter(); err != nil {
+			if _, ok := p.keyword("system"); ok {
+				if order.System, err = p.systemLetter(); err != nil {
 					return nil, err
 				}
 			}
-			if err := line.expect("orbit"); err != nil {
+			if err := p.expect("orbit"); err != nil {
 				return nil, err
 			}
-			if order.Orbits, err = line.orbitList(); err != nil {
+			if order.Orbits, err = p.orbitList(); err != nil {
 				return nil, err
 			}
 			return order, nil
@@ -1683,24 +1683,24 @@ func buildItems(p CreateParams) ([]*world.BuildItem, error) {
 		lines []UnitQuantity
 	}{{world.ClauseUsing, p.Using}, {world.ClauseTransfering, p.Transfering}} {
 		seen := make(map[string]bool, len(clause.lines))
-		for _, line := range clause.lines {
-			unit, techLevel, _, err := units.ParseTag(line.Tag)
+		for _, item := range clause.lines {
+			unit, techLevel, _, err := units.ParseTag(item.Tag)
 			if err != nil {
 				found = append(found, err)
 				continue
 			}
-			if seen[line.Tag] {
-				found = append(found, fmt.Errorf("%s is named twice in the %s list", line.Tag, clause.name))
+			if seen[item.Tag] {
+				found = append(found, fmt.Errorf("%s is named twice in the %s list", item.Tag, clause.name))
 				continue
 			}
-			seen[line.Tag] = true
-			if err := buildable(clause.name, line.Tag, unit); err != nil {
+			seen[item.Tag] = true
+			if err := buildable(clause.name, item.Tag, unit); err != nil {
 				found = append(found, err)
 				continue
 			}
 			items = append(items, &world.BuildItem{
 				Ordinal: len(items) + 1, Clause: clause.name,
-				Unit: unit, TechLevel: techLevel, Required: line.Quantity,
+				Unit: unit, TechLevel: techLevel, Required: item.Quantity,
 			})
 		}
 	}

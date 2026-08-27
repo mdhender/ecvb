@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 7
+id faction 8
+colony 5 create mine-group with 5 MINE-1 working deposit
+colony 5 create factory-group with 5 FACT-1 making
+colony 5 create open-air colony as trade-station end
+colony 5 create orbital colony using 60 STRC-8 with 5 CWKR
+colony 5 create ship
+colony 5 create ship using 60 STRC-8
+colony 5 create "ship" end
+colony 5 create create create end
+colony 5 create ship end end end
+end
+using 60 STRC-8
+with 5 CWKR
+colony 5 create ship using 60 STRC-8 with 5 CWKR end end
+colony 5 create ship using end
+we name (1,2,3) system A orbit   "x"
+colony 5 pay USK 5%, SKW 20%
+colony 5 create ship using 60 STRC-8 transferin1g 25 FOOD with 5 CWKR end
+s9ip 2 jump to (1,2,3)
+colony 5 b#y tech-level TL-4 800,000 GOLD
+colony 5 sell 100 FOOD 1,000.50 )GOLD 75%
+ship 2 broadcpst system B orbit 8 "hello"
+c%lony 5 assemble 1,000 SNSR-1, 500 STRC-2

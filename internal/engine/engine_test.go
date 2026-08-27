@@ -953,7 +953,7 @@ func TestResolveRefusesOrdersToAShipInTransit(t *testing.T) {
 		}}); err != nil {
 		t.Fatal(err)
 	}
-	const want = "ship 40 is in transit and arrives on turn 5; it can be given no orders until then"
+	const want = "ship 40 is in transit; it arrives on turn 5 and can be given orders from turn 6"
 	if status != "failed" || message != want {
 		t.Fatalf("outcome = %q, %q; want failed with %q", status, message, want)
 	}

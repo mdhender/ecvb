@@ -1,7 +1,5 @@
 game "CLAUDE-01" turn 0
 id faction 8
 
-ship 28 probe system A orbit 4
-colony 25 probe orbit 4
 ship 28 move to orbit 11
 ship 28 jump to (6,-12,-13)

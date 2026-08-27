@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 3
+id faction 3
+ship 2 move to orbit 99999999999999999999999999
+ship 2 move to orbit -1
+ship 2 move to orbit +6
+ship 2 move to orbit 0
+ship 99999999999999999999999 move to orbit 6
+ship -1 move to orbit 6
+ship 0.5 move to orbit 6
+ship 2.0 move to orbit 6
+colony 5 assemble , SNSR-1
+colony 5 assemble ,,,,,,,, SNSR-1
+colony 5 assemble 1,,,000 SNSR-1
+colony 5 assemble 1, SNSR-1
+colony 5 assemble ,1 SNSR-1
+colony 5 assemble 1,2 SNSR-1
+colony 5 buy tech-levelTL-4 800,000 GOLD
+colony 5 c
+ship 2 jump t
+s
+ship 2 m
+ship 2 jump to (1,2,)
+ship 2 prob
+colony 5 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKRH end

@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 1
+id faction 7
+we 5
+fleet 2 move to orbit 6
+SHIP 2 MOVE TO ORBIT 6
+ShIp 2 MoVe To OrBiT 6
+ship 2 fly to orbit 6
+ship 2 mve to orbit 6
+ship 2 mooove to orbit 6
+ship 2 move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move 
+colony 5 move to orbit 4
+we move to orbit 4
+ship 2 rations 75%
+ship 2 probe
+ship 2 probe orbit
+ship 2 probe system
+colony 5 sell 100T FOOD 1,000.50 GOLD 75%
+we name (1,2,3) system A orb0t 8 "x"
+we name (1,2,3) systemT A orbit 8 "x"
+ship 2 broadcast system B orbit 8 "hgllo"
+colony 5 pay USK 15% SKW 20%
+ship2 move to orbit 6
+ship 2 probe system A orbit 1
+ship 2 broadcast systm B orbit 8 "hello"

@@ -177,8 +177,8 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 	// lands. Arrivals resolve after every order that could name a ship, so a
 	// ship due this turn is still out of reach for the whole of it.
 	if entity.InTransit() {
-		return nil, fmt.Errorf("%s %d is in transit and arrives on turn %d; it can be given no orders until then",
-			noun(entity), id, entity.Transit.ArrivalTurn)
+		return nil, fmt.Errorf("%s %d is in transit; it arrives on turn %d and can be given orders from turn %d",
+			noun(entity), id, entity.Transit.ArrivalTurn, entity.Transit.ArrivalTurn+1)
 	}
 	// An entity still being built exists and is visible, but it is not yet a
 	// thing that acts: it has no people, nothing assembled, and a standing
@@ -235,8 +235,8 @@ func (b *Binder) recipient(id int64, kind string) (*world.Entity, error) {
 		return nil, fmt.Errorf("%s %d belongs to another faction", noun(entity), id)
 	}
 	if entity.InTransit() {
-		return nil, fmt.Errorf("%s %d is in transit and arrives on turn %d; nothing can reach it until then",
-			noun(entity), id, entity.Transit.ArrivalTurn)
+		return nil, fmt.Errorf("%s %d is in transit; it arrives on turn %d and nothing can reach it before turn %d",
+			noun(entity), id, entity.Transit.ArrivalTurn, entity.Transit.ArrivalTurn+1)
 	}
 	// A build is fed by the entity that ordered it and by nothing else, so an
 	// unfinished entity is not somewhere a transfer may put things down.

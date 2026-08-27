@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 11
+id faction 1
+"ship" 2 move to orbit 6
+ship 2 "move" to orbit 6
+ship 2 move "to" orbit 6
+ship 2 move to "orbit" 6
+ship 2 move to orbit "6"
+ship 2 name "line\nbreak"
+ship 2 name "tab	here"
+ship 2 name "
+ship 2 name "	unclosed
+ship 2 name ""
+ship 2 name " "
+"
+""
+" " " " "
+ship 2 probe dystem A orbit 1 2 3
+colony 5 buy tech-level TL-4 800,00 GOLD
+ship 2 jumpato (1,2,3)
+ship 2 probe hsystem A orbit 1 2 3
+ship 2nmove to orbit 6
+colony 5 assemble 1,000 SNSR-1, M00 STRC-2
+colony 5 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKRfend
+ship 2 jup to (1,2,3)

@@ -1,0 +1,24 @@
+game "FUZZ-01" turn 0
+id faction 4
+colony 5 sell 100 FOOD . GOLD
+colony 5 sell 100 FOOD .. GOLD
+colony 5 sell 100 FOOD 0.0.0.0 GOLD
+colony 5 sell 100 FOOD 1,00.5,000 GOLD
+colony 5 sell 100 FOOD ,1 GOLD
+colony 5 sell 100 FOOD 1,00 GOLD
+colony 5 sell 100 FOOD 5000 GOLD
+colony 5 sell 100 FOOD 0 GOLD
+colony 5 sell 100 FOOD 0.0 GOLD
+colony 5 sell 100 FOOD 00.5 GOLD
+colony 5 sell 100 FOOD -1 GOLD
+colony 5 sell 100 FOOD 1 SILVER
+colony 5 sell 100 FOOD 1
+colony 5 sell 100 FOOD
+ship2 probe system A orbit 1 2 3
+ship 2w jump to (1,2,3)
+ship 2 jump to (12,3)
+colony 5 sell 100 FOOD 1,000.50 BOLD 75%
+ship 2 probe system A orbit, 1 2 3
+we name (,2,3) system A orbit 8 "x"
+uhip 2 probe system A orbit 1 2 3
+ship 2 broadcast sytem B orbit 8 "hello"
