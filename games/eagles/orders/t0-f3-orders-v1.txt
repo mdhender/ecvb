@@ -1,0 +1,5 @@
+game "EAGLE-01" turn 0
+id faction 3
+
+ship 8 move to orbit 11
+ship 8 jump to (10,-14,-2)

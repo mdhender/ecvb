@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 2
+id faction 8
+
+colony 25 transfer 10 USK to ship 28

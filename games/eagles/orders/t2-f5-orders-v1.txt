@@ -1,0 +1,5 @@
+game "EAGLE-01" turn 2
+id faction 5
+
+we name (-12,-7,11) system A "Hearth"
+we name (-12,-7,11) system A orbit 4 "Hearth"

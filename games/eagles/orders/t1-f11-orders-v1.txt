@@ -1,0 +1,5 @@
+game "EAGLE-01" turn 1
+id faction 11
+
+ship 40 move to orbit 11
+ship 40 jump to (10,4,5)

@@ -8,6 +8,9 @@ factions were allowed to win by breaking the parser while seven searched for a
 home. Both halves worked, so they were split: CLAUDE-01 went back to being a
 search-and-capture game, and the attack became this one.
 
+This game ends where an order is accepted. What the engine then does with it is
+[EAGLE-01](../eagles/game-rules.md)'s argument.
+
 ## Rules
 
 1. A faction wins if an order file it submits makes the parser **panic**.

@@ -1,0 +1,12 @@
+# sqlite files
+*.db
+*.db-*
+# the map and the starting kit, copied in from games/claude by replay.sh
+stellia-seed.json
+systems-seed.json
+planets-seed.json
+deposits-seed.json
+home-planet-seed.json
+# what the engine did. The findings themselves are written down in
+# docs/plan/engine-burndown.md, which is the record worth keeping.
+reports/

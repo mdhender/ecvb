@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 1
+id faction 4
+
+ship 12 probe system A orbit 4 4 4

@@ -1,0 +1,6 @@
+game "EAGLE-01" turn 0
+id faction 5
+
+we name (-12,-7,11) "Hearth"
+ship 16 name "Kestrel"
+colony 13 name "Landfall"

@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 1
+id faction 5
+
+ship 16 name "Kestrel II"

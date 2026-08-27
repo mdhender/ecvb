@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 0
+id faction 9
+
+colony 29 create ship using 60 STRC-10 transfering 25 GOLD with 5 CWKR end

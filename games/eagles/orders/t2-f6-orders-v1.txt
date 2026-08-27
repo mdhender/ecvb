@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 2
+id faction 6
+
+colony 17 unassemble and stow 1 STRC-10
