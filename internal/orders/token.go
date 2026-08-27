@@ -428,7 +428,12 @@ func (l *Line) orbitList() ([]int, error) {
 }
 
 // percentage consumes an integer percentage: digits with a % on the end, as in
-// 75%. It is one token, because % is not punctuation the tokenizer splits on.
+// 75%.
+//
+// The % carries no space before it, which is a decision rather than an accident
+// of the tokenizer: % is not punctuation the tokenizer splits on, so 75% is one
+// token and 75 % is two, and the second is refused. docs/accepted-orders.md
+// says so where it defines a commission.
 //
 // Four fields of the accepted grammar are this shape and differ only in their
 // range: a commitment and a commission run 1 to 100, and a pay rate and a

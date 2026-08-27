@@ -212,8 +212,8 @@ func parseIdentityLine(line *Line, submission *Submission) error {
 // parsed: does this order run to a terminator? The word after the verb goes
 // with it because the answer can depend on the form, and a form is named there.
 //
-// The subject is read with begins and parseSubject, which is what parseOrder
-// reads it with, rather than by counting the tokens a subject takes. Counting
+// The subject is read with parseSubject, which is what parseOrder reads it
+// with, rather than by counting the tokens a subject takes. Counting
 // worked -- `we` takes one word and every other subject two, so the verb was
 // the second token or the third -- but it was a second copy of the subject
 // grammar living where nothing would ever compare it against the first, and it
@@ -226,17 +226,14 @@ func parseIdentityLine(line *Line, submission *Submission) error {
 func opensOrder(line *Line) (spec *Spec, form string, ok bool) {
 	restore := line.mark()
 	defer restore()
-	// A line that never named a subject opens no order, whatever words follow
-	// it, and saying why is parseOrder's job rather than this lookahead's.
-	if !line.begins() {
-		return nil, "", false
-	}
-	// It named one, so the subject is however many words parseSubject reads and
-	// the verb is what comes after them. Whether the player wrote a good id is
-	// again parseOrder's to report: a create whose id is mistyped is still a
-	// create, and still has to be read to its `end`, or the player would be told
-	// about every line of its body as well as about the one thing they got
-	// wrong.
+	// The subject is however many words parseSubject reads, and the verb is
+	// what comes after them. Whether the player wrote a good subject is not
+	// asked here, and that is the point: a create is still a create when its id
+	// is mistyped or its subject is missing altogether, and it still has to be
+	// read to its `end`. Refusing it here would leave the player told about the
+	// one thing they got wrong and about all four lines of the order's body as
+	// well. parseSubject consumes nothing when it fails, so a line that named
+	// no subject simply offers its first word as the verb.
 	_, _ = parseSubject(line)
 	word, found := line.next()
 	if !found || word.quoted {

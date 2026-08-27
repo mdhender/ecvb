@@ -106,6 +106,40 @@ end
 	}
 }
 
+// A create whose subject is missing altogether is still read whole, for the
+// same reason one with a mistyped id is: it is recognisably a create, so the
+// player is told the one thing they got wrong rather than that and every line
+// of the order's body.
+//
+// This is what the lookahead not caring whether the subject was any good buys.
+// A guard that refused a line naming no subject would cost five problems here
+// instead of one.
+func TestACreateWithNoSubjectIsStillReadWhole(t *testing.T) {
+	body := `create ship
+  using 60 STRC-8
+  transfering 25 FOOD
+  with 5 CWKR
+end
+colony 50 assemble 6 SNSR-99
+`
+	_, err := Parse(strings.NewReader(header + body))
+	if err == nil {
+		t.Fatal("the file was accepted; want it refused")
+	}
+	// The create's own line, and the mistake after it. Nothing from its body.
+	if got := strings.Count(err.Error(), "\n") + 1; got != 2 {
+		t.Errorf("problems = %d; want 2:\n%v", got, err)
+	}
+	for _, want := range []string{
+		"line 4: expected an order to begin with ship, colony, or we",
+		`line 9: invalid unit tag "SNSR-99"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q;\n  want it to hold %q", err, want)
+		}
+	}
+}
+
 // A blank line or a comment inside a multi-line order is part of it, not the
 // end of it.
 func TestBlankLinesAndCommentsInsideACreateAreNotTheEndOfIt(t *testing.T) {
