@@ -3,6 +3,7 @@
 package prng_test
 
 import (
+	"math"
 	"math/rand/v2"
 	"testing"
 
@@ -69,6 +70,19 @@ func TestRollRangeInclusive(t *testing.T) {
 	}
 }
 
+func TestRollRangeWideBounds(t *testing.T) {
+	roller := prng.New(9, 10).Roller(prng.TagCluster)
+	for range 100 {
+		if got := roller.RollRange(math.MinInt, 0); got < math.MinInt || got > 0 {
+			t.Fatalf("RollRange(MinInt,0) = %d out of range", got)
+		}
+	}
+
+	// The full int domain has one more value than MaxUint can represent, so this
+	// exercises RollRange's full-width special case.
+	roller.RollRange(math.MinInt, math.MaxInt)
+}
+
 // TestRollRangePanics: RollRange must panic when !(lo < hi) — a programmer-error
 // guard on constant bounds.
 func TestRollRangePanics(t *testing.T) {
@@ -104,8 +118,8 @@ func TestRollerReproducible(t *testing.T) {
 }
 
 // TestRollerMatchesStream: a Roller and a fresh rand.New(Stream) at the same
-// address agree draw-for-draw — the Roller is exactly rand.New over the stream,
-// with one IntN(sides)+1 per die.
+// address agree call-for-call — the Roller is exactly rand.New over the stream,
+// with one IntN(sides)+1 call per die.
 func TestRollerMatchesStream(t *testing.T) {
 	seeds := prng.New(42, 43)
 	path := []prng.Key{prng.TagSystem, 2, 2}
@@ -125,8 +139,8 @@ func TestRollerMatchesStream(t *testing.T) {
 	}
 }
 
-// TestRollerDistinctAddresses: different addresses give uncorrelated first rolls
-// (sanity that Roller inherits Stream's domain separation).
+// TestRollerDistinctAddresses checks that two representative addresses have
+// different first rolls.
 func TestRollerDistinctAddresses(t *testing.T) {
 	seeds := prng.New(7, 11)
 	// Wide range so a collision would signal shared state, not chance.
@@ -137,11 +151,23 @@ func TestRollerDistinctAddresses(t *testing.T) {
 	}
 }
 
-// TestRollNZeroDice: a non-positive die count sums to zero (no draws taken).
-func TestRollNZeroDice(t *testing.T) {
-	roller := prng.New(1, 2).Roller(prng.TagCluster)
-	if got := roller.RollN(0, 6); got != 0 {
-		t.Errorf("RollN(0,6) = %d, want 0", got)
+func TestRollNInvalidParametersPanic(t *testing.T) {
+	tests := []struct{ n, sides int }{
+		{0, 6},
+		{-1, 6},
+		{1, 0},
+		{1, -1},
+		{2, math.MaxInt},
+	}
+	for _, tt := range tests {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("RollN(%d,%d) did not panic", tt.n, tt.sides)
+				}
+			}()
+			prng.New(1, 2).Roller(prng.TagCluster).RollN(tt.n, tt.sides)
+		}()
 	}
 }
 

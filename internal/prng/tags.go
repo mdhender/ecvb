@@ -2,9 +2,10 @@
 
 package prng
 
-// The domain-tag registry: the leading element of every key path names the
-// purpose of a draw, providing domain separation so two purposes can never
-// share a stream. This is the single, authoritative place tags are defined.
+// The root domain-tag registry: the leading element of every root key path
+// names the purpose of a draw, providing domain separation so two purposes do
+// not accidentally share a stream. Derived Seeds may define a subsystem-local
+// registry. This is the single, authoritative place root tags are defined.
 //
 // Instance keys for map objects are their canonical coordinates, never SQLite
 // autoincrement row ids: row ids depend on insertion order, so addressing draws

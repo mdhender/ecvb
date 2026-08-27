@@ -2,7 +2,10 @@
 
 package prng
 
-import "math/rand/v2"
+import (
+	"math"
+	"math/rand/v2"
+)
 
 // Roller is a dice-rolling front end over a single stream. It is the primitive
 // every Genesis dice expression maps onto: a "3d4" is RollN(3, 4), a "2d6" is
@@ -12,8 +15,7 @@ import "math/rand/v2"
 // drawn from repeatedly. It never re-derives a stream per die: successive rolls
 // advance the same underlying PCG, so a Roller is an ordered draw source, not a
 // pure function of its arguments. Two Rollers built at the same address produce
-// identical sequences; a Roller and a fresh Stream at the same address agree
-// draw-for-draw.
+// identical sequences. A Roller is not safe for concurrent use.
 //
 // The rand/v2 uint64 -> bounded-int mapping (IntN and friends) is committed
 // frozen by the Go team, so RollN and RollRange are stable across machines and
@@ -33,14 +35,21 @@ func (s Seeds) Roller(path ...Key) *Roller {
 	return &Roller{rng: rand.New(s.Stream(path...))}
 }
 
-// RollN returns the sum of n dice, each a uniform int in [1, sides], drawn left
-// to right (one die = one draw, each draw being IntN(sides)+1). It is the
+// RollN returns the sum of n dice, each a uniform int in [1, sides], rolled left
+// to right with one IntN(sides)+1 call per die. IntN may consume more than one
+// source value when it rejects a value to avoid modulo bias. RollN is the
 // primitive behind every Genesis dice expression, e.g. RollN(3, 4) is 3d4. The
 // result lies in [n, n*sides].
 //
-// n and sides must be positive; sides drives rand.IntN, which panics on a
-// non-positive bound, and n <= 0 yields a zero-die sum of 0.
+// It panics if n or sides is not positive, or if the maximum possible sum does
+// not fit in an int.
 func (r *Roller) RollN(n, sides int) int {
+	if n <= 0 || sides <= 0 {
+		panic("prng: RollN requires positive n and sides")
+	}
+	if sides > math.MaxInt/n {
+		panic("prng: RollN result overflows int")
+	}
 	sum := 0
 	for range n {
 		sum += r.rng.IntN(sides) + 1
@@ -48,19 +57,25 @@ func (r *Roller) RollN(n, sides int) int {
 	return sum
 }
 
-// RollRange returns a uniform int in [lo, hi] INCLUSIVE, computed as
-// lo + IntN(hi-lo+1) with a single draw.
+// RollRange returns a uniform int in [lo, hi] INCLUSIVE. It makes one bounded
+// random call, which may consume more than one source value to avoid modulo
+// bias.
 //
-// It panics if !(lo < hi). This is a programmer-error guard on what are, in
-// every call site, constant bounds — it mirrors rand/v2.IntN's own panic on a
-// non-positive argument and fires only on a coding mistake, never on data. It
-// therefore does not violate CLAUDE.md's no-panic-in-library-code rule, which is
-// about recoverable, data-driven errors.
+// It panics if !(lo < hi); bounds are programmer-controlled constants at the
+// call sites.
 func (r *Roller) RollRange(lo, hi int) int {
 	if !(lo < hi) {
 		panic("prng: RollRange requires lo < hi")
 	}
-	return lo + r.rng.IntN(hi-lo+1)
+
+	// Unsigned subtraction gives the interval width without overflowing int.
+	// A distance of MaxUint covers the entire int domain, whose size cannot be
+	// represented in a uint; truncating Uint64 supplies one uniform machine word.
+	distance := uint(hi) - uint(lo)
+	if distance == math.MaxUint {
+		return int(uint(lo) + uint(r.rng.Uint64()))
+	}
+	return int(uint(lo) + uint(r.rng.Uint64N(uint64(distance)+1)))
 }
 
 // Shuffle pseudo-randomizes the order of n elements using swap, a straight

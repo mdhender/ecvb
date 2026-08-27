@@ -246,7 +246,7 @@ func TestOrderIndependence(t *testing.T) {
 	ref := drawN(seeds.Stream(a...), 3)
 
 	// Draw B first, then A — A must be unchanged.
-	seeds.Stream(b...) // exercised, discarded
+	seeds.Stream(b...).Uint64()
 	got := drawN(seeds.Stream(a...), 3)
 
 	if !equal(ref, got) {
@@ -254,8 +254,8 @@ func TestOrderIndependence(t *testing.T) {
 	}
 }
 
-// TestDistinctAddresses: distinct tags, distinct instances, and distinct path
-// lengths all yield uncorrelated streams (first draws differ).
+// TestDistinctAddresses checks that representative distinct tags, instances,
+// and path lengths have different first outputs.
 func TestDistinctAddresses(t *testing.T) {
 	seeds := prng.New(7, 11)
 	cases := map[string][]prng.Key{
@@ -275,6 +275,34 @@ func TestDistinctAddresses(t *testing.T) {
 		}
 		seen[first] = name
 	}
+}
+
+func TestPathRequiresDomainKey(t *testing.T) {
+	seeds := prng.New(1, 2)
+	tests := []struct {
+		name string
+		call func()
+	}{
+		{name: "empty stream path", call: func() { seeds.Stream() }},
+		{name: "zero stream domain", call: func() { seeds.Stream(0, 1) }},
+		{name: "unknown root stream domain", call: func() { seeds.Stream(99, 1) }},
+		{name: "empty derive path", call: func() { seeds.Derive() }},
+		{name: "zero derive domain", call: func() { seeds.Derive(0, 1) }},
+		{name: "unknown root derive domain", call: func() { seeds.Derive(99, 1) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Error("call did not panic")
+				}
+			}()
+			tt.call()
+		})
+	}
+
+	// Derived subsystems own their domain registry, but zero remains invalid.
+	seeds.Derive(prng.TagCluster).Stream(99).Uint64()
 }
 
 // Stream must satisfy math/rand/v2.Source (so rand.New can wrap it).

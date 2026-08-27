@@ -32,7 +32,7 @@
 // Both use the identical hash; only the destination of the first 128 bits
 // differs.
 //
-// # Frozen surfaces — slushy in beta and alpha; not change while any game exists after alpha
+// # Frozen surfaces — slushy in beta and alpha; do not change after alpha
 //
 // The key-path encoding (element order, the int64/uint64 coercions, the
 // big-endian layout, the length prefix) and the domain-tag numbering
@@ -44,5 +44,6 @@
 // numbers, not billions, so the cost is invisible and mixing quality comes for
 // free.
 //
-// The rationale and prior art (Random123, NumPy SeedSequence, JAX fold_in).
+// The design follows ideas used by Random123, NumPy SeedSequence, and JAX
+// fold_in.
 package prng

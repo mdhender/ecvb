@@ -20,6 +20,7 @@ type Key int64
 // Seeds for subsystems. Same seeds -> identical game on any machine.
 type Seeds struct {
 	seed1, seed2 uint64
+	derived      bool
 }
 
 // New returns the Seeds rooted at the given master seeds.
@@ -36,6 +37,7 @@ func New(seed1, seed2 uint64) Seeds {
 // the instance. Two calls with the same path return equivalent streams; when
 // and in what order they are computed does not matter.
 func (s Seeds) Stream(path ...Key) *Stream {
+	s.validatePath(path)
 	digest := s.hash(path...)
 	seed1 := binary.BigEndian.Uint64(digest[0:8])
 	seed2 := binary.BigEndian.Uint64(digest[8:16])
@@ -47,10 +49,23 @@ func (s Seeds) Stream(path ...Key) *Stream {
 // hash as Stream; only the destination of the first 128 bits differs — here
 // they become a new (seed1, seed2) root rather than PCG state.
 func (s Seeds) Derive(path ...Key) Seeds {
+	s.validatePath(path)
 	digest := s.hash(path...)
 	return Seeds{
-		seed1: binary.BigEndian.Uint64(digest[0:8]),
-		seed2: binary.BigEndian.Uint64(digest[8:16]),
+		seed1:   binary.BigEndian.Uint64(digest[0:8]),
+		seed2:   binary.BigEndian.Uint64(digest[8:16]),
+		derived: true,
+	}
+}
+
+// validatePath rejects an omitted domain key. Paths from the game root must use
+// the package registry; a derived subsystem may use its own nonzero registry.
+func (s Seeds) validatePath(path []Key) {
+	if len(path) == 0 || path[0] == 0 {
+		panic("prng: path must start with a nonzero domain key")
+	}
+	if !s.derived && (path[0] < TagCluster || path[0] > TagPlayer) {
+		panic("prng: root path must start with a registered domain tag")
 	}
 }
 
@@ -87,7 +102,7 @@ func (s Seeds) hash(path ...Key) [32]byte {
 
 // Stream is a private draw source seeded from a hashed key path. It implements
 // math/rand/v2.Source, so callers can wrap it with rand.New(stream) for the
-// full *rand.Rand API.
+// full *rand.Rand API. A Stream is not safe for concurrent use.
 type Stream struct {
 	pcg *rand.PCG
 }
