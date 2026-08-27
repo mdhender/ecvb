@@ -11,7 +11,13 @@ Adding one order used to touch ~33 places across 18 files (measured from
 `git show 9d1b5c8`: 18 files, +1,542/−42). Four structural taxes cause that, and
 this plan removes them before adding the orders.
 
-**Status: steps 0 through 4 are done and the plan's own verification suite is
+**Status: closed on 2026-08-27.** Steps 0 through 4 are done, and step 5 is
+closed as a *plan* step rather than as finished work: the pipeline this plan was
+written to build is built, and what is left of the orders is not planning. See
+"The plan is closed" at the end for what it delivered, what it did not, and
+where the remaining work lives now. What follows is the record.
+
+**Steps 0 through 4 are done and the plan's own verification suite is
 green. Step 5 has begun: NAME is built (`e3eada9`), batch 1 -- `assemble`,
 `unassemble`, `transfer` -- batch 1b -- `stow`, `unstow` -- and batch 2's ship
 and colony `create` are built, and `docs/accepted-orders.md`
@@ -72,7 +78,7 @@ and it needed it" below.
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 30 orders | **every accepted verb parses and the parser is under a round-trip net**; batches 1, 1b, and 2 built end to end (6 of 30); the other 27 parse and fail on a missing rule | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b), `9cd44f1` (batch 2), `91ab40c` (the parser), `49d6922`, `32473dd`, `471e62b`, `4de2459`, `c9e876e` (hardening) |
+| 5 — add the orders | **closed as a plan step**: every accepted verb parses and the parser is under a round-trip net; ten of the thirty-seven are built end to end; the other twenty-seven parse and fail on a missing rule, which is a rules question rather than a pipeline one | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b), `9cd44f1` (batch 2), `91ab40c` (the parser), `49d6922`, `32473dd`, `471e62b`, `4de2459`, `c9e876e` (hardening), `f7034c1` (the recursive descent) |
 
 ### What step 0 built
 
@@ -1222,7 +1228,8 @@ carries parse and binds to `notBuilt`. Every accepted verb is at least at the
 first stage -- see "Every accepted verb parses" above -- so what follows is
 about the second.
 
-**Where this stands.** Six of the thirty are built -- batch 1's `assemble`,
+**Where this stands.** Six of the thirty are built -- ten of the thirty-seven
+accepted verbs, counting the four this plan opened with -- batch 1's `assemble`,
 `unassemble`, and `transfer`, batch 1b's `stow` and `unstow`, and batch 2's ship
 and colony `create` -- and none of the rest are waiting on the
 pipeline: an order costs a `Spec`, a doc section, and tests now, which is what
@@ -1346,10 +1353,69 @@ accepted rather than a draft, so a change to it is a decision: bring `docs/order
 and the code to it rather than the other way round. `docs/turn-sequence.md` is
 reconciled with it and is the authority on *when* an order takes effect.
 
-This file is the plan of record. It began outside the repo, under
-`~/.claude/plans/`; that copy is superseded.
+This file was the plan of record and is now the record. It began outside the
+repo, under `~/.claude/plans/`; that copy is superseded, and so is this one for
+anything still to do -- see "The plan is closed" below.
 
 ## Working agreements
 
 - Commit and push directly to `main`. Never create a branch.
 - Do not future-proof the starting kits; they are cheap to update.
+
+---
+
+## The plan is closed
+
+Closed 2026-08-27, with `go build ./...` and `go test ./...` green and every
+golden in `internal/replay` untouched.
+
+**What it set out to do, it did.** Adding an order touched ~33 places across 18
+files when this was written. It costs a `Spec`, a section in `docs/orders.md`,
+and tests now. The four structural taxes are gone:
+
+- an order is one `Spec` in `internal/orders/verbs.go`, and the parser that
+  reads it is a recursive descent written for the message it gives when a file
+  is wrong;
+- a rule is written once, in `Bind` or in `Apply`, against `internal/world`;
+- a turn is the phase table in `spec.go`, so a phase is a row rather than a
+  pass, and a phase may be a sweep with no orders in it at all; and
+- every order is a row of `game_order`, whatever its verb.
+
+Two things were built along the way that the plan did not ask for and that it
+would not close without. `internal/replay` is the golden net that says a
+refactor changed nothing, and it is what let the pipeline be rebuilt four times
+without anybody having to trust that it still worked. `acceptedExamples` is the
+same net for the parser, and it was written because the golden net cannot see a
+parser bug -- a report says what an order did, not what the file said.
+
+**What it did not do is the rest of step 5, and that is not planning.** Ten of
+the thirty-seven accepted verbs are built end to end: `move`, `jump`, `probe`,
+`name`, `assemble`, `unassemble`, `transfer`, `stow`, `unstow`, and `create` in
+its ship and colony forms. The other twenty-seven parse, are stored like any
+other order, and fail at `Apply` with the reason. What each of them is missing
+is a rule -- what a group produces per turn, what a spy costs, who the market's
+counterparty is, what control confers -- and that is the list in "What the code
+still has to be told" above. Nothing in the code has to be prepared for them
+first, so a batch is built the week its rules land, and no plan has to say so.
+
+One item on that list is a decision rather than a gap and outlives this file:
+the plan says a trade station is an orbital colony, while
+`docs/accepted-orders.md` hangs `as trade-station` off all three colony kinds.
+The accepted doc wins unless that is deliberately overturned.
+
+**Where the work went.** Four documents carry what is left:
+
+| Document | What it holds |
+| --- | --- |
+| `docs/accepted-orders.md` | the accepted order set, and the authority on an order's surface |
+| `docs/turn-sequence.md` | the twenty-two stages, and the authority on *when* an order takes effect |
+| `docs/plan/engine-burndown.md` | what `games/eagles` argued the engine and the docs disagree about |
+| `docs/plan/parser-burndown.md` | what the parser comparison and `games/fuzzers` turned up |
+
+The two burndowns are this plan's successors, and they are a different kind of
+document: fed by games rather than written ahead. `games/fuzzers` attacks the
+parser and stops where an order is accepted; `games/eagles` files orders that
+are all legal and then argues the outcome against `docs/`, where a missing rule
+is a finding. That is what a project discovering its rules by playing them
+wanted instead of a plan, and it is only possible because the pipeline this plan
+built is cheap enough to change on what a game finds.
