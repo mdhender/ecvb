@@ -21,7 +21,7 @@ phases -- see "The turn sequence and the accepted doc are reconciled" below.**
 **Step 5 is stopped, and not for want of pipeline. The four structural taxes
 this plan set out to remove are removed: an order is one `Spec`, a rule is
 written once, a turn is its phase table, and every order is a row of one table.
-What all thirty-one remaining verbs are waiting on is what they *do*.
+What most of the thirty-one remaining verbs are waiting on is what they *do*.
 `docs/accepted-orders.md` gives their surface forms and settles a good deal of
 the surrounding detail, but it does not say what a group produces per turn, what
 a spy costs, who the market's counterparty is, or what control confers -- and
@@ -46,7 +46,7 @@ turns out not to be needed at all.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 31 orders | **blocked** — none of the 31 built | `e3eada9` (NAME, one of the four) |
+| 5 — add the 31 orders | **batch 1 ready**, the rest blocked on rules — none of the 31 built | `e3eada9` (NAME, one of the four) |
 
 ### What step 0 built
 
@@ -619,21 +619,30 @@ The accepted doc gives the surface forms, so what is missing is semantics
 rather than syntax:
 
 - **ASSEMBLE / UNASSEMBLE** -- the doc says assembly usually increases a unit's
-  volume and that unassembling optionally stows to cargo. Open: which sections
-  it moves between; which units may be assembled and into which section; whether
-  it costs labour, time, or a resource; any per-turn limit per entity; whether
-  unassembling is lossless; what happens when unassembling `STRC` would drop
-  enclosed space below what is occupied.
+  volume and that unassembling optionally stows to cargo, and it now says what
+  the work costs. A `CWKR` cadre does it and one unit does **500 MU a turn**.
+  Work of the same kind is **pooled across an entity**, so an entity assembling
+  15,120 MU of `HDRV` and 100 MU of `STRC-1` needs 31 workers and not 32: the
+  rounding up is per pool, not per line. Unassembly pools the same way at the
+  same rate and **never pools with assembly** -- 100 MU of each needs 2 workers,
+  not 1 -- and the engine allocates the cadre without being told to. That is the
+  labour cost, the per-turn limit, and the allocation rule, all three. Still
+  open: which inventory sections units move between and which units may be
+  assembled into which; whether unassembling is lossless; and what happens when
+  unassembling `STRC` would drop enclosed space below what is occupied.
 - **TRANSFER** -- the accepted form is `ship 18 transfer 4,500 GOLD, 18,000
-  FOOD to colony 24`, and the doc now settles co-location (the order fails if
-  the two entities are not in the same place), that the units must be in cargo
-  and are stowed on arrival, and that a shortage of transports partially fills
-  it. Still open: which inventory sections the units leave and arrive in, and
-  whether it crosses factions. Population moves too: `500 SOL`. One thing moved
-  under it: stage 9 is now orders **and a sweep**, because a build's delivery
-  draws on the same transports a `transfer` does, and an explicitly ordered
-  transfer is served before a build's standing claim. This is still the closest
-  of the lot to buildable.
+  FOOD to colony 24`, and the doc settles co-location (the order fails if the
+  two entities are not in the same place) and that the units leave cargo and are
+  stowed in cargo on arrival. "A shortage of transports partially fills it" is
+  now a computation rather than a gesture: a `TRAN` at technology level _t_
+  carries \(20t^2\) MU **and** \(60t^2\) VU a turn, there and back for one
+  charge, crewed one `SKW` per ten and drawing
+  \(\lceil \sum t^2/10 \rceil\) `FUEL` reckoned over an entity's transports
+  at once rather than one hull at a time. Population moves too: `500 SOL`. One
+  thing moved under it: stage 9 is now orders **and a sweep**, because a build's
+  delivery draws on the same transports a `transfer` does, and an explicitly
+  ordered transfer is served before a build's standing claim. Still open:
+  whether it crosses factions. This is the closest of the lot to buildable.
 - **CREATE** -- **designed, and no longer waiting on rules.**
   `docs/plan/entity_build_bom_process.md` settles it end to end and
   `docs/plan/bom-rewrite.md` records what changed on the way. Every question
@@ -720,7 +729,15 @@ on is implementation rather than a decision. That cost is real and is listed
 there -- inventory mutation in `internal/world`, which has none today; the first
 multi-line parse; `under_construction`, `construction_item`, and a cadre table;
 and the mass-and-volume rules lifted out of `cmd/ec/kit.go` into an
-`internal/units` package. Everything else waits on rules.
+`internal/units` package.
+
+**Batch 1 is not waiting on rules either**, and that fell out of settling
+`create` rather than being asked for: a build assembles what it is delivered, so
+what a construction worker costs had to be settled, and it carries that material
+by transport, so `TRAN` had to be given real numbers. Both are what `assemble`,
+`unassemble`, and `transfer` were missing. Batch 1 is therefore the place to
+start, and not only because batch 2 depends on it. Everything else waits on
+rules.
 
 The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
 `probe`, `name` -- and one of those still needs reworking: `name`, for naming
@@ -729,6 +746,11 @@ Thirty-one remain, batched so that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. Establishes
    `World`'s inventory mutations, which everything below moves units through.
+   **Its rules are settled** -- the `CWKR` rate and the pooling rules for
+   assembly and unassembly, and `TRAN`'s capacity, crew, and fuel for transfer
+   -- so this batch waits on nothing. It is also the gate on batch 2, which
+   cannot claim, deliver, or assemble anything until `world` can move units at
+   all.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
    first batch to exercise a multi-line order end to end. **No longer blocked on
