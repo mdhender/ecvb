@@ -118,9 +118,11 @@ func (l *Line) entityRef() (entityRef, error) {
 // The administrative orders name one that way because no ship or colony carries
 // them out, so there is no entity whose location could be meant instead.
 type place struct {
-	X, Y, Z int    `json:"-"`
-	System  string `json:"system"`
-	Orbit   int    `json:"orbit"`
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	Z      int    `json:"z"`
+	System string `json:"system"`
+	Orbit  int    `json:"orbit"`
 }
 
 func (p place) String() string {
@@ -163,8 +165,13 @@ func (l *Line) rate(what string) (int, error) { return l.percentage(what, 0, mat
 // times, and the fields are tagged out of the JSON because the actor is a
 // column of its own.
 type actorOf struct {
-	Kind     string `json:"-"`
-	EntityID int64  `json:"-"`
+	// Kind is the word the player wrote, "ship" or "colony". It is stored,
+	// because it is a word rather than an id and because an order read back out
+	// of the database has to render itself in the words it was written in.
+	Kind string `json:"kind,omitempty"`
+	// EntityID is not stored: the actor is a column of its own, with a foreign
+	// key on it.
+	EntityID int64 `json:"-"`
 }
 
 // Actor is the entity the order acts on.

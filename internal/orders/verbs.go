@@ -797,10 +797,10 @@ type NameParams struct {
 	// named instead. It is the order's actor, so it is a column rather than
 	// part of the stored parameters.
 	Entity int64 `json:"-"`
-	// Kind is the word the player wrote, "ship" or "colony". An order read
-	// back out of the database carries none, because which word was written
-	// was settled when it was written.
-	Kind string `json:"-"`
+	// Kind is the word the player wrote, "ship" or "colony". It is stored,
+	// because it is a word rather than an id, and because the order has to
+	// render itself in the player's words when it is read back.
+	Kind string `json:"kind,omitempty"`
 	// Place is the thing being named when it is not an entity: a stellium, or
 	// a system or planet of one.
 	Place *Place `json:"place,omitempty"`

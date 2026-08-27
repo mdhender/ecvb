@@ -4,6 +4,7 @@ package orders
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -101,64 +102,143 @@ func TestTheParserRefusesAMalformedUnbuiltOrder(t *testing.T) {
 	}
 }
 
+// acceptedExamples is one well-formed line of every form worth exercising, and
+// what the parser reads it back as.
+//
+// It is the table three properties are checked against below, and a test holds
+// it against the registry, so a verb cannot join the game without one.
+var acceptedExamples = []struct{ line, input string }{
+	// Built end to end.
+	{"ship 18 move to orbit 6", "orbit 6"},
+	{"ship 18 move to system B orbit 4", "system B orbit 4"},
+	{"ship 18 jump to (1,2,3)", "(1,2,3)"},
+	{"colony 24 probe system B orbit 3 1 8", "system B orbit 3 1 8"},
+	{`ship 18 name "Jalopy"`, `ship 18 "Jalopy"`},
+	{`we name (-1,2,3) system A orbit 8 "Headly's Gate"`, `(-1,2,3) system A orbit 8 "Headly's Gate"`},
+	{"colony 24 assemble 5 LFSU-1, 60 STRL-1", "5 LFSU-1, 60 STRL-1"},
+	{"colony 24 unassemble and stow 60 STRL-1", "and stow 60 STRL-1"},
+	{"ship 18 stow 18,000 FOOD, 800 HDRV-1", "18,000 FOOD, 800 HDRV-1"},
+	{"colony 24 unstow 800 HDRV-1", "800 HDRV-1"},
+	{"ship 18 transfer 4,500 GOLD to colony 24", "4,500 GOLD to colony 24"},
+	{"colony 24 create orbital colony as trade-station using 60 STRC-8 transfering 25 FOOD with 5 CWKR end",
+		"orbital colony as trade-station using 60 STRC-8 transfering 25 FOOD with 5 CWKR"},
+	// Parsed, and waiting on their rules.
+	{"colony 24 attack ship 18 75%", "ship 18 75%"},
+	{"colony 24 invade ship 18 55%", "ship 18 55%"},
+	{"ship 18 raid colony 24 seeking GOLD, FUEL 22%", "colony 24 seeking GOLD, FUEL 22%"},
+	{"ship 18 support ship 97 attacking 35%", "ship 97 attacking 35%"},
+	{"ship 18 support ship 97 attacking colony 24 35%", "ship 97 attacking colony 24 35%"},
+	{"ship 18 support colony 14 defending 40%", "colony 14 defending 40%"},
+	{"ship 18 support colony 14 defending against ship 33 45%", "colony 14 defending against ship 33 45%"},
+	{"colony 24 create factory-group with 54,000 FACT-6 making CNGD", "factory-group with 54,000 FACT-6 making CNGD"},
+	{"ship 18 create farm-group with 1,234,000 FARM-6", "farm-group with 1,234,000 FARM-6"},
+	{"colony 83 create mine-group with 25,680 MINE-2 working deposit 18", "mine-group with 25,680 MINE-2 working deposit 18"},
+	{"colony 24 add 63 FACT-9 to factory-group 3", "63 FACT-9 to factory-group 3"},
+	{"colony 24 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow",
+		"12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow"},
+	{"colony 24 idle 5,000 FACT-6 in factory-group 3", "5,000 FACT-6 in factory-group 3"},
+	{"colony 24 activate 5,000 FACT-6 in factory-group 3", "5,000 FACT-6 in factory-group 3"},
+	{"colony 24 retool immediately factory-group 3 making CNGD", "immediately factory-group 3 making CNGD"},
+	{"colony 24 retool factory-group 3 making CNGD", "factory-group 3 making CNGD"},
+	{"ship 18 sell 4,500 GOLD 1.0 CNGD", "4,500 GOLD 1.0 CNGD"},
+	{"ship 18 buy 100 FOOD 3 CNGD, 25 CNGD 25,600 GOLD 5%", "100 FOOD 3 CNGD, 25 CNGD 25,600 GOLD 5%"},
+	{"ship 18 buy 100 FOOD 0.1 GOLD", "100 FOOD 0.1 GOLD"},
+	{"colony 24 sell tech-level TL-4 800,000 GOLD 5%", "tech-level TL-4 800,000 GOLD 5%"},
+	{"ship 18 buy tech-level TL-6 1,000,000 GOLD", "tech-level TL-6 1,000,000 GOLD"},
+	{"ship 18 survey", "ship 18"},
+	{"colony 24 assess rebels using 1 spies", "rebels using 1 spies"},
+	{"colony 24 detect spies using 4 spies", "spies using 4 spies"},
+	{"colony 24 obtain information from ship 18 using 200 spies", "information from ship 18 using 200 spies"},
+	{"colony 24 convert rebels using 3 spies", "rebels using 3 spies"},
+	{"colony 24 incite rebels using 21 spies", "rebels using 21 spies"},
+	{"colony 24 neutralize faction 1 spies using 11 spies", "faction 1 spies using 11 spies"},
+	{`ship 18 broadcast system B orbit 8 "message" "optional signature"`,
+		`system B orbit 8 "message" "optional signature"`},
+	{`ship 18 broadcast system B orbit 8 "message"`, `system B orbit 8 "message"`},
+	{"colony 24 draft 200 SOL, 1,000 CWKR", "200 SOL, 1,000 CWKR"},
+	{"ship 18 disband 1,000 CWKR", "1,000 CWKR"},
+	{"colony 24 pay SKW 15%, USK 18%", "SKW 15%, USK 18%"},
+	{"colony 24 rations 130%", "130%"},
+	{"we release ship 18", "ship 18"},
+	{"we release (-1,2,3) system A orbit 5", "(-1,2,3) system A orbit 5"},
+	{"we grant trade (-1,2,3) system A orbit 5 station 4 to faction 1",
+		"trade (-1,2,3) system A orbit 5 station 4 to faction 1"},
+	{"we refuse colonize (-1,2,3) system A orbit 5 to faction 1",
+		"colonize (-1,2,3) system A orbit 5 to faction 1"},
+	{"ship 18 control colony 24", "colony 24"},
+	{"colony 8 control system A orbit 5", "system A orbit 5"},
+	{`we name faction 5 "The Hegemony"`, `faction 5 "The Hegemony"`},
+	{`we name player 5 ship 19 "Easy Target"`, `player 5 ship 19 "Easy Target"`},
+}
+
 // A well-formed order of every verb parses and reads back in the words the
 // player used. Reading it back is what proves the parse kept everything: an
 // Input that lost a field would show it here.
 func TestEveryAcceptedFormParsesAndReadsBack(t *testing.T) {
-	for _, item := range []struct{ line, want string }{
-		{"colony 24 attack ship 18 75%", "ship 18 75%"},
-		{"colony 24 invade ship 18 55%", "ship 18 55%"},
-		{"ship 18 raid colony 24 seeking GOLD, FUEL 22%", "colony 24 seeking GOLD, FUEL 22%"},
-		{"ship 18 support ship 97 attacking 35%", "ship 97 attacking 35%"},
-		{"ship 18 support ship 97 attacking colony 24 35%", "ship 97 attacking colony 24 35%"},
-		{"ship 18 support colony 14 defending 40%", "colony 14 defending 40%"},
-		{"ship 18 support colony 14 defending against ship 33 45%", "colony 14 defending against ship 33 45%"},
-		{"colony 24 create factory-group with 54,000 FACT-6 making CNGD", "factory-group with 54,000 FACT-6 making CNGD"},
-		{"ship 18 create farm-group with 1,234,000 FARM-6", "farm-group with 1,234,000 FARM-6"},
-		{"colony 83 create mine-group with 25,680 MINE-2 working deposit 18", "mine-group with 25,680 MINE-2 working deposit 18"},
-		{"colony 24 add 63 FACT-9 to factory-group 3", "63 FACT-9 to factory-group 3"},
-		{"colony 24 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow",
-			"12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow"},
-		{"colony 24 idle 5,000 FACT-6 in factory-group 3", "5,000 FACT-6 in factory-group 3"},
-		{"colony 24 activate 5,000 FACT-6 in factory-group 3", "5,000 FACT-6 in factory-group 3"},
-		{"colony 24 retool immediately factory-group 3 making CNGD", "immediately factory-group 3 making CNGD"},
-		{"colony 24 retool factory-group 3 making CNGD", "factory-group 3 making CNGD"},
-		{"ship 18 sell 4,500 GOLD 1.0 CNGD", "4,500 GOLD 1.0 CNGD"},
-		{"ship 18 buy 100 FOOD 3 CNGD, 25 CNGD 25,600 GOLD 5%", "100 FOOD 3 CNGD, 25 CNGD 25,600 GOLD 5%"},
-		{"colony 24 sell tech-level TL-4 800,000 GOLD 5%", "tech-level TL-4 800,000 GOLD 5%"},
-		{"ship 18 buy tech-level TL-6 1,000,000 GOLD", "tech-level TL-6 1,000,000 GOLD"},
-		{"ship 18 survey", "ship 18"},
-		{"colony 24 assess rebels using 1 spies", "rebels using 1 spies"},
-		{"colony 24 detect spies using 4 spies", "spies using 4 spies"},
-		{"colony 24 obtain information from ship 18 using 200 spies", "information from ship 18 using 200 spies"},
-		{"colony 24 convert rebels using 3 spies", "rebels using 3 spies"},
-		{"colony 24 incite rebels using 21 spies", "rebels using 21 spies"},
-		{"colony 24 neutralize faction 1 spies using 11 spies", "faction 1 spies using 11 spies"},
-		{`ship 18 broadcast system B orbit 8 "message" "optional signature"`,
-			`system B orbit 8 "message" "optional signature"`},
-		{`ship 18 broadcast system B orbit 8 "message"`, `system B orbit 8 "message"`},
-		{"colony 24 draft 200 SOL, 1,000 CWKR", "200 SOL, 1,000 CWKR"},
-		{"ship 18 disband 1,000 CWKR", "1,000 CWKR"},
-		{"colony 24 pay SKW 15%, USK 18%", "SKW 15%, USK 18%"},
-		{"colony 24 rations 130%", "130%"},
-		{"we release ship 18", "ship 18"},
-		{"we release (-1,2,3) system A orbit 5", "(-1,2,3) system A orbit 5"},
-		{"we grant trade (-1,2,3) system A orbit 5 station 4 to faction 1",
-			"trade (-1,2,3) system A orbit 5 station 4 to faction 1"},
-		{"we refuse colonize (-1,2,3) system A orbit 5 to faction 1",
-			"colonize (-1,2,3) system A orbit 5 to faction 1"},
-		{"ship 18 control colony 24", "colony 24"},
-		{"colony 8 control system A orbit 5", "system A orbit 5"},
-		{`we name faction 5 "The Hegemony"`, `faction 5 "The Hegemony"`},
-		{`we name player 5 ship 19 "Easy Target"`, `player 5 ship 19 "Easy Target"`},
-	} {
+	for _, item := range acceptedExamples {
 		order, err := parseOne(item.line)
 		if err != nil {
 			t.Errorf("%s: %v", item.line, err)
 			continue
 		}
-		if got := order.Params.Input(); got != item.want {
-			t.Errorf("%s read back as %q; want %q", item.line, got, item.want)
+		if got := order.Params.Input(); got != item.input {
+			t.Errorf("%s read back as %q; want %q", item.line, got, item.input)
+		}
+	}
+}
+
+// An order survives the round trip through the database.
+//
+// A Params is stored as JSON and rebuilt by its Spec's Decode when the turn
+// resolves, so a field the JSON drops is a field the engine will not see. That
+// is not caught by parsing alone -- the parse is long over by then -- and it is
+// exactly the kind of thing that stays hidden until the verb's rules land and
+// somebody finally reads the field. This is the property that catches it.
+func TestEveryOrderSurvivesBeingStoredAndReadBack(t *testing.T) {
+	for _, item := range acceptedExamples {
+		order, err := parseOne(item.line)
+		if err != nil {
+			t.Errorf("%s: %v", item.line, err)
+			continue
+		}
+		spec, ok := Lookup(order.Verb)
+		if !ok || spec.Decode == nil {
+			t.Errorf("%s: %s has no Decode", item.line, order.Verb)
+			continue
+		}
+		encoded, err := json.Marshal(order.Params)
+		if err != nil {
+			t.Errorf("%s: %v", item.line, err)
+			continue
+		}
+		// The actor is a column of its own rather than part of the JSON, so it
+		// is handed back the way the engine hands it back.
+		stored, err := spec.Decode(order.Params.Actor(), string(encoded))
+		if err != nil {
+			t.Errorf("%s: decode %s: %v", item.line, encoded, err)
+			continue
+		}
+		if got := stored.Input(); got != item.input {
+			t.Errorf("%s came back as %q; want %q\n  stored as %s", item.line, got, item.input, encoded)
+		}
+	}
+}
+
+// Every registered verb has an example above. Without this the two properties
+// hold only over whatever somebody remembered to add, and a verb could join the
+// game with neither its parse nor its round trip ever run.
+func TestEveryRegisteredVerbHasAnExample(t *testing.T) {
+	covered := make(map[string]bool)
+	for _, item := range acceptedExamples {
+		order, err := parseOne(item.line)
+		if err != nil {
+			continue
+		}
+		covered[order.Verb] = true
+	}
+	for _, spec := range Specs() {
+		if !covered[spec.Verb] {
+			t.Errorf("%s has no line in acceptedExamples", spec.Verb)
 		}
 	}
 }
