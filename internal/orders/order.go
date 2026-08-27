@@ -108,6 +108,12 @@ type Outcome struct {
 	// Survey is the planet the order read, for the orders that read one. An
 	// order that read nothing, or a probe that failed, leaves it nil.
 	Survey *Survey
+	// Unsupported marks a failure that will still be a failure when the turn
+	// resolves, because what is missing is a game rule rather than anything the
+	// world might yet oblige. It is not a Bind failure -- the file is still
+	// submittable and the order is still stored -- but a player should not be
+	// told to wait and see.
+	Unsupported bool
 	// Note is what an order that succeeded still wants to say: that it did
 	// less than it was asked for, because the workers or the transports or the
 	// stock ran out. A shortage is a rate rather than a failure, so it is not

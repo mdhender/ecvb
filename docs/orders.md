@@ -368,6 +368,25 @@ we name (-1,2,3) system A "Alpha Sur"
 we name (-1,2,3) system A orbit 8 "Headly's Gate"
 ```
 
+### Naming another faction
+
+```text
+we name (player | faction) FACTION-ID "NAME"
+we name (player | faction) FACTION-ID (ship | colony) ID "NAME"
+```
+
+**Not built yet.** These two parse and fail when the turn resolves; see
+[Orders that are accepted and not built yet](#orders-that-are-accepted-and-not-built-yet).
+A faction may only name one it has encountered, and nothing records an
+encounter yet.
+
+`player` and `faction` mean the same thing.
+
+```text
+we name faction 5 "The Hegemony"
+we name player 5 ship 19 "Easy Target"
+```
+
 A name is yours. Naming your ship does not change what anybody else's report
 calls it, and a stellium, system, or planet may be named without ever having
 been visited -- though it has to exist. Naming something again renames it.
@@ -552,9 +571,38 @@ transports reach the builder. What still fails is only what could not have
 changed -- a unit code that is not one, or a colony ordered from an entity that
 is not at a planet.
 
-Group creation -- `create factory-group`, `create farm-group`, `create
-mine-group` -- is a different order with a different completion model and is not
-built.
+### The group forms
+
+```text
+colony COLONY-ID create factory-group with QUANTITY UNIT, ... making UNIT
+ship SHIP-ID create farm-group with QUANTITY UNIT
+colony COLONY-ID create farm-group with QUANTITY UNIT
+colony COLONY-ID create mine-group with QUANTITY UNIT working deposit DEPOSIT-NO
+```
+
+**Not built yet.** These parse and fail when the turn resolves; see
+[Orders that are accepted and not built yet](#orders-that-are-accepted-and-not-built-yet).
+
+They are the same verb and **nothing above applies to them**, because they
+finish by the opposite rule. A ship or colony create is a commitment that runs
+for as many turns as it needs. A group create is **kill-and-fill**: it runs once,
+in the turn it was given, builds as much as the labour and materials pay for,
+reports what was built, and closes out. Nothing carries over. Ask for 10,000,000
+mines with the resources for 2 and you get 2, and the order is finished.
+
+They take no `end`, because they are one line. A factory group must say what it
+will make; a mine group's deposit is fixed for its life, which is why moving a
+mine is a `REMOVE` and a fresh create rather than an order of its own. Only a
+colony may hold a factory or a mine group; a farm group may be worked from a
+ship.
+
+Examples:
+
+```text
+colony 24 create factory-group with 54,000 FACT-6 making CNGD
+ship 18 create farm-group with 1,234,000 FARM-6
+colony 83 create mine-group with 25,680 MINE-2 working deposit 18
+```
 
 ## UNASSEMBLE
 
@@ -785,6 +833,567 @@ over. The engine allocates the cadre without being told to.
 The message reports **what the cadre had left when the order ran**, so a second
 order that stopped short is answered by the number that explains it rather than
 by the turn's whole rate.
+
+## Orders that are accepted and not built yet
+
+The twenty-seven orders below **parse**. A malformed one is refused at
+submission with the same messages every other order gives, `ec orders help`
+prints their forms, and ownership is still checked -- an order given to a ship
+that is not yours is refused whether or not the verb is finished.
+
+What none of them can be told yet is what to *do*. What a spy costs, what a work
+group produces per turn, who the market's counterparty is, what control confers:
+those are game rules that are not written, and guessing at them here would be
+authoring the game rather than building it.
+
+So each of them **fails when the turn resolves**, with
+
+```text
+VERB is accepted but not built yet; the rules it needs are not written
+```
+
+and the rest of the file is unaffected. A file that contains one is a file you
+can still submit: the failure is a warning at submission and a failed order row
+afterwards, which is where every other game-rule failure goes.
+
+The same is true of two forms of orders that are otherwise built: the three
+group forms of `CREATE`, and the two forms of `NAME` that name another faction
+or its ships.
+
+## ATTACK
+
+```text
+ship SHIP-ID attack (ship | colony) ID PERCENT%
+colony COLONY-ID attack (ship | colony) ID PERCENT%
+```
+
+**Not built yet**, and resolves at stage 4 of the turn when it is.
+
+An attack commits a share of the entity to a battle against another. The
+commitment is a percentage from 1 to 100, and it is a share of the entity rather
+than a count of anything.
+
+Examples:
+
+```text
+colony 24 attack ship 18 75%
+```
+
+## INVADE
+
+```text
+ship SHIP-ID invade (ship | colony) ID PERCENT%
+colony COLONY-ID invade (ship | colony) ID PERCENT%
+```
+
+**Not built yet**, and resolves at stage 4 of the turn when it is.
+
+An invasion commits a share of the entity to taking another by landing on it,
+rather than to destroying it.
+
+Examples:
+
+```text
+colony 24 invade ship 18 55%
+```
+
+## RAID
+
+```text
+ship SHIP-ID raid (ship | colony) ID seeking UNIT, UNIT PERCENT%
+colony COLONY-ID raid (ship | colony) ID seeking UNIT, UNIT PERCENT%
+```
+
+**Not built yet**, and resolves at stage 4 of the turn when it is.
+
+A raid commits a share of the entity to taking named units off another. It
+seeks one unit or two and no more: it is a snatch rather than a shopping
+list.
+
+Examples:
+
+```text
+ship 18 raid colony 24 seeking GOLD, FUEL 22%
+```
+
+## SUPPORT
+
+```text
+ship SHIP-ID support (ship | colony) ID attacking [(ship | colony) ID] PERCENT%
+ship SHIP-ID support (ship | colony) ID defending [against (ship | colony) ID] PERCENT%
+colony COLONY-ID support (ship | colony) ID attacking [(ship | colony) ID] PERCENT%
+colony COLONY-ID support (ship | colony) ID defending [against (ship | colony) ID] PERCENT%
+```
+
+**Not built yet**, and resolves at stage 4 of the turn when it is.
+
+Support commits a share of the entity to somebody else's battle, on one side or
+the other. Naming the other side is optional either way: support given without
+one is given against whoever turns up. The defending form says `against` first,
+because otherwise `defending ship 33` would read as defending that ship rather
+than defending from it.
+
+Examples:
+
+```text
+ship 18 support ship 97 attacking 35%
+ship 18 support ship 97 attacking colony 24 35%
+ship 18 support colony 14 defending 40%
+ship 18 support colony 14 defending against ship 33 45%
+```
+
+## RETOOL
+
+```text
+colony COLONY-ID retool factory-group GROUP-NO making UNIT
+colony COLONY-ID retool immediately factory-group GROUP-NO making UNIT
+```
+
+**Not built yet**, and resolves at stage 7 of the turn when it is.
+
+Retooling changes what a factory group makes. The plain form drains the
+production line first, which may take three turns, and spends a turn retooling
+after that. The `immediately` form discards the work in progress and spends the
+retooling turn now. Either way production resumes a turn later.
+
+Examples:
+
+```text
+colony 24 retool factory-group 3 making CNGD
+colony 24 retool immediately factory-group 3 making FOOD
+```
+
+## IDLE
+
+```text
+ship SHIP-ID idle QUANTITY UNIT, ... in (factory-group | farm-group | mine-group) GROUP-NO
+colony COLONY-ID idle QUANTITY UNIT, ... in (factory-group | farm-group | mine-group) GROUP-NO
+```
+
+**Not built yet**, and resolves at stage 8 of the turn when it is.
+
+Idling stops units in a work group without taking them out of it. They keep
+working until the work in progress drains out of them.
+
+Examples:
+
+```text
+colony 24 idle 5,000 FACT-6 in factory-group 3
+```
+
+## REMOVE
+
+```text
+ship SHIP-ID remove QUANTITY UNIT, ... from (factory-group | farm-group | mine-group) GROUP-NO [and stow]
+colony COLONY-ID remove QUANTITY UNIT, ... from (factory-group | farm-group | mine-group) GROUP-NO [and stow]
+```
+
+**Not built yet**, and resolves at stage 8 of the turn when it is.
+
+Removal takes units out of a work group. It unassembles what it takes out and
+may stow it, the same way an `UNASSEMBLE` order may, and the engine salvages
+what it can of the work in progress.
+
+Examples:
+
+```text
+colony 24 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow
+colony 24 remove 40,000 FARM-3 from farm-group 1
+```
+
+## ADD
+
+```text
+ship SHIP-ID add QUANTITY UNIT, ... to (factory-group | farm-group | mine-group) GROUP-NO
+colony COLONY-ID add QUANTITY UNIT, ... to (factory-group | farm-group | mine-group) GROUP-NO
+```
+
+**Not built yet**, and resolves at stage 8 of the turn when it is.
+
+Adding puts units into a work group and assembles them on the way, so no
+separate `ASSEMBLE` is written for them. That is what makes it need construction
+workers.
+
+Examples:
+
+```text
+colony 24 add 63 FACT-9 to factory-group 3
+```
+
+## ACTIVATE
+
+```text
+ship SHIP-ID activate QUANTITY UNIT, ... in (factory-group | farm-group | mine-group) GROUP-NO
+colony COLONY-ID activate QUANTITY UNIT, ... in (factory-group | farm-group | mine-group) GROUP-NO
+```
+
+**Not built yet**, and resolves at stage 8 of the turn when it is.
+
+Activating sets idle units in a work group working again. Production in them
+resumes at once.
+
+Examples:
+
+```text
+colony 24 activate 5,000 FACT-6 in factory-group 3
+```
+
+## SELL
+
+```text
+ship SHIP-ID sell QUANTITY UNIT PRICE (GOLD | CNGD), ... [PERCENT%]
+ship SHIP-ID sell tech-level TL-N PRICE GOLD [PERCENT%]
+colony COLONY-ID sell QUANTITY UNIT PRICE (GOLD | CNGD), ... [PERCENT%]
+colony COLONY-ID sell tech-level TL-N PRICE GOLD [PERCENT%]
+```
+
+**Not built yet**, and resolves at stage 11 of the turn when it is.
+
+A sale is an offer of units, or of a technology level, at a price. Units must be
+**unassembled** to be sold, which is what `UNSTOW` is for.
+
+Every sale pays a commission to the market and there is no way to sell without
+paying one. An order that names none pays the default the market sets; a seller
+may offer more to make the offer likelier to be taken.
+
+A technology level trades in the same market but is not cargo. It is paid for in
+whole `GOLD`, never `CNGD`, needs no transports, and is bought once rather than
+by quantity.
+
+Examples:
+
+```text
+ship 18 sell 4,500 GOLD 1.0 CNGD
+colony 24 sell tech-level TL-4 800,000 GOLD 5%
+```
+
+## BUY
+
+```text
+ship SHIP-ID buy QUANTITY UNIT PRICE (GOLD | CNGD), ... [PERCENT%]
+ship SHIP-ID buy tech-level TL-N PRICE GOLD [PERCENT%]
+colony COLONY-ID buy QUANTITY UNIT PRICE (GOLD | CNGD), ... [PERCENT%]
+colony COLONY-ID buy tech-level TL-N PRICE GOLD [PERCENT%]
+```
+
+**Not built yet**, and resolves at stage 11 of the turn when it is.
+
+A bid is an offer to take units, or a technology level, at a price. Purchased
+units are stowed in the buyer's cargo.
+
+A buyer may offer an additional commission to make the bid likelier to be
+taken, and pays the extra themselves.
+
+Examples:
+
+```text
+ship 18 buy 100 FOOD 3 CNGD
+ship 18 buy tech-level TL-6 1,000,000 GOLD
+```
+
+## SURVEY
+
+```text
+ship SHIP-ID survey
+colony COLONY-ID survey
+```
+
+**Not built yet**, and resolves at stage 12 of the turn when it is.
+
+A survey reads the planet the entity is already at. Like a probe, it reads where
+the entity stood when the turn began, because movement is later.
+
+Examples:
+
+```text
+ship 18 survey
+```
+
+## ASSESS
+
+```text
+ship SHIP-ID assess rebels using QUANTITY spies
+colony COLONY-ID assess rebels using QUANTITY spies
+```
+
+**Not built yet**, and resolves at stage 14 of the turn when it is.
+
+Spends spies reading how rebellious a place is.
+
+Examples:
+
+```text
+colony 24 assess rebels using 1 spies
+```
+
+## DETECT
+
+```text
+ship SHIP-ID detect spies using QUANTITY spies
+colony COLONY-ID detect spies using QUANTITY spies
+```
+
+**Not built yet**, and resolves at stage 14 of the turn when it is.
+
+Spends spies finding another faction's spies.
+
+Examples:
+
+```text
+colony 24 detect spies using 4 spies
+```
+
+## OBTAIN
+
+```text
+ship SHIP-ID obtain information from (ship | colony) ID using QUANTITY spies
+colony COLONY-ID obtain information from (ship | colony) ID using QUANTITY spies
+```
+
+**Not built yet**, and resolves at stage 14 of the turn when it is.
+
+Spends spies reading another entity.
+
+Examples:
+
+```text
+colony 24 obtain information from ship 18 using 200 spies
+```
+
+## CONVERT
+
+```text
+ship SHIP-ID convert rebels using QUANTITY spies
+colony COLONY-ID convert rebels using QUANTITY spies
+```
+
+**Not built yet**, and resolves at stage 14 of the turn when it is.
+
+Spends spies turning rebels back.
+
+Examples:
+
+```text
+colony 24 convert rebels using 3 spies
+```
+
+## INCITE
+
+```text
+ship SHIP-ID incite rebels using QUANTITY spies
+colony COLONY-ID incite rebels using QUANTITY spies
+```
+
+**Not built yet**, and resolves at stage 14 of the turn when it is.
+
+Spends spies raising rebels somewhere.
+
+Examples:
+
+```text
+colony 24 incite rebels using 21 spies
+```
+
+## NEUTRALIZE
+
+```text
+ship SHIP-ID neutralize faction FACTION-ID spies using QUANTITY spies
+colony COLONY-ID neutralize faction FACTION-ID spies using QUANTITY spies
+```
+
+**Not built yet**, and resolves at stage 14 of the turn when it is.
+
+Spends spies against another faction's spies. It is **not** combat -- it spends
+spies rather than committing a share of an entity to a battle -- and it is named
+`neutralize` so that combat and espionage do not both claim `attack`.
+
+Examples:
+
+```text
+colony 24 neutralize faction 1 spies using 11 spies
+```
+
+## DRAFT
+
+```text
+ship SHIP-ID draft QUANTITY (SOL | CADRE), ...
+colony COLONY-ID draft QUANTITY (SOL | CADRE), ...
+```
+
+**Not built yet**, and resolves at stage 16 of the turn when it is.
+
+A draft makes soldiers or a cadre out of the population an entity already
+carries. Only `SOL` and the cadres may be drafted; no other class can be.
+
+Drafting `SOL` **changes the type of a population unit**, taking unskilled
+workers off the rolls and making them soldiers one for one. Drafting a cadre
+assigns population rather than converting it: one `CWKR` is one `SKW` plus one
+`USK`, and they are skilled and unskilled workers still while they serve.
+
+**A draft partially fills.** Short population is not an error.
+
+Examples:
+
+```text
+ship 18 draft 4,250 CWKR
+colony 24 draft 200 SOL, 1,000 CWKR
+```
+
+## DISBAND
+
+```text
+ship SHIP-ID disband QUANTITY (SOL | CADRE), ...
+colony COLONY-ID disband QUANTITY (SOL | CADRE), ...
+```
+
+**Not built yet**, and resolves at stage 16 of the turn when it is.
+
+Disband is the reverse of draft, and only the same things may be disbanded.
+Disbanding `SOL` returns soldiers as unskilled workers, which is the pool a
+draft took them from. Disbanding a cadre returns its population unchanged.
+
+Examples:
+
+```text
+ship 18 disband 13 SOL
+ship 18 disband 1,000 CWKR
+```
+
+## PAY
+
+```text
+ship SHIP-ID pay CLASS PERCENT%, ...
+colony COLONY-ID pay CLASS PERCENT%, ...
+```
+
+**Not built yet**, and resolves at stage 17 of the turn when it is.
+
+Sets what a class of population is paid, as a share of the standard rate. There
+is no ceiling: a faction may overpay.
+
+Examples:
+
+```text
+ship 18 pay USK 120%
+colony 24 pay SKW 15%, USK 18%
+```
+
+## RATIONS
+
+```text
+ship SHIP-ID rations PERCENT%
+colony COLONY-ID rations PERCENT%
+```
+
+**Not built yet**, and resolves at stage 17 of the turn when it is.
+
+Sets what everyone aboard is fed, as a share of the standard ration. There is no
+ceiling here either.
+
+Examples:
+
+```text
+ship 18 rations 75%
+colony 24 rations 130%
+```
+
+## RELEASE
+
+```text
+we release (ship | colony) ID
+we release (X,Y,Z) system SYSTEM orbit ORBIT
+```
+
+**Not built yet**, and resolves at stage 20 of the turn when it is.
+
+Releasing control is administrative, so it is a faction order and needs no
+entity at the place: a faction may release a planet whose garrison is gone.
+
+Examples:
+
+```text
+we release ship 18
+we release (-1,2,3) system A orbit 5
+```
+
+## GRANT
+
+```text
+we grant trade (X,Y,Z) system SYSTEM orbit ORBIT station STATION-NO to faction FACTION-ID
+we grant colonize (X,Y,Z) system SYSTEM orbit ORBIT to faction FACTION-ID
+```
+
+**Not built yet**, and resolves at stage 20 of the turn when it is.
+
+Gives a faction leave to trade at a station, or to colonize a planet. A
+permission granted this turn is in force from the next, which is why it resolves
+here and not with the market.
+
+Examples:
+
+```text
+we grant trade (-1,2,3) system A orbit 5 station 4 to faction 1
+we grant colonize (-1,2,3) system A orbit 5 to faction 1
+```
+
+## REFUSE
+
+```text
+we refuse trade (X,Y,Z) system SYSTEM orbit ORBIT station STATION-NO to faction FACTION-ID
+we refuse colonize (X,Y,Z) system SYSTEM orbit ORBIT to faction FACTION-ID
+```
+
+**Not built yet**, and resolves at stage 20 of the turn when it is.
+
+Takes back a faction's leave to trade or to colonize. It is `GRANT` read the
+other way round and has the same two forms.
+
+Examples:
+
+```text
+we refuse trade (-1,2,3) system A orbit 5 station 4 to faction 1
+we refuse colonize (-1,2,3) system A orbit 5 to faction 1
+```
+
+## CONTROL
+
+```text
+ship SHIP-ID control (ship | colony) ID
+ship SHIP-ID control system SYSTEM orbit ORBIT
+colony COLONY-ID control (ship | colony) ID
+colony COLONY-ID control system SYSTEM orbit ORBIT
+```
+
+**Not built yet**, and resolves at stage 20 of the turn when it is.
+
+Taking control is a **physical act**, so it is given to an entity that is at the
+place. It fails against anything already controlled. It is downstream of
+movement, so a ship that arrives this turn can take control of what it finds.
+
+Examples:
+
+```text
+ship 18 control colony 24
+colony 8 control system A orbit 5
+```
+
+## BROADCAST
+
+```text
+ship SHIP-ID broadcast system SYSTEM orbit ORBIT "MESSAGE" ["SIGNATURE"]
+colony COLONY-ID broadcast system SYSTEM orbit ORBIT "MESSAGE" ["SIGNATURE"]
+```
+
+**Not built yet**, and resolves at stage 22 of the turn when it is.
+
+Releases a message at a place for the news service to carry. The signature is
+optional: a broadcast may be anonymous.
+
+Examples:
+
+```text
+ship 18 broadcast system B orbit 8 "message" "optional signature"
+```
 
 ## Checking and submitting
 

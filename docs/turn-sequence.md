@@ -611,28 +611,27 @@ sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
 | 1. Mining production | `mining` | sweep | no |
 | 2. Farming production | `farming` | sweep | no |
 | 3. Factory production | `manufacturing` | sweep | no |
-| 4. Combat | `raid`, `support`, `attack`, `invade` | orders + sweep | no |
-| 5. Creation | `create` | orders + sweep | partly -- ship and colony, not the three group forms |
+| 4. Combat | `raid`, `support`, `attack`, `invade` | orders + sweep | parses; the sweep is not written |
+| 5. Creation | `create` | orders + sweep | ship and colony built; the three group forms parse |
 | 6. Dis-assembly | `unassemble`, `stow` | orders | **yes** |
-| 7. Build change | `retool` | orders | no |
-| 8. Group change | `idle`, `remove`, `add`, `activate` | orders | no |
+| 7. Build change | `retool` | orders | parses |
+| 8. Group change | `idle`, `remove`, `add`, `activate` | orders | parses |
 | 9. Transfers | `transfer` | orders + sweep | **yes** |
 | 10. Assembly | `unstow`, `assemble` | orders + sweep | **yes** |
-| 11. Market and trade stations | `sell`, `buy` | orders + sweep | no |
-| 12. Surveys | `survey` | orders | no |
+| 11. Market and trade stations | `sell`, `buy` | orders + sweep | parses; the matching sweep is not written |
+| 12. Surveys | `survey` | orders | parses |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |
-| 14. Espionage | `assess`, `detect`, `obtain`, `convert`, `incite`, `neutralize` | orders + sweep | no |
+| 14. Espionage | `assess`, `detect`, `obtain`, `convert`, `incite`, `neutralize` | orders + sweep | parses; the sweep is not written |
 | 15. Ship movement | `move`, `jump`, `arrival` | orders, orders, sweep | **yes** |
-| 16. Draft and disband | `draft`, `disband` | orders | no |
-| 17. Pay and rations | `pay`, `rations` | orders | no |
+| 16. Draft and disband | `draft`, `disband` | orders | parses |
+| 17. Pay and rations | `pay`, `rations` | orders | parses |
 | 18. Rebellion | `rebellion` | sweep | no |
 | 19. Rebel increases | `rebels` | sweep | no |
-| 20. Naming, control, permissions | `release`, `grant`, `refuse`, `name`, `control` | orders | partly -- `name` only, and not the `we` forms |
+| 20. Naming, control, permissions | `release`, `grant`, `refuse`, `name`, `control` | orders | `name` built but for its two faction forms; the rest parse |
 | 21. Population increases | `population` | sweep | no |
-| 22. News service | `news` | orders + sweep | no |
+| 22. News service | `news` | orders + sweep | parses; the sweep is not written |
 
 The phase names are the names a player sees in `ec orders help`, not
-identifiers that exist yet. The twelve that do exist run in `spec.go` in the
-order `create`, `unassemble`, `stow`, `transfer`, `unstow`, `assemble`, `probe`,
-`sensor`, `move`, `jump`, `arrival`, `naming` -- stages 5, 6, 9, 10, 13, 15, and
-20, with everything in between still to be written.
+identifiers that exist yet. Thirty-nine of them now do: `spec.go` carries every
+phase that has an order, in the order this document gives them, and
+`ec orders help` prints the list.

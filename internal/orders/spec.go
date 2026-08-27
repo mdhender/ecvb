@@ -33,6 +33,14 @@ type Phase struct {
 // The phases of a turn. Production and combat will be new entries here and a
 // Phase on their orders' Specs; nothing else has to learn about them.
 var (
+	// Stage 4 is combat, and it is four steps because the engine allocates
+	// against each in turn. The orders name a target and commit a percentage
+	// of the entity; the sweep that settles every battle between the entities
+	// that met is not written.
+	PhaseRaid    = &Phase{Name: "raid"}
+	PhaseSupport = &Phase{Name: "support"}
+	PhaseAttack  = &Phase{Name: "attack"}
+	PhaseInvade  = &Phase{Name: "invade"}
 	// PhaseCreate is stage 5. Its orders put unfinished entities on the board
 	// and its sweep is the first of a build's three acts: it claims the stock
 	// the builder holds, which is the priority decision and needs no transport.
@@ -53,31 +61,90 @@ var (
 	// explicitly ordered work outrank a standing commitment.
 	PhaseUnassemble = &Phase{Name: "unassemble"}
 	PhaseStow       = &Phase{Name: "stow"}
-	PhaseTransfer   = &Phase{Name: "transfer", Sweep: deliverBuilds}
-	PhaseUnstow     = &Phase{Name: "unstow"}
-	PhaseAssemble   = &Phase{Name: "assemble", Sweep: completeBuilds}
-	PhaseProbe      = &Phase{Name: "probe"}
-	PhaseSensor     = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
+	// Stages 7 and 8 change what a group makes and who is in it. Retooling is
+	// ahead of membership on purpose, so a group can be retooled and resized in
+	// one turn and the resize applies to the retooled group.
+	PhaseRetool   = &Phase{Name: "retool"}
+	PhaseIdle     = &Phase{Name: "idle"}
+	PhaseRemove   = &Phase{Name: "remove"}
+	PhaseAdd      = &Phase{Name: "add"}
+	PhaseActivate = &Phase{Name: "activate"}
+	PhaseTransfer = &Phase{Name: "transfer", Sweep: deliverBuilds}
+	PhaseUnstow   = &Phase{Name: "unstow"}
+	PhaseAssemble = &Phase{Name: "assemble", Sweep: completeBuilds}
+	// Stage 11 is the market. Selling is ahead of buying, and both are between
+	// the two stages that move units through inventory, because what is traded
+	// has to be unassembled.
+	PhaseSell = &Phase{Name: "sell"}
+	PhaseBuy  = &Phase{Name: "buy"}
+	// Stage 12 and stage 13 both read where things stood when the turn began,
+	// because movement is at stage 15.
+	PhaseSurvey = &Phase{Name: "survey"}
+	PhaseProbe  = &Phase{Name: "probe"}
+	PhaseSensor = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
+	// Stage 14 is espionage, which has combat's shape: the orders say who spent
+	// how many spies on what, and a sweep settles them against each other.
+	PhaseAssess     = &Phase{Name: "assess"}
+	PhaseDetect     = &Phase{Name: "detect"}
+	PhaseObtain     = &Phase{Name: "obtain"}
+	PhaseConvert    = &Phase{Name: "convert"}
+	PhaseIncite     = &Phase{Name: "incite"}
+	PhaseNeutralize = &Phase{Name: "neutralize"}
 	PhaseMove       = &Phase{Name: "move"}
 	PhaseJump       = &Phase{Name: "jump"}
 	// PhaseArrival has no orders. A crossing between stellia is not an order --
 	// the jump that began it departed and succeeded turns ago -- so landing the
 	// ships that are due is the whole of the phase.
 	PhaseArrival = &Phase{Name: "arrival", Sweep: (*world.World).LandArrivals}
+	// Stages 16 and 17 are what a player says about population before the game
+	// answers at stages 18 and 21. A draft is ahead of pay because it changes
+	// who is there to be paid.
+	PhaseDraft   = &Phase{Name: "draft"}
+	PhaseDisband = &Phase{Name: "disband"}
+	PhasePay     = &Phase{Name: "pay"}
+	PhaseRations = &Phase{Name: "rations"}
+	// Stage 20 is everything administrative, and the only stage where `we` is
+	// the subject of most of the orders. Two things follow from the order of
+	// its steps rather than from any rule: a faction may release an entity and
+	// take it back with control in the same turn, and it cannot change a
+	// permission on something it only gained control of at the last step.
+	PhaseRelease = &Phase{Name: "release"}
+	PhaseGrant   = &Phase{Name: "grant"}
+	PhaseRefuse  = &Phase{Name: "refuse"}
 	PhaseNaming  = &Phase{Name: "naming"}
+	PhaseControl = &Phase{Name: "control"}
+	// Stage 22 is last because it reports on everything the other twenty-one
+	// did.
+	PhaseBroadcast = &Phase{Name: "broadcast"}
 )
 
-// phases is the turn, in the order it happens. Probes and passive sensors both
-// read where things stood when the turn began, so both come before anything
-// moves; a ship that jumps this turn reports its new stellium next turn.
+// phases is the turn, in the order it happens, and it is derived from
+// docs/turn-sequence.md: a stage's lettered steps run in their letter order and
+// a step is exactly a Phase.
 //
-// Departures come before arrivals, so this turn's jumps are settled before this
-// turn's landings and a ship cannot be caught by a jump order written the turn
-// it arrives.
+// Probes and passive sensors both read where things stood when the turn began,
+// so both come before anything moves; a ship that jumps this turn reports its
+// new stellium next turn. Departures come before arrivals, so this turn's jumps
+// are settled before this turn's landings and a ship cannot be caught by a jump
+// order written the turn it arrives.
+//
+// The six stages that are pure sweeps -- production at 1, 2, and 3, rebellion
+// at 18, rebel increases at 19, and population growth at 21 -- are not here.
+// No order resolves in them and nothing implements them, so an entry would be
+// a name in the player's help with nothing behind it. They join the table with
+// their rules.
 var phases = []*Phase{
+	PhaseRaid, PhaseSupport, PhaseAttack, PhaseInvade,
 	PhaseCreate,
-	PhaseUnassemble, PhaseStow, PhaseTransfer, PhaseUnstow, PhaseAssemble,
-	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
+	PhaseUnassemble, PhaseStow,
+	PhaseRetool, PhaseIdle, PhaseRemove, PhaseAdd, PhaseActivate,
+	PhaseTransfer, PhaseUnstow, PhaseAssemble,
+	PhaseSell, PhaseBuy, PhaseSurvey, PhaseProbe, PhaseSensor,
+	PhaseAssess, PhaseDetect, PhaseObtain, PhaseConvert, PhaseIncite, PhaseNeutralize,
+	PhaseMove, PhaseJump, PhaseArrival,
+	PhaseDraft, PhaseDisband, PhasePay, PhaseRations,
+	PhaseRelease, PhaseGrant, PhaseRefuse, PhaseNaming, PhaseControl,
+	PhaseBroadcast,
 }
 
 func init() {
@@ -137,11 +204,20 @@ type Spec struct {
 	Syntax []string
 	// Phase is the stage of a turn the order resolves in.
 	Phase *Phase
+	// Unbuilt marks an order whose surface form is accepted and whose rules are
+	// not written: it parses, it is stored, and it fails when the turn
+	// resolves. Only unbuilt.go sets it, which is what keeps it from drifting
+	// from what the order actually binds to.
+	Unbuilt bool
 	// Terminator is the keyword that ends an order which may run over several
-	// physical lines, and is empty for the orders that are one line each. Only
-	// a create needs one: its two lists are long enough that a player wants to
-	// break them, and something has to say where the order stops.
-	Terminator string
+	// physical lines, and returns empty for the orders that are one line each.
+	// nil means the order is always one line.
+	//
+	// It is asked with the word that follows the verb, because whether an order
+	// spans lines can depend on its form: a create is the only order with a
+	// terminator, and only in its ship and colony forms -- a group create is
+	// one line and says so by that word.
+	Terminator func(form string) string
 	// Movement says whether the order can move the entity it acts on, and so
 	// whether where that entity began and ended is worth recording. It is a
 	// property of the kind of order, not of how one went: an order that can
@@ -261,6 +337,11 @@ func Help() string {
 	out.WriteString("ORDERS\n\n")
 	out.WriteString("Every order names its subject first -- a ship, a colony, or `we` for the\n")
 	out.WriteString("faction itself -- and then what it is being told to do.\n\n")
+	out.WriteString("An order marked NOT BUILT YET is one the parser accepts and the engine\n")
+	out.WriteString("cannot yet carry out: it is stored and fails when the turn resolves, and\n")
+	out.WriteString("the rest of the file is unaffected. Two orders that are built have forms\n")
+	out.WriteString("that behave the same way -- the group forms of CREATE, and the two forms\n")
+	out.WriteString("of NAME that name another faction. See docs/orders.md.\n\n")
 	out.WriteString("A turn resolves in phases. Every order of one phase resolves before any\n")
 	out.WriteString("order of the next; the order of the lines in a file decides only between\n")
 	out.WriteString("orders of the same phase. The phases, in the order they happen:\n\n")
@@ -285,8 +366,12 @@ func HelpFor(verb string) (string, error) {
 
 func describe(spec *Spec) string {
 	var out strings.Builder
-	fmt.Fprintf(&out, "%s (%s phase, given to %s)\n  %s\n",
-		strings.ToUpper(spec.Verb), spec.Phase.Name, wordList(subjectNouns(spec.Subjects)), spec.Summary)
+	unbuilt := ""
+	if spec.Unbuilt {
+		unbuilt = ", NOT BUILT YET"
+	}
+	fmt.Fprintf(&out, "%s (%s phase, given to %s%s)\n  %s\n",
+		strings.ToUpper(spec.Verb), spec.Phase.Name, wordList(subjectNouns(spec.Subjects)), unbuilt, spec.Summary)
 	for _, form := range spec.Syntax {
 		fmt.Fprintf(&out, "    %s\n", form)
 	}

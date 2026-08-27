@@ -78,6 +78,36 @@ Spatial hierarchy: `game → stellium → system (A–E) → planet (orbit 1–1
 Plural of *stellium* is *stellia*. Distance between stellia is Euclidean, rounded up;
 compare squared distances so no floating point enters the query.
 
+### Orders that parse and do not yet act
+
+**Every verb of `docs/accepted-orders.md` is registered.** Ten of the
+thirty-seven are built end to end; the other twenty-seven live in
+`internal/orders/unbuilt.go`, and so do the group forms of `create` and the two
+forms of `name` that name another faction.
+
+The accepted doc gives every verb's grammar and defines every field it reads, so
+all of them can be parsed today. What none of them can be told is what to *do* --
+what a spy costs, what a group produces per turn, who the market's counterparty
+is -- and that is the 1978 text, arriving verb by verb.
+
+So an unbuilt order is a real `Spec`: the parser refuses a malformed one, the
+reference prints its forms, and `Bind` still settles who may give it. It binds
+to `notBuilt`, whose `Apply` fails. That is the middle of three choices and it
+was made deliberately: refusing at `Bind` would reject the whole file, so a
+player could not submit a turn that mentioned one; succeeding at both would
+report an order that did nothing as having worked. Failing at `Apply` puts it
+where every other game-rule failure goes -- a warning at submission, a failed
+row with a reason when the turn resolves, the rest of the file unaffected.
+
+`Outcome.Unsupported` is what stops that warning ending "in case that changes
+before the turn resolves". A rule is not something the world might yet oblige.
+
+`Spec.Unbuilt` is set only by `registerUnbuilt`, so the flag and the file are one
+fact, and `ec orders help` prints NOT BUILT YET from it.
+
+**The day a verb's rules land, its Spec and Params move to `verbs.go`** with a
+Bound of their own. Nothing has to be untangled from anything else.
+
 ## Adding an order
 
 An order lives in `internal/orders/verbs.go` and nowhere else. It is three
@@ -196,6 +226,12 @@ world the later phases see.
 `ec orders help` prints the phase list and tags each order with its phase, from
 the same table, so the reference cannot fall behind the engine.
 
+The table holds every phase that has an order -- thirty-nine of the forty-five
+`docs/turn-sequence.md` describes. The six that are missing are the pure-sweep
+stages (production at 1, 2, and 3, rebellion at 18, rebel increases at 19,
+population growth at 21): nothing resolves in them and nothing implements them,
+so an entry would be a name in the player's help with nothing behind it.
+
 `docs/accepted-orders.md` is the accepted order set the game is heading for and
 `docs/turn-sequence.md` the twenty-two stages it resolves in. Neither is the
 spec of what exists: `docs/orders.md` is what is actually built, and a test fails
@@ -272,10 +308,12 @@ that at Bind against a per-turn count in `world`, beside the probe budget, so a
 file with two of either is refused whole. The order is spent whatever it goes on
 to do -- a move that failed for want of fuel has still been given.
 
-`create` is also the first order that may **run over several lines**. `Spec.Terminator`
-is the keyword that ends it, `Parse` gathers the physical lines into one `Line`
-before the order is read, and every `Parse` still consumes from one `Line`
-whatever the player's line breaks were.
+`create` is also the first order that may **run over several lines**.
+`Spec.Terminator` is asked, with the word that follows the verb, for the keyword
+that ends the order; `Parse` gathers the physical lines into one `Line` before
+the order is read, so every `Parse` still consumes from one `Line` whatever the
+player's line breaks were. It takes the form because the answer depends on it: a
+ship or colony create runs to `end` and a group create is one line.
 
 Two effects outlive the turn that ordered them, and they are not the same shape.
 A `jump` order departs and *succeeds*; what continues is a ship in transit, a
@@ -298,8 +336,7 @@ needed and nothing changed in `ec turn open`'s purge.
    turn. `Check` runs exactly the same thing and keeps nothing.
 2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
    `orders.Phases()` in order: **every order of one phase resolves before any
-   order of the next**, today create, unassemble, stow, transfer, unstow,
-   assemble, probe, sensor, move, jump, arrival, naming. Expected game-rule
+   order of the next**, walking the thirty-nine phases of `spec.go`. Expected game-rule
    failures are recorded on the order row (`status = 'failed'` plus
    `error_message`, final location equal to start location) and do not abort the
    turn; database/state errors roll the turn back. State flips

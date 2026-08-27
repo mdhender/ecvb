@@ -95,13 +95,15 @@ func init() {
 	register(&Spec{
 		Verb:     "name",
 		Subjects: []string{SubjectShip, SubjectColony, SubjectFaction},
-		Summary:  "give a place or one of your ships or colonies a name only you see",
+		Summary:  "give a place, a faction, or a ship or colony a name only you see",
 		Syntax: []string{
 			`ship SHIP-ID name "NAME"`,
 			`colony COLONY-ID name "NAME"`,
 			`we name (X,Y,Z) "NAME"`,
 			`we name (X,Y,Z) system SYSTEM "NAME"`,
 			`we name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"`,
+			`we name (player | faction) FACTION-ID "NAME"`,
+			`we name (player | faction) FACTION-ID (ship | colony) ID "NAME"`,
 		},
 		Phase: PhaseNaming,
 		Decode: func(actor int64, encoded string) (Params, error) {
@@ -118,6 +120,28 @@ func init() {
 			// subject is the thing. Naming a place is a faction order, because
 			// no ship or colony carries it out, and the place follows the verb.
 			if subject.Kind == SubjectFaction {
+				// A faction, or one of its ships or colonies, is named the same
+				// way a place is: by `we`, because nothing of the player's
+				// carries the order out. What is not the same is that it can be
+				// refused for a faction never encountered, and no encounter is
+				// recorded yet -- so those two forms parse and do not yet act.
+				if as, ok := line.keyword("player", "faction"); ok {
+					other := &FactionRef{As: as}
+					if other.ID, err = line.entityID("faction"); err != nil {
+						return nil, err
+					}
+					if word, ok := line.peek(); ok && !word.quoted &&
+						(strings.EqualFold(word.text, SubjectShip) || strings.EqualFold(word.text, SubjectColony)) {
+						entity, err := line.entityRef()
+						if err != nil {
+							return nil, err
+						}
+						other.Entity = &entity
+					}
+					order.Faction = other
+					order.Name, err = line.quoted("name")
+					return order, err
+				}
 				place := &Place{}
 				if place.X, place.Y, place.Z, err = line.coordinates(); err != nil {
 					return nil, err
@@ -152,12 +176,36 @@ func init() {
 			"ship SHIP-ID create (open-air | enclosed | orbital) colony [as trade-station] using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
 			"colony COLONY-ID create ship using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
 			"colony COLONY-ID create (open-air | enclosed | orbital) colony [as trade-station] using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
+			"colony COLONY-ID create factory-group with QUANTITY UNIT, ... making UNIT",
+			"ship SHIP-ID create farm-group with QUANTITY UNIT",
+			"colony COLONY-ID create farm-group with QUANTITY UNIT",
+			"colony COLONY-ID create mine-group with QUANTITY UNIT working deposit DEPOSIT-NO",
 		},
 		Phase: PhaseCreate,
-		// A create is the one order long enough to want breaking over several
-		// lines, so it runs to `end` rather than to the end of a line.
-		Terminator: "end",
+		// A ship or colony create is long enough to want breaking over several
+		// lines, so it runs to `end` rather than to the end of a line. A group
+		// create is one line and takes no terminator.
+		Terminator: func(form string) string {
+			if _, ok := createKinds[strings.ToLower(form)]; ok {
+				return "end"
+			}
+			return ""
+		},
+		// One Spec, two completion models. A ship or colony create is a
+		// commitment that runs for turns; a group create is kill-and-fill and
+		// closes out inside stage 5. They bind to different Bounds, which is
+		// why Decode has to tell them apart, and it tells them apart by the
+		// group the JSON names.
 		Decode: func(actor int64, encoded string) (Params, error) {
+			var form struct {
+				Group string `json:"group"`
+			}
+			if err := json.Unmarshal([]byte(encoded), &form); err != nil {
+				return nil, err
+			}
+			if form.Group != "" {
+				return decode(encoded, CreateGroupParams{actorOf: actorOf{EntityID: actor}})
+			}
 			order := CreateParams{EntityID: actor}
 			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
 				return nil, err
@@ -165,10 +213,13 @@ func init() {
 			return order, nil
 		},
 		Parse: func(subject Subject, line *Line) (Params, error) {
+			if group, ok := line.keyword(groupKinds...); ok {
+				return parseCreateGroup(subject, line, group)
+			}
 			order := CreateParams{Kind: subject.Kind, EntityID: subject.ID}
 			form, ok := line.keyword(buildsShip, buildsOpenAir, buildsEnclosed, buildsOrbital)
 			if !ok {
-				return nil, badSyntax("expected ship, open-air colony, enclosed colony, or orbital colony")
+				return nil, badSyntax("expected ship, a kind of colony, or a kind of group")
 			}
 			order.Builds = form
 			if form != buildsShip {
@@ -753,7 +804,29 @@ type NameParams struct {
 	// Place is the thing being named when it is not an entity: a stellium, or
 	// a system or planet of one.
 	Place *Place `json:"place,omitempty"`
-	Name  string `json:"name"`
+	// Faction is another player's faction, or one of its ships or colonies,
+	// when that is what is being named. A faction may only name one it has
+	// encountered, and nothing records an encounter, so these two forms parse
+	// and do not yet act.
+	Faction *FactionRef `json:"faction,omitempty"`
+	Name    string      `json:"name"`
+}
+
+// FactionRef is another faction as an order named it: the word the player wrote
+// -- player or faction, which mean the same thing -- the id, and optionally one
+// of its ships or colonies.
+type FactionRef struct {
+	As     string     `json:"as"`
+	ID     int64      `json:"id"`
+	Entity *entityRef `json:"entity,omitempty"`
+}
+
+// String renders the reference in the words the player used.
+func (f FactionRef) String() string {
+	if f.Entity != nil {
+		return fmt.Sprintf("%s %d %s", f.As, f.ID, *f.Entity)
+	}
+	return fmt.Sprintf("%s %d", f.As, f.ID)
 }
 
 // Place is a stellium, or a system or a planet of one, as an order named it.
@@ -771,6 +844,9 @@ func (p NameParams) Actor() int64 { return p.Entity }
 
 // Input is the name order as the player wrote it.
 func (p NameParams) Input() string {
+	if p.Faction != nil {
+		return fmt.Sprintf("%s %q", *p.Faction, p.Name)
+	}
 	if p.Place == nil {
 		return fmt.Sprintf("%s %d %q", p.Kind, p.Entity, p.Name)
 	}
@@ -792,6 +868,12 @@ func (p NameParams) Input() string {
 func (p NameParams) Bind(b *Binder) ([]Bound, error) {
 	if err := checkName(p.Name); err != nil {
 		return nil, err
+	}
+	// Naming another faction, or one of its ships or colonies, is refused for
+	// one it has never encountered -- and nothing records an encounter yet, so
+	// the two forms parse and wait for the rule that would allow them.
+	if p.Faction != nil {
+		return unbuilt(b, "name", "", p)
 	}
 	if p.Place == nil {
 		entity, err := b.actor(p.Entity, p.Kind)

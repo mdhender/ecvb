@@ -88,10 +88,12 @@ func Parse(r io.Reader) (Submission, error) {
 			// parser that knows an order may span lines, and it settles it
 			// before the order is read, so every Parse still consumes from one
 			// Line whatever the player's line breaks were.
-			if spec, ok := opensOrder(line); ok && spec.Terminator != "" {
-				if err := gather(scanner, line, spec, &number); err != nil {
-					found = append(found, problem{line.Number, err.Error()})
-					continue
+			if spec, form, ok := opensOrder(line); ok && spec.Terminator != nil {
+				if until := spec.Terminator(form); until != "" {
+					if err := gather(scanner, line, spec, until, &number); err != nil {
+						found = append(found, problem{line.Number, err.Error()})
+						continue
+					}
 				}
 			}
 			order, err := parseOrder(line)
@@ -174,34 +176,42 @@ func parseIdentityLine(line *Line, submission *Submission) error {
 	return nil
 }
 
-// opensOrder is the order a line names, read without consuming anything. A
-// subject is either `we`, which takes no id, or a word and an id, so the verb
-// is the second token or the third and nothing else has to be understood to
-// find it.
+// opensOrder is the order a line names and the word that follows its verb, read
+// without consuming anything. A subject is either `we`, which takes no id, or a
+// word and an id, so the verb is the second token or the third and nothing else
+// has to be understood to find it.
 //
 // It exists for one question the file scanner has to answer before the order is
-// parsed: does this order run to a terminator?
-func opensOrder(line *Line) (*Spec, bool) {
+// parsed: does this order run to a terminator? The word after the verb goes
+// with it because the answer can depend on the form, and a form is named there.
+func opensOrder(line *Line) (spec *Spec, form string, ok bool) {
 	offset := 2
 	if word, ok := line.peek(); ok && !word.quoted && strings.EqualFold(word.text, SubjectFaction) {
 		offset = 1
 	}
-	word, ok := line.peekAt(offset)
-	if !ok || word.quoted {
-		return nil, false
+	word, found := line.peekAt(offset)
+	if !found || word.quoted {
+		return nil, "", false
 	}
-	return Lookup(word.text)
+	spec, ok = Lookup(word.text)
+	if !ok {
+		return nil, "", false
+	}
+	if next, found := line.peekAt(offset + 1); found && !next.quoted {
+		form = next.text
+	}
+	return spec, form, true
 }
 
 // gather reads on until the order's terminator, appending each physical line to
 // the one the order began on. The terminator itself is left in the line: it is
 // part of the order's grammar, so the order's own Parse consumes it and a file
 // that ran out first says so here.
-func gather(scanner *bufio.Scanner, line *Line, spec *Spec, number *int) error {
-	for !line.holds(spec.Terminator) {
+func gather(scanner *bufio.Scanner, line *Line, spec *Spec, until string, number *int) error {
+	for !line.holds(until) {
 		if !scanner.Scan() {
 			return fmt.Errorf("%s runs until `%s`, and the file ended first",
-				strings.ToUpper(spec.Verb), spec.Terminator)
+				strings.ToUpper(spec.Verb), until)
 		}
 		*number++
 		line.extend(scanner.Text())

@@ -28,11 +28,11 @@ type Result struct {
 }
 
 // Warning is a condition that does not stop a submission but that the player
-// should see. It is one of two things an order's Apply reported in the dry
+// should see. It is one of three things an order's Apply reported in the dry
 // run: that the order failed -- and is kept anyway, because what Apply weighs,
-// fuel on hand today, may be different when the turn resolves -- or that it
+// fuel on hand today, may be different when the turn resolves -- that it
 // succeeded but did less than it was asked for, because the workers or the
-// transports ran out.
+// transports ran out, or that its verb parses and has no rules yet.
 type Warning struct {
 	Line    int
 	Message string
@@ -215,8 +215,16 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 					return validatedSubmission{}, err
 				}
 				if outcome.Status == StatusFailed {
-					warnings = append(warnings, Warning{Line: order.Line,
-						Message: outcome.Message + "; the order is kept in case that changes before the turn resolves"})
+					// An order that failed for want of something the world may
+					// yet provide is worth waiting on; one that failed because
+					// a rule is not written is not, and saying so would be
+					// telling a player to watch for something that cannot
+					// happen between here and the turn resolving.
+					message := outcome.Message
+					if !outcome.Unsupported {
+						message += "; the order is kept in case that changes before the turn resolves"
+					}
+					warnings = append(warnings, Warning{Line: order.Line, Message: message})
 				}
 				// An order that did less than it was asked for still succeeded,
 				// so it carries no error message; it is worth saying before the

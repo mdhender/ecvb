@@ -395,3 +395,156 @@ func (l *Line) orbitList() ([]int, error) {
 	}
 	return orbits, nil
 }
+
+// percentage consumes an integer percentage: digits with a % on the end, as in
+// 75%. It is one token, because % is not punctuation the tokenizer splits on.
+//
+// Four fields of the accepted grammar are this shape and differ only in their
+// range: a commitment and a commission run 1 to 100, and a pay rate and a
+// ration rate are any percentage at all, a colony being free to overpay or
+// overfeed. The range is the caller's, which is why it is a parameter.
+func (l *Line) percentage(what string, low, high int) (int, error) {
+	current, ok := l.next()
+	if !ok || current.quoted {
+		return 0, badSyntax("expected %s", what)
+	}
+	digits, found := strings.CutSuffix(current.text, "%")
+	if !found || !isDigits(digits) {
+		return 0, fmt.Errorf("invalid %s %q; a percentage is digits and a %% sign, as in 75%%", what, current.text)
+	}
+	value, err := wholeNumber(digits, what)
+	if err != nil {
+		return 0, err
+	}
+	if value < low || value > high {
+		return 0, fmt.Errorf("invalid %s %d%%; it runs from %d%% to %d%%", what, value, low, high)
+	}
+	return value, nil
+}
+
+// TechLevel is the technology level a market order names, written TL-4.
+const techLevelPrefix = "TL-"
+
+// techLevel consumes a technology level written TL and the level, as in TL-4.
+// It is the market's way of naming one, and it is not a unit tag: a technology
+// level is bought once rather than by quantity.
+func (l *Line) techLevel() (int, error) {
+	current, ok := l.next()
+	if !ok || current.quoted {
+		return 0, badSyntax("expected a technology level")
+	}
+	digits, found := strings.CutPrefix(strings.ToUpper(current.text), techLevelPrefix)
+	if !found || !isDigits(digits) {
+		return 0, fmt.Errorf("invalid technology level %q; it is written TL and the level, as in TL-4", current.text)
+	}
+	value, err := wholeNumber(digits, "a technology level")
+	if err != nil {
+		return 0, err
+	}
+	if value < 1 || value > 10 {
+		return 0, fmt.Errorf("invalid technology level %d; a level runs from 1 to 10", value)
+	}
+	return value, nil
+}
+
+// The two currencies a market order may be priced in. A technology level is
+// paid for in GOLD and never in CNGD.
+const (
+	CurrencyGold  = "GOLD"
+	CurrencyGoods = "CNGD"
+)
+
+// Price is an amount of one of the two currencies.
+//
+// The amount is kept as the player wrote it rather than converted to a number.
+// The shape is checked -- digits, the thousands separators a quantity uses, at
+// most one decimal point, and at least one digit before it -- but nothing
+// prices anything yet, and choosing a scale to store it in would be inventing a
+// rule the market has not been given.
+type Price struct {
+	Amount   string `json:"amount"`
+	Currency string `json:"currency"`
+}
+
+// String renders a price the way the player wrote it.
+func (p Price) String() string { return p.Amount + " " + p.Currency }
+
+// price consumes an amount and the currency it is in: a positive number with
+// the same thousands separators a quantity uses, then GOLD or CNGD.
+//
+// It reads the separators the way quantity does, with two tokens of lookahead,
+// because the comma that groups a number is the same character that separates
+// the items of a list. The one difference is that the last group may carry a
+// decimal part -- 25,600.50 -- so a group that does ends the number.
+//
+// whole says the price must be a round number, which is what a technology level
+// is bought for.
+func (l *Line) price(what string, whole bool) (Price, error) {
+	current, ok := l.next()
+	if !ok || current.quoted {
+		return Price{}, badSyntax("expected %s", what)
+	}
+	digits, decimal, err := priceGroup(current.text, what)
+	if err != nil {
+		return Price{}, err
+	}
+	leading := len(current.text)
+	for !decimal {
+		separator, hasSeparator := l.peekAt(0)
+		group, hasGroup := l.peekAt(1)
+		if !hasSeparator || !hasGroup || separator.quoted || separator.text != "," || group.quoted {
+			break
+		}
+		next, hasDecimal, err := priceGroup(group.text, what)
+		// A group is exactly three digits, and only the last of them may carry
+		// the decimal part. Anything else is the comma that separates the items
+		// of a list rather than one that groups a number.
+		if integer, _, _ := strings.Cut(next, "."); err != nil || len(integer) != digitGroup {
+			break
+		}
+		l.pos += 2
+		digits, decimal = digits+next, hasDecimal
+	}
+	before, after, _ := strings.Cut(digits, ".")
+	if len(before) > digitGroup && leading > digitGroup {
+		return Price{}, fmt.Errorf("invalid %s %q; a number over 999 separates every three digits with a comma", what, digits)
+	}
+	if whole && after != "" {
+		return Price{}, fmt.Errorf("invalid %s %q; it is paid in whole units", what, digits)
+	}
+	if strings.Trim(before+after, "0") == "" {
+		return Price{}, fmt.Errorf("invalid %s %q; a price is greater than zero", what, digits)
+	}
+	currency, ok := l.keyword(CurrencyGold, CurrencyGoods)
+	if !ok {
+		return Price{}, fmt.Errorf("invalid %s; a price is paid in %s or %s", what, CurrencyGold, CurrencyGoods)
+	}
+	if whole && currency != CurrencyGold {
+		return Price{}, fmt.Errorf("invalid %s; a technology level is paid for in %s", what, CurrencyGold)
+	}
+	return Price{Amount: formatPrice(before, after), Currency: currency}, nil
+}
+
+// priceGroup reads one run of digits of a price, which may carry the decimal
+// part on its end.
+func priceGroup(text, what string) (digits string, decimal bool, err error) {
+	before, after, found := strings.Cut(text, ".")
+	if !isDigits(before) || (found && !isDigits(after)) {
+		return "", false, fmt.Errorf("invalid %s %q; a price is a number and a currency, as in 1.0 %s",
+			what, text, CurrencyGold)
+	}
+	if found {
+		return before + "." + after, true, nil
+	}
+	return before, false, nil
+}
+
+// formatPrice writes a price back the way a player writes one, with the
+// thousands separators put back in.
+func formatPrice(before, after string) string {
+	value := formatQuantity(mustParse(before))
+	if after == "" {
+		return value
+	}
+	return value + "." + after
+}

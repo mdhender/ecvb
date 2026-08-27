@@ -30,15 +30,19 @@ a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
 See "What the code still has to be told" below for the list, verb by verb.**
 
-**Every specified verb is now built.** `stow` and `unstow` landed with `AUTO`
-and production labour; the ship and colony forms of `create` landed with
+**Every verb of `docs/accepted-orders.md` now parses**, and ten of the
+thirty-seven are built end to end. `stow` and `unstow` landed with `AUTO` and
+production labour; the ship and colony forms of `create` landed with
 `under_construction`, the first multi-line parse, and the three build sweeps.
 The `jump` rework is built too: a crossing takes \(\lceil d / t \rceil\) turns, a
 ship in transit is nowhere and unreachable, and the whole fuel bill is drawn on
-departure. **What remains is blocked on the 1978 rules, verb by verb** -- see
-"What the code still has to be told". The three group `create` forms are the
-nearest of them, and they wait on what a factory, a farm, or a mine produces per
-turn.
+departure.
+
+**The other twenty-seven parse and do not yet act.** They live in
+`internal/orders/unbuilt.go`, they are stored like any other order, and they
+fail when the turn resolves with the reason. What they are missing is a rule
+rather than a parser -- see "What the code still has to be told" -- and the day
+one lands, its Spec moves to `verbs.go` with a Bound of its own.
 
 ---
 
@@ -51,7 +55,7 @@ turn.
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 30 orders | **batches 1, 1b, and 2 built and under the golden net** (6 of 30); the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b) |
+| 5 — add the 30 orders | **every accepted verb parses**; batches 1, 1b, and 2 built end to end (6 of 30); the other 27 parse and fail on a missing rule | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b), `9cd44f1` (batch 2) |
 
 ### What step 0 built
 
@@ -984,6 +988,51 @@ different order with a different completion model and wait on the production
 rules. And a build cannot be cancelled: `docs/accepted-orders.md` has no verb
 for it.
 
+### Every accepted verb parses
+
+The goal of this plan is a parser for the whole accepted order set, not an
+engine for it. That reading was lost for a while: step 5 below says an order is
+"one `Spec` (parse + bind + apply)", which couples the parser to the rules and
+made twenty-seven verbs look blocked when only their *semantics* were. They were
+not blocked. `docs/accepted-orders.md` gives every verb's grammar and its
+Definitions section types every field, so all thirty-seven parse now.
+
+**Three field readers were all the tokenizer was missing**, against that
+Definitions list: `percentage` (which serves a commitment, a commission, a pay
+rate, and a ration rate, differing only in range), `price` (a decimal amount and
+`GOLD` or `CNGD`, reading the thousands separators the way `quantity` does,
+with the last group allowed to carry the decimal), and `techLevel` (`TL-4`).
+Everything else was `quantity`, `unitTag`, `unitList`, `entityID`, `number`,
+`systemLetter`, `coordinates`, `quoted`, and `keyword`.
+
+**An unbuilt order is a real `Spec`.** It parses, it is stored, `Bind` still
+settles who may give it, and it binds to `notBuilt`, whose `Apply` fails. That
+is the middle of three choices the user settled: refusing at `Bind` would reject
+the whole file, so a player could not submit a turn that mentioned one;
+succeeding at both would report an order that did nothing as having worked.
+`Outcome.Unsupported` came with it, so the submission warning does not end "in
+case that changes before the turn resolves" -- a rule is not something the world
+might yet oblige.
+
+**The phase table grew from twelve to thirty-nine.** Every phase that has an
+order is in it now, in `docs/turn-sequence.md`'s order, so `ec orders help`
+prints the real turn. The six pure-sweep stages are still out: nothing resolves
+in them and nothing implements them, so an entry would be a name with nothing
+behind it.
+
+**`Spec.Terminator` became a function of the form.** A ship or colony create
+runs to `end` and a group create is one line, and the file scanner has to know
+which before the order is parsed -- so it asks the Spec with the word after the
+verb in hand.
+
+Two other things fell out. `Spec.Unbuilt` is set only by `registerUnbuilt` in
+`unbuilt.go`, so the flag and the file are one fact and `ec orders help` can
+print NOT BUILT YET from it. And `create` and `name` are the two orders that are
+partly built: the group forms of the one and the two faction forms of the other
+bind to `notBuilt` while the rest of each verb works, which is the "one `Spec`
+may bind a different `Bound` per form" property the create design predicted,
+used for the first time.
+
 ### The cadres are named, and one of them is specified
 
 `CWKR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
@@ -1007,8 +1056,13 @@ four cadres are still names.
 
 ## Step 5 — add the orders
 
-A new order becomes: one `Spec` (parse + bind + apply), a section in
-`docs/orders.md`, and tests.
+A new order becomes: one `Spec`, a section in `docs/orders.md`, and tests.
+
+**Parsing and doing are separable, and the parser comes first.** A `Spec` whose
+rules are written carries parse, bind, and apply; one whose rules are not
+carries parse and binds to `notBuilt`. Every accepted verb is at least at the
+first stage -- see "Every accepted verb parses" above -- so what follows is
+about the second.
 
 **Where this stands.** Six of the thirty are built -- batch 1's `assemble`,
 `unassemble`, and `transfer`, batch 1b's `stow` and `unstow`, and batch 2's ship
@@ -1024,11 +1078,12 @@ mutations it establishes, and because it was the only batch whose rules were
 settled. Four more rules were asked and answered while building it, and three
 more since; see "Batch 1 is built" above.
 
-**Nothing is unblocked.** Every verb whose rules are written is built. The
-three **group** `create` forms are the nearest thing to ready: their grammar is
-accepted and their completion model is settled (kill-and-fill, closing out
-inside stage 5), but they wait on what a factory, a farm, or a mine produces per
-turn, and on a `work_group` column for what a factory is `making`.
+**Nothing is unblocked on the engine side.** Every verb whose rules are written
+is built end to end, and every verb whose rules are not is parsed and fails at
+resolution. The three **group** `create` forms are the nearest thing to ready:
+their grammar is accepted and their completion model is settled (kill-and-fill,
+closing out inside stage 5), but they wait on what a factory, a farm, or a mine
+produces per turn, and on a `work_group` column for what a factory is `making`.
 
 The accepted doc carries thirty-seven verbs. Ten are built -- `move`, `jump`,
 `probe`, `name`, batch 1's `assemble`, `unassemble`, and `transfer`, batch 1b's
