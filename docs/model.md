@@ -136,6 +136,11 @@ types.
 | `faction_id` | The faction controlling the entity. |
 | `enclosed_volume` | Raw volume enclosed by assembled structural components. |
 | `mass` | Total mass of the entity's population and inventory. |
+| `trade_station` | 1 when a `create` said `as trade-station`. What it confers is the market's business and is not written yet. |
+
+An entity has **no status column**. Whether it is finished is the presence of an
+`under_construction` row: when the last line of its build completes, the row
+goes and what is left is an ordinary entity.
 
 | Unit | Entity type |
 | --- | --- |
@@ -254,6 +259,49 @@ probed, does not appear on a sensor sweep, and can be given no order. The
 arrival step of ship movement (stage 15c) lands every ship due and deletes its
 row. Nothing purges this table: a crossing is live state, not turn history.
 
+### `under_construction` and `construction_item`
+
+A ship or colony being built. Like a crossing, a build is not the order that
+began it: the `create` order succeeds the moment it is given, and these two rows
+are what continues after it.
+
+`under_construction`:
+
+| Column | Description |
+| --- | --- |
+| `entity_id` | The unfinished entity, and the primary key. It is also the build's seniority: an id rises monotonically and is never reused, so one builder's builds are already in the order they started. |
+| `game_id` | The game the build belongs to. |
+| `builder_entity_id` | The entity feeding the build: it claims from that entity's stock, carries on its transports, and borrows its construction workers a turn at a time. |
+| `cwkr_cap` | The `with` clause: a ceiling on the workers a turn may use, never a reservation. |
+| `structure_complete` | 1 once every structural `using` line is completed, which is what makes the rest of the build eligible. |
+| `trade_station` | Carried through to the finished entity. |
+
+`construction_item`, one row per line of the two lists:
+
+| Column | Description |
+| --- | --- |
+| `entity_id`, `ordinal` | The build and the line's place in it, which is its priority: list order decides what gets scarce materials, transport, and workers first. |
+| `clause` | `using` or `transfering`. |
+| `unit`, `tech_level` | The unit, or a population class on a `transfering` line. |
+| `required` | How many the order asked for. |
+| `claimed` | This turn's call on the builder's stock. Written at stage 5 and consumed at stage 9; zero between turns, because a claim is never banked. |
+| `delivered` | On site and not yet worked. |
+| `completed` | Assembled, stowed, or aboard. |
+
+What is still wanted on a line is
+\(required - claimed - delivered - completed\); it is derived, not stored, and
+a CHECK holds the three counters within `required`.
+
+The two clauses do not mean the same thing. A `using` line names what the entity
+is made of and completes when its units are assembled into it; a `transfering`
+line names what is handed over rather than built in, and completes when its
+units are stowed in cargo or, for a population class, when the people are
+aboard.
+
+Nothing purges either table, for the reason nothing purges `in_transit`: a build
+is live state rather than turn history, and it outlives the order row
+`ec turn open` takes away.
+
 ## Orders
 
 Every order a player writes is a row of `game_order`, whatever its verb.
@@ -271,6 +319,7 @@ Every order a player writes is a row of `game_order`, whatever its verb.
 | `fuel_spent` | The fuel the order would burn while it is pending, and the fuel it did burn once it resolved, which is zero for a failed order. |
 | `status` | `pending`, `succeeded`, or `failed`. |
 | `error_message` | Why a failed order failed. Null otherwise. |
+| `note` | What an order that **succeeded** still wanted to say: that it did less than it was asked for, or that a `create` put a new entity on the board. It is deliberately not `error_message`, because a shortage is a rate rather than a failure. |
 
 `params` never holds an id. A `move` stores `{"orbit": 6}` or
 `{"system": "B", "orbit": 4}`, a `jump` stores `{"x": 1, "y": 2, "z": 3}`, a

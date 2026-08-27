@@ -592,11 +592,12 @@ carries those rules.
 ## Stages, phases, and what is built
 
 The engine's `phases` table is flat: it has one entry per *step*, not one per
-stage, so the twenty-two stages below come to forty-five phases. Eleven of those
-phases are built -- `unassemble`, `stow`, `transfer`, `unstow`, `assemble`,
-`probe`, `sensor`, `move`, `jump`, `arrival`, `name` -- and three stages, 6, 13,
-and 15, are built entire. Stages 9 and 10 have their orders and not yet their
-sweeps.
+stage, so the twenty-two stages below come to forty-five phases. Twelve of those
+phases are built -- `create`, `unassemble`, `stow`, `transfer`, `unstow`,
+`assemble`, `probe`, `sensor`, `move`, `jump`, `arrival`, `name` -- and stages
+6, 9, 10, 13, and 15 are built entire, sweeps and all. Stage 5 has the ship and
+colony forms of `create` and its claim sweep; the three group forms are a
+different order with a different completion model and are not built.
 
 A stage that is orders and a sweep gets no extra entry for the sweep:
 `Phase.Sweep` runs after that phase's own orders, so creation's claim, the
@@ -611,12 +612,12 @@ sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
 | 2. Farming production | `farming` | sweep | no |
 | 3. Factory production | `manufacturing` | sweep | no |
 | 4. Combat | `raid`, `support`, `attack`, `invade` | orders + sweep | no |
-| 5. Creation | `create` | orders + sweep | no |
+| 5. Creation | `create` | orders + sweep | partly -- ship and colony, not the three group forms |
 | 6. Dis-assembly | `unassemble`, `stow` | orders | **yes** |
 | 7. Build change | `retool` | orders | no |
 | 8. Group change | `idle`, `remove`, `add`, `activate` | orders | no |
-| 9. Transfers | `transfer` | orders + sweep | partly -- the order, not the delivery sweep |
-| 10. Assembly | `unstow`, `assemble` | orders + sweep | partly -- the orders, not the build sweep |
+| 9. Transfers | `transfer` | orders + sweep | **yes** |
+| 10. Assembly | `unstow`, `assemble` | orders + sweep | **yes** |
 | 11. Market and trade stations | `sell`, `buy` | orders + sweep | no |
 | 12. Surveys | `survey` | orders | no |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |
@@ -631,7 +632,7 @@ sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
 | 22. News service | `news` | orders + sweep | no |
 
 The phase names are the names a player sees in `ec orders help`, not
-identifiers that exist yet. The eleven that do exist run in `spec.go` in the
-order `unassemble`, `stow`, `transfer`, `unstow`, `assemble`, `probe`, `sensor`,
-`move`, `jump`, `arrival`, `naming` -- stages 6, 9, 10, 13, 15, and 20, with
-everything in between still to be written.
+identifiers that exist yet. The twelve that do exist run in `spec.go` in the
+order `create`, `unassemble`, `stow`, `transfer`, `unstow`, `assemble`, `probe`,
+`sensor`, `move`, `jump`, `arrival`, `naming` -- stages 5, 6, 9, 10, 13, 15, and
+20, with everything in between still to be written.

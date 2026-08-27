@@ -30,7 +30,8 @@
         "STATUS",
         "START",
         "FINAL",
-        "ERROR"
+        "ERROR",
+        "NOTE"
       ],
       "rows": [
         [
@@ -43,7 +44,8 @@
           "failed",
           "-",
           "-",
-          "colony 107 would hold 3,040 VU in 0 VU of enclosed space"
+          "colony 107 would hold 3,040 VU in 0 VU of enclosed space",
+          "-"
         ],
         [
           "2",
@@ -53,6 +55,7 @@
           "1,500 METL",
           "0",
           "succeeded",
+          "-",
           "-",
           "-",
           "-"
@@ -67,7 +70,8 @@
           "succeeded",
           "-",
           "-",
-          "-"
+          "-",
+          "colony 107 transferred 400 of 5,000 GOLD; it had 400 MU and 1,200 VU of transport left this turn"
         ],
         [
           "4",
@@ -79,7 +83,8 @@
           "failed",
           "-",
           "-",
-          "colony 107 and ship 100 are not at the same place"
+          "colony 107 and ship 100 are not at the same place",
+          "-"
         ],
         [
           "5",
@@ -91,7 +96,8 @@
           "succeeded",
           "-",
           "-",
-          "-"
+          "-",
+          "colony 108 unstowed 8,500 of 9,000 METL; its 20 units of production labour had 8,500 MU of freight left this turn"
         ],
         [
           "7",
@@ -103,6 +109,7 @@
           "succeeded",
           "10/21/32/38",
           "10/-/-/-",
+          "-",
           "-"
         ],
         [
@@ -115,6 +122,7 @@
           "succeeded",
           "10/-/-/-",
           "11/-/-/-",
+          "-",
           "-"
         ],
         [
@@ -127,6 +135,7 @@
           "succeeded",
           "-",
           "-",
+          "-",
           "-"
         ],
         [
@@ -137,6 +146,7 @@
           "(0,0,0) system A \"Home System\"",
           "0",
           "succeeded",
+          "-",
           "-",
           "-",
           "-"

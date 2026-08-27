@@ -7,7 +7,10 @@
 -- readings of another faction, and the five inventory orders -- assembly
 -- rationed by the cadre, an unassemble-transfer pipeline inside one turn, a
 -- transfer filled partway, an unassemble refused for want of room, and a stow
--- and an unstow rationed by production labour rather than by a cadre.
+-- and an unstow rationed by production labour rather than by a cadre. And a
+-- ship-and-colony create: an entity on the board the turn it was ordered, its
+-- structure claimed, carried, and assembled in that turn, and the rest of it
+-- finished in the next.
 --
 -- A ship moves once a turn and jumps once a turn, so a turn that wants to show
 -- two moves has to spend two ships on it, and a ship that wants to show two
@@ -23,6 +26,8 @@
 --   METL masses 1 MU and takes 1 VU unassembled and none in a COPN's cargo.
 --   AUTO-2 masses 8 MU, takes 8 VU assembled and unassembled and 4 in cargo,
 --   and each assembled unit is worth 2 units of production labour.
+--   STRC-2 masses 4 MU, takes 4 VU as freight, and encloses 4 VU assembled;
+--   an open-air colony uses all of what it encloses.
 
 INSERT INTO users (id, email, role) VALUES
     (1, 'player@example.com', 'non-administrator');
@@ -65,6 +70,10 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
 --     nowhere and the one place a probe has to name its system.
 -- 107 is the depot: a cadre to assemble with, transports to hand things over
 --     with, and enough structure that unassembling it all leaves no room.
+-- 109 is the shipyard: transports enough to reach a build, a cadre to lend it,
+--     and its materials in cargo, which is the only section a transport loads
+--     from. It builds an open-air colony, which needs no life support, so the
+--     build's population line can finish rather than waiting on an LFSU.
 -- 108 is the freight yard. It has no cadre and never assembles anything: its
 --     ten unskilled workers and five assembled AUTO-2 are twenty units of
 --     production labour, which move 10,000 MU of freight a turn between them.
@@ -79,6 +88,7 @@ INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, pla
     (106, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 5000, 500),
     (107, 'COPN', 1, 10, 20, 30,  0, 1, 10000, 7940),
     (108, 'COPN', 1, 10, 20, 30,  0, 1, 13000, 14740),
+    (109, 'COPN', 1, 10, 20, 30,  0, 1,  5000,  2920),
     (200, 'SHIP', 1, 10, 20, 31, 55, 2, 5000, 7400);
 
 INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
@@ -115,16 +125,27 @@ INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
     (108, 'operational', 'AUTO', 2, 5),    -- 10 units of production labour
     (108, 'unassembled', 'AUTO', 2, 10),   -- freight, and worth nothing at all
     (108, 'unassembled', 'METL', 0, 12000),
+    -- The shipyard. 50 STRC-10 enclose 5,000 VU against the 1,240 it holds.
+    -- 100 TRAN-1 carry 2,000 MU a turn, which is far more than a build of this
+    -- size needs, so the transports are never what limits it.
+    (109, 'component', 'STRC', 10, 50),
+    (109, 'operational', 'TRAN', 1, 100),
+    (109, 'cargo', 'STRC', 2, 100),
+    (109, 'cargo', 'SNSR', 1, 10),
+    (109, 'cargo', 'FOOD', 0, 50),
+    (109, 'cargo', 'FUEL', 0, 500),
     (200, 'component', 'HDRV', 3, 2),
     (200, 'cargo', 'FUEL', 0, 5000);
 
 INSERT INTO entity_population (entity_id, class, quantity) VALUES
     (100, 'SKW', 10), (101, 'SKW', 5), (101, 'USK', 40), (101, 'NAS', 5),
     (107, 'SKW', 50), (107, 'USK', 50), (107, 'SOL', 100),
-    (108, 'USK', 10);
+    (108, 'USK', 10),
+    (109, 'SKW', 30), (109, 'USK', 30);
 
 -- Five construction workers do 2,500 MU a turn between them, which is less
 -- than the depot's first assemble order asks for, so the rationing shows. They
 -- are five of the 50 SKW and five of the 50 USK, which leaves 45 skilled
 -- workers free to crew transports -- far more than the 20 hulls need.
-INSERT INTO entity_cadre (entity_id, cadre, quantity) VALUES (107, 'CWKR', 5), (101, 'CWKR', 2);
+INSERT INTO entity_cadre (entity_id, cadre, quantity) VALUES
+    (107, 'CWKR', 5), (101, 'CWKR', 2), (109, 'CWKR', 10);

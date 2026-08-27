@@ -174,6 +174,14 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 		return nil, fmt.Errorf("%s %d is in transit and arrives on turn %d; it can be given no orders until then",
 			noun(entity), id, entity.Transit.ArrivalTurn)
 	}
+	// An entity still being built exists and is visible, but it is not yet a
+	// thing that acts: it has no people, nothing assembled, and a standing
+	// commitment already working on it. Refusing it here is the same guard as
+	// the one above, written once for every order there will ever be.
+	if entity.UnderConstruction() {
+		return nil, fmt.Errorf("%s %d is under construction and can be given no orders until it is finished",
+			noun(entity), id)
+	}
 	return entity, nil
 }
 
@@ -223,6 +231,12 @@ func (b *Binder) recipient(id int64, kind string) (*world.Entity, error) {
 	if entity.InTransit() {
 		return nil, fmt.Errorf("%s %d is in transit and arrives on turn %d; nothing can reach it until then",
 			noun(entity), id, entity.Transit.ArrivalTurn)
+	}
+	// A build is fed by the entity that ordered it and by nothing else, so an
+	// unfinished entity is not somewhere a transfer may put things down.
+	if entity.UnderConstruction() {
+		return nil, fmt.Errorf("%s %d is under construction; only the build that began it may deliver to it",
+			noun(entity), id)
 	}
 	return entity, nil
 }

@@ -83,9 +83,20 @@ func Parse(r io.Reader) (Submission, error) {
 			if line.empty() {
 				continue
 			}
+			// A create runs to `end`, so the physical line the scanner handed
+			// over is not always the whole order. This is the one place in the
+			// parser that knows an order may span lines, and it settles it
+			// before the order is read, so every Parse still consumes from one
+			// Line whatever the player's line breaks were.
+			if spec, ok := opensOrder(line); ok && spec.Terminator != "" {
+				if err := gather(scanner, line, spec, &number); err != nil {
+					found = append(found, problem{line.Number, err.Error()})
+					continue
+				}
+			}
 			order, err := parseOrder(line)
 			if err != nil {
-				found = append(found, problem{number, err.Error()})
+				found = append(found, problem{line.Number, err.Error()})
 				continue
 			}
 			submission.Orders = append(submission.Orders, order)
@@ -160,6 +171,41 @@ func parseIdentityLine(line *Line, submission *Submission) error {
 		return err
 	}
 	submission.Identity.FactionID = id
+	return nil
+}
+
+// opensOrder is the order a line names, read without consuming anything. A
+// subject is either `we`, which takes no id, or a word and an id, so the verb
+// is the second token or the third and nothing else has to be understood to
+// find it.
+//
+// It exists for one question the file scanner has to answer before the order is
+// parsed: does this order run to a terminator?
+func opensOrder(line *Line) (*Spec, bool) {
+	offset := 2
+	if word, ok := line.peek(); ok && !word.quoted && strings.EqualFold(word.text, SubjectFaction) {
+		offset = 1
+	}
+	word, ok := line.peekAt(offset)
+	if !ok || word.quoted {
+		return nil, false
+	}
+	return Lookup(word.text)
+}
+
+// gather reads on until the order's terminator, appending each physical line to
+// the one the order began on. The terminator itself is left in the line: it is
+// part of the order's grammar, so the order's own Parse consumes it and a file
+// that ran out first says so here.
+func gather(scanner *bufio.Scanner, line *Line, spec *Spec, number *int) error {
+	for !line.holds(spec.Terminator) {
+		if !scanner.Scan() {
+			return fmt.Errorf("%s runs until `%s`, and the file ended first",
+				strings.ToUpper(spec.Verb), spec.Terminator)
+		}
+		*number++
+		line.extend(scanner.Text())
+	}
 	return nil
 }
 

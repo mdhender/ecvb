@@ -13,8 +13,8 @@ this plan removes them before adding the orders.
 
 **Status: steps 0 through 4 are done and the plan's own verification suite is
 green. Step 5 has begun: NAME is built (`e3eada9`), batch 1 -- `assemble`,
-`unassemble`, `transfer` -- and batch 1b -- `stow`, `unstow` -- are built, and
-`docs/accepted-orders.md`
+`unassemble`, `transfer` -- batch 1b -- `stow`, `unstow` -- and batch 2's ship
+and colony `create` are built, and `docs/accepted-orders.md`
 is now accepted rather than proposed. The parser now reads that surface: every
 order line is subject first, and `we` is a subject. The accepted verbs are
 mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-five
@@ -30,14 +30,15 @@ a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
 See "What the code still has to be told" below for the list, verb by verb.**
 
-**One verb is specified and unbuilt, and is what to build next: the
-ship-and-colony forms of `create`, whose plan of record is
-`docs/plan/entity_build_bom_process.md` and four of whose eight listed costs
-batch 1 paid. See "Step 5 -- add the orders" for what it has left. The `jump`
-rework is **built**: a crossing takes \(\lceil d / t \rceil\) turns, a ship in
-transit is nowhere and unreachable, and the whole fuel bill is drawn on
-departure. `stow` and `unstow` are built too, and brought `AUTO` and production
-labour with them.**
+**Every specified verb is now built.** `stow` and `unstow` landed with `AUTO`
+and production labour; the ship and colony forms of `create` landed with
+`under_construction`, the first multi-line parse, and the three build sweeps.
+The `jump` rework is built too: a crossing takes \(\lceil d / t \rceil\) turns, a
+ship in transit is nowhere and unreachable, and the whole fuel bill is drawn on
+departure. **What remains is blocked on the 1978 rules, verb by verb** -- see
+"What the code still has to be told". The three group `create` forms are the
+nearest of them, and they wait on what a factory, a farm, or a mine produces per
+turn.
 
 ---
 
@@ -50,7 +51,7 @@ labour with them.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 30 orders | **batches 1 and 1b built and under the golden net** (5 of 30); ship-and-colony `create` specified and unbuilt; the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b) |
+| 5 — add the 30 orders | **batches 1, 1b, and 2 built and under the golden net** (6 of 30); the rest blocked on rules | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b) |
 
 ### What step 0 built
 
@@ -913,6 +914,76 @@ explain the number above it. It now says **what was left when the order ran**:
 and got the same fix, and the transport note, which already reported the free
 hulls, was reworded to read the same way.
 
+### Batch 2 is built
+
+The ship and colony forms of `create`. `docs/plan/entity_build_bom_process.md`
+settled it end to end and the build followed it; what follows is what the design
+did not say and what was decided instead.
+
+**The four remaining costs it listed were all real.** The first multi-line parse
+is `Spec.Terminator` plus a `gather` step in `Parse` that appends physical lines
+to the one the order began on before the order is read -- so every `Parse` still
+consumes from one `Line` and no order but the file scanner knows an order may
+span lines. `under_construction` and `construction_item` are one appended
+migration, with `world.CreateEntity` and `internal/world/build.go` as their only
+reader and writer. The three sweeps hang on the `create`, `transfer`, and
+`assemble` phases, where the `Sweep` hook was already waiting and all three were
+nil. And the kit was reworked: `games/beta/home-planet-seed.json`'s home colony
+now carries a `CWKR` cadre, 60 `TRAN-1`, and structure in cargo, which is what a
+build needs to move at all.
+
+**Three rules the design left open were settled while building it**, and all
+three were asked of the user first:
+
+- **`as trade-station` is accepted and recorded.** It is a column on `entity`
+  and on `under_construction` and nothing reads it. The accepted grammar hangs
+  it off all three colony kinds, so a build begun today is the thing the player
+  asked for when stage 11's rules land.
+- **All three clauses stay mandatory**, as `docs/accepted-orders.md` writes
+  them. A build with nothing to hand over still writes a `transfering` line.
+- **A build's progress is read in the turn report**, not on the order row. The
+  design called for a `result` column on `game_order`, but a build outlives its
+  order -- `ec turn open` purges the row two turns on -- so an `UNDER
+  CONSTRUCTION` section is the only place that works for a build older than
+  that. The column landed anyway, as `note`, because batch 1's `Outcome.Note`
+  had nowhere to be stored and the orders report could not show why an order did
+  less than it was asked for. It now can.
+
+**Two rules were judgment calls the design did not cover.** Both are recorded
+here because they could reasonably have gone the other way:
+
+- **A build claims from the builder's cargo**, not from everything it holds.
+  The design says "what the creating entity holds"; cargo is the only section a
+  transport loads from, which is already `transfer`'s rule, so a build follows
+  it rather than getting one of its own. `stow` is what readies a load for a
+  build, which is a neat fit with batch 1b.
+- **Materials are carried before the workers.** The design says the workers ride
+  out on the same transports and does not say in which order. Delivered material
+  is a real state that keeps across turns while a worker who could not be
+  carried costs only that turn's shift, so filling the hold with workers first
+  would be the more expensive mistake.
+
+**One rule the design implied and did not state had to be built explicitly.**
+"Every other unit needs real enclosed space to be delivered into" is what makes
+structure-first *forced* rather than merely preferred, so delivery is bounded by
+`Entity.CargoRoom` and not only by the transports. Without it a build would
+deliver into a hull with nowhere to put anything. The narrow exemption --
+structure in the cargo of an entity under construction consumes nothing, and
+nothing else does -- lives in `Entity.occupiedPerUnit`, one place, so both the
+delivery gate and the room check read the same rule.
+
+**What fell out cheaply.** No fourth `game_order.status`, no change to
+`loadOrders`, and no change to `ec turn open`'s purge, which is what decision 4
+of the design bought. `internal/lifesupport` is a new mechanic package on the
+`internal/<mechanic>` template, and it is only the capacity rule -- \(t^2\)
+population units per assembled unit -- because `LFSU`'s mass and volume are
+still the provisional table's, like `TRAN`'s.
+
+**What is deliberately not built.** The three group `create` forms, which are a
+different order with a different completion model and wait on the production
+rules. And a build cannot be cancelled: `docs/accepted-orders.md` has no verb
+for it.
+
 ### The cadres are named, and one of them is specified
 
 `CWKR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
@@ -939,9 +1010,9 @@ four cadres are still names.
 A new order becomes: one `Spec` (parse + bind + apply), a section in
 `docs/orders.md`, and tests.
 
-**Where this stands.** Five of the thirty are built -- batch 1's `assemble`,
-`unassemble`, and `transfer`, and batch 1b's `stow` and `unstow` -- and none of
-the rest are waiting on the
+**Where this stands.** Six of the thirty are built -- batch 1's `assemble`,
+`unassemble`, and `transfer`, batch 1b's `stow` and `unstow`, and batch 2's ship
+and colony `create` -- and none of the rest are waiting on the
 pipeline: an order costs a `Spec`, a doc section, and tests now, which is what
 steps 0 through 4 were for. They are waiting on what the verbs *do*. That is the
 list in "What the code still has to be told", and it is the 1978 text the user
@@ -953,31 +1024,17 @@ mutations it establishes, and because it was the only batch whose rules were
 settled. Four more rules were asked and answered while building it, and three
 more since; see "Batch 1 is built" above.
 
-**One thing is unblocked and can be built today.**
+**Nothing is unblocked.** Every verb whose rules are written is built. The
+three **group** `create` forms are the nearest thing to ready: their grammar is
+accepted and their completion model is settled (kill-and-fill, closing out
+inside stage 5), but they wait on what a factory, a farm, or a mine produces per
+turn, and on a `work_group` column for what a factory is `making`.
 
-- **`create`, ship and colony forms** -- batch 2, and what is left.
-  `docs/plan/entity_build_bom_process.md` is its plan of record and settles it
-  end to end. **Batch 1 paid four of the eight costs listed there**: inventory
-  mutation in `internal/world`, the cadre table, the two tokenizer readers, and
-  the `internal/units` package. What is left is the first multi-line
-  (`end`-terminated) parse; the `under_construction` and `construction_item`
-  migrations with `world.CreateEntity`; sweeps on the `create`, `transfer`, and
-  `assemble` phases for stages 5, 9, and 10, where the `Sweep` hook exists and
-  all three are nil; a `result` column on `game_order`, because a build's
-  per-turn progress is the same shape as a partial fill and has nowhere to be
-  said; and kit rework, because no player-controlled entity in
-  `games/beta/home-planet-seed.json` holds a transport and a build that cannot
-  be delivered to never finishes.
-
-The three **group** `create` forms are not in that, and neither is the rest of
-batch 2. They wait on what a factory, a farm, or a mine produces per turn, and
-on a `work_group` column for what a factory is `making`.
-
-The accepted doc carries thirty-seven verbs. Nine are built -- `move`, `jump`,
-`probe`, `name`, batch 1's `assemble`, `unassemble`, and `transfer`, and batch
-1b's `stow` and `unstow` -- and
+The accepted doc carries thirty-seven verbs. Ten are built -- `move`, `jump`,
+`probe`, `name`, batch 1's `assemble`, `unassemble`, and `transfer`, batch 1b's
+`stow` and `unstow`, and batch 2's `create` in its ship and colony forms -- and
 one of those still needs reworking: `name`, for naming another faction's ships
-and colonies. `jump` is finished, crossings and all. Twenty-eight remain,
+and colonies. `jump` is finished, crossings and all. Twenty-seven remain,
 batched so that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. **Built.**
@@ -994,12 +1051,12 @@ batched so that each exercises what the next needs:
    only new mechanisms are `internal/labour`, `Entity.ProductionLabour`, and a
    fourth volume on `units.Metrics`.
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
-   `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
-   first batch to exercise a multi-line order end to end. **No longer blocked on
-   the fourth order status**, which `create`'s design does without. It does
-   depend on batch 1 rather than merely following it: a build claims, delivers,
-   and assembles, so `world` needs batch 1's inventory mutations before `create`
-   can move anything.
+   `retool`. **`create` is built in its ship and colony forms**; see "Batch 2 is
+   built" below. It established `world.CreateEntity`, the first multi-line
+   parse, and the three build sweeps, and it needed no fourth order status --
+   the order departs and succeeds, and `under_construction` carries what
+   continues. `add`, `remove`, `idle`, `activate`, `retool` and the three group
+   `create` forms wait on the `work_group` rules.
 3. **Population & upkeep** — `draft`, `disband`, `pay`, `rations`. A population
    system on the `internal/fuel` / `jumpdrive` / `sensors` package template.
 4. **Market** — `buy`, `sell`, for units and for tech levels. Currency,

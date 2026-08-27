@@ -144,6 +144,74 @@ func init() {
 	})
 
 	register(&Spec{
+		Verb:     "create",
+		Subjects: []string{SubjectShip, SubjectColony},
+		Summary:  "begin building a ship or a colony, as fast as the materials, transports, and workers allow",
+		Syntax: []string{
+			"ship SHIP-ID create ship using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
+			"ship SHIP-ID create (open-air | enclosed | orbital) colony [as trade-station] using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
+			"colony COLONY-ID create ship using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
+			"colony COLONY-ID create (open-air | enclosed | orbital) colony [as trade-station] using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end",
+		},
+		Phase: PhaseCreate,
+		// A create is the one order long enough to want breaking over several
+		// lines, so it runs to `end` rather than to the end of a line.
+		Terminator: "end",
+		Decode: func(actor int64, encoded string) (Params, error) {
+			order := CreateParams{EntityID: actor}
+			if err := json.Unmarshal([]byte(encoded), &order); err != nil {
+				return nil, err
+			}
+			return order, nil
+		},
+		Parse: func(subject Subject, line *Line) (Params, error) {
+			order := CreateParams{Kind: subject.Kind, EntityID: subject.ID}
+			form, ok := line.keyword(buildsShip, buildsOpenAir, buildsEnclosed, buildsOrbital)
+			if !ok {
+				return nil, badSyntax("expected ship, open-air colony, enclosed colony, or orbital colony")
+			}
+			order.Builds = form
+			if form != buildsShip {
+				if err := line.expect("colony"); err != nil {
+					return nil, err
+				}
+				// What a trade station confers is stage 11's business and is
+				// not written. The grammar accepts it now so that a build
+				// begun today is the thing the player asked for when it is.
+				if _, ok := line.keyword("as"); ok {
+					if err := line.expect("trade-station"); err != nil {
+						return nil, err
+					}
+					order.TradeStation = true
+				}
+			}
+			var err error
+			if err = line.expect("using"); err != nil {
+				return nil, err
+			}
+			if order.Using, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			if err = line.expect("transfering"); err != nil {
+				return nil, err
+			}
+			if order.Transfering, err = line.unitList(); err != nil {
+				return nil, err
+			}
+			if err = line.expect("with"); err != nil {
+				return nil, err
+			}
+			if order.Workers, err = line.quantity("a quantity of " + cadre.Unit); err != nil {
+				return nil, err
+			}
+			if err = line.expect(cadre.Unit); err != nil {
+				return nil, err
+			}
+			return order, line.expect("end")
+		},
+	})
+
+	register(&Spec{
 		Verb:     "assemble",
 		Subjects: []string{SubjectShip, SubjectColony},
 		Summary:  "put unassembled units to work, as much of them as the construction workers manage",
@@ -1413,4 +1481,219 @@ func (o *transferBound) shortfall(free []transport.Hulls) string {
 func sameBerth(a, b world.Location) bool {
 	return a.StelliumID != 0 && a.StelliumID == b.StelliumID &&
 		a.SystemID == b.SystemID && a.PlanetID == b.PlanetID
+}
+
+// CREATE ----------------------------------------------------------------
+
+// The kinds of thing a create builds, in the words the player writes. A trade
+// station is not among them: it is an orbital colony with a flag on it.
+const (
+	buildsShip     = "ship"
+	buildsOpenAir  = "open-air"
+	buildsEnclosed = "enclosed"
+	buildsOrbital  = "orbital"
+)
+
+// createKinds maps what the player wrote to the entity unit it becomes.
+var createKinds = map[string]string{
+	buildsShip:     "SHIP",
+	buildsOpenAir:  "COPN",
+	buildsEnclosed: "CSFC",
+	buildsOrbital:  "CORB",
+}
+
+// CreateParams is a CREATE as written: who is building, what kind of thing, the
+// two lists, and the ceiling on the workers a turn may use.
+//
+// A create is a commitment rather than a purchase. The order says build this as
+// fast as you can and it succeeds the moment it is given; everything after that
+// is rate rather than failure, which is the opposite of most orders in the game
+// and the thing to hold on to when a detail below looks odd.
+type CreateParams struct {
+	Kind         string         `json:"-"`
+	EntityID     int64          `json:"-"`
+	Builds       string         `json:"builds"`
+	TradeStation bool           `json:"trade_station,omitempty"`
+	Using        []UnitQuantity `json:"using"`
+	Transfering  []UnitQuantity `json:"transfering"`
+	Workers      int64          `json:"with"`
+}
+
+// Actor is the entity that will feed the build: it claims from its stock,
+// carries on its transports, and lends its construction workers a shift at a
+// time.
+func (p CreateParams) Actor() int64 { return p.EntityID }
+
+// Input is the order as the player wrote it, on one line however many they
+// spread it over.
+func (p CreateParams) Input() string {
+	kind := p.Builds
+	if kind != buildsShip {
+		kind += " colony"
+		if p.TradeStation {
+			kind += " as trade-station"
+		}
+	}
+	return fmt.Sprintf("%s using %s transfering %s with %s %s", kind,
+		unitListInput(p.Using), unitListInput(p.Transfering),
+		formatQuantity(p.Workers), cadre.Unit)
+}
+
+// Bind settles what a turn cannot change: that the builder is the player's,
+// that a colony has a planet to stand on and an open-air one air to breathe,
+// and that the two lists name things a build can actually use.
+//
+// A shortfall of anything is never settled here. Materials, transports, and
+// workers are all per-turn conditions and the next turn may cure them, so a
+// build with none of them is a build that makes no progress rather than an
+// order that failed.
+func (p CreateParams) Bind(b *Binder) ([]Bound, error) {
+	entity, err := b.actor(p.EntityID, p.Kind)
+	if err != nil {
+		return nil, err
+	}
+	kind, known := createKinds[p.Builds]
+	if !known {
+		return nil, fmt.Errorf("%q is not a thing a create builds", p.Builds)
+	}
+	var found bindErrors
+	if kind != "SHIP" {
+		// A colony is built at a planet, so the builder has to be at one. A
+		// ship may be built from an entity in the stellium orbit and is built
+		// there.
+		if entity.Location.SystemID == 0 {
+			found = append(found, fmt.Errorf("a colony is created at a planet, and %s %d is in the stellium orbit",
+				noun(entity), entity.ID))
+		} else if kind == "COPN" {
+			planet, exists, err := b.World.PlanetByID(entity.Location.PlanetID)
+			if err != nil {
+				return nil, err
+			}
+			if exists && planet.Habitability == 0 {
+				found = append(found, fmt.Errorf(
+					"an open-air colony breathes the air outside and needs a planet whose habitability is above 0"))
+			}
+		}
+	}
+	items, err := buildItems(p)
+	if err != nil {
+		found = append(found, eachError(err)...)
+	}
+	if len(found) != 0 {
+		return nil, found
+	}
+	return []Bound{&createBound{params: p, entity: entity, kind: kind, items: items}}, nil
+}
+
+// buildItems turns the two lists into the build's lines, numbered in the order
+// the player wrote them, which is their priority.
+//
+// What may be named differs by clause, because the clauses do not mean the same
+// thing. A using line names what the entity is made of, so it names something
+// that can be assembled. A transfering line names what is handed over rather
+// than built in, so it reaches cargo and people both. Neither reaches a cadre,
+// which is an assignment of people rather than a thing to carry.
+func buildItems(p CreateParams) ([]*world.BuildItem, error) {
+	var found bindErrors
+	items := make([]*world.BuildItem, 0, len(p.Using)+len(p.Transfering))
+	for _, clause := range []struct {
+		name  string
+		lines []UnitQuantity
+	}{{world.ClauseUsing, p.Using}, {world.ClauseTransfering, p.Transfering}} {
+		seen := make(map[string]bool, len(clause.lines))
+		for _, line := range clause.lines {
+			unit, techLevel, _, err := units.ParseTag(line.Tag)
+			if err != nil {
+				found = append(found, err)
+				continue
+			}
+			if seen[line.Tag] {
+				found = append(found, fmt.Errorf("%s is named twice in the %s list", line.Tag, clause.name))
+				continue
+			}
+			seen[line.Tag] = true
+			if err := buildable(clause.name, line.Tag, unit); err != nil {
+				found = append(found, err)
+				continue
+			}
+			items = append(items, &world.BuildItem{
+				Ordinal: len(items) + 1, Clause: clause.name,
+				Unit: unit, TechLevel: techLevel, Required: line.Quantity,
+			})
+		}
+	}
+	if len(found) != 0 {
+		return nil, found
+	}
+	return items, nil
+}
+
+// buildable says why a thing a create named cannot go on the line it was
+// written on.
+func buildable(clause, tag, unit string) error {
+	if units.IsCadre(unit) {
+		return fmt.Errorf("%s is a cadre, an assignment of people rather than a unit; name the population instead", tag)
+	}
+	if clause == world.ClauseTransfering {
+		return nil
+	}
+	if _, assemblable := units.AssembledSection(unit); !assemblable {
+		return fmt.Errorf("%s is not built into an entity; name it in the transfering list instead", tag)
+	}
+	return nil
+}
+
+// createBound is a CREATE whose builder and lists are settled.
+type createBound struct {
+	params CreateParams
+	entity *world.Entity
+	kind   string
+	items  []*world.BuildItem
+}
+
+// Params is the order as it will be stored.
+func (o *createBound) Params() Params { return o.params }
+
+// Fuel is nothing. A create moves nothing on the turn it is given: it claims at
+// stage 5, which needs no transport, and the fuel a delivery costs is charged
+// when the delivery happens.
+func (o *createBound) Fuel() int64 { return 0 }
+
+// Apply puts the unfinished entity on the board. It cannot fail: everything a
+// create could be refused for was settled at Bind, and everything else is rate.
+//
+// The entity exists from this moment. It belongs to the faction building it --
+// the exception to "an entity with nobody aboard is uncontrolled", and the
+// exception is the point, because an unfinished entity has no population yet by
+// definition -- and it sits at a planet with a mass, so probes read it like
+// anything else.
+func (o *createBound) Apply(t *Turn) (Outcome, error) {
+	at := o.entity.Location
+	site := at
+	switch o.kind {
+	case "SHIP":
+		// A ship built at a planet settles into a ring of its own, drawn the
+		// way an arriving ship draws one. One built from an entity in the
+		// stellium orbit is built there and has no ring at all.
+		if at.SystemID != 0 {
+			site.Ring = t.World.Game().Seed.RingFor(t.Number, t.FactionID, t.Sequence)
+		}
+	case "CORB":
+		site.Ring = 1
+	default:
+		site.Ring = 0
+	}
+	build := &world.Build{
+		BuilderID: o.entity.ID, WorkerCap: o.params.Workers,
+		TradeStation: o.params.TradeStation, Items: o.items,
+	}
+	// The new entity takes the technology level of the entity that created it,
+	// which settles the column with nothing to look up and nothing to write.
+	created, err := t.World.CreateEntity(o.entity.FactionID, o.kind, o.entity.TechLevel, site, build)
+	if err != nil {
+		return Outcome{}, err
+	}
+	item := succeeded(at, at, 0)
+	item.Note = buildProgress(created)
+	return item, nil
 }

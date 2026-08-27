@@ -407,6 +407,86 @@ CREATE UNIQUE INDEX faction_name_system_idx ON faction_name(faction_id, system_i
 CREATE UNIQUE INDEX faction_name_planet_idx ON faction_name(faction_id, planet_id) WHERE planet_id IS NOT NULL;
 CREATE UNIQUE INDEX faction_name_entity_idx ON faction_name(faction_id, entity_id) WHERE entity_id IS NOT NULL;
 `,
+	`
+-- A ship or colony being built.
+--
+-- The create order that began it departed and succeeded, the way a jump does,
+-- and these two tables carry what continues. Nothing purges them, for the
+-- reason nothing purges in_transit: a build is live state rather than turn
+-- history, and it outlives the order row that "ec turn open" takes away.
+--
+-- The presence of an under_construction row IS the entity's status, so the
+-- entity table needs no status column: when the last item completes, both rows go and what
+-- is left is an ordinary entity.
+--
+-- Seniority is entity_id. An id is unique, rises monotonically, and is never
+-- reused, so one builder's unfinished entities are already in the order their
+-- builds started -- within a turn, because create orders execute in the order
+-- they were written, and across turns for the obvious reason. Nothing is stored
+-- to settle it and nothing references game_order, which is purged anyway.
+CREATE TABLE under_construction (
+    entity_id INTEGER PRIMARY KEY REFERENCES entity(id),
+    game_id INTEGER NOT NULL REFERENCES game(id),
+    -- The entity feeding this build. It claims from its stock, carries on its
+    -- transports, and lends its construction workers a turn at a time.
+    builder_entity_id INTEGER NOT NULL REFERENCES entity(id),
+    -- The "with" clause: a ceiling on the workers a build may use in a turn,
+    -- never a reservation. It holds nothing back.
+    cwkr_cap INTEGER NOT NULL CHECK (cwkr_cap > 0),
+    -- Set when every structural "using" line is completed. Until then only the
+    -- STRC and STRL lines are eligible, because everything else needs enclosed
+    -- space to be delivered into and structure is what makes some.
+    structure_complete INTEGER NOT NULL DEFAULT 0 CHECK (structure_complete IN (0, 1))
+);
+
+-- One line of a build's two lists, in the order the player wrote it.
+--
+-- ordinal is the line's place in its clause, which is its priority: list order
+-- decides what gets scarce materials, transport, and workers first. What is
+-- still wanted on a line is required - claimed - delivered - completed; it is
+-- derived rather than stored.
+--
+-- The two clauses do not mean the same thing. A "using" line names what the new
+-- entity is made of and is completed when its units are assembled into it. A
+-- "transfering" line names what is handed over rather than built in, and is
+-- completed when its units are stowed in cargo or, for a population class, when
+-- the people are aboard.
+CREATE TABLE construction_item (
+    entity_id INTEGER NOT NULL REFERENCES under_construction(entity_id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal > 0),
+    clause TEXT NOT NULL CHECK (clause IN ('using', 'transfering')),
+    unit TEXT NOT NULL CHECK (unit = upper(trim(unit)) AND unit <> ''),
+    tech_level INTEGER NOT NULL DEFAULT 0 CHECK (tech_level BETWEEN 0 AND 10),
+    required INTEGER NOT NULL CHECK (required > 0),
+    -- This turn's call on the builder's stock, written at stage 5 and consumed
+    -- at stage 9. A claim lives for one turn and is never banked: what does not
+    -- get carried is released, and next turn's claiming runs afresh.
+    claimed INTEGER NOT NULL DEFAULT 0 CHECK (claimed >= 0),
+    -- At the new entity and not yet worked.
+    delivered INTEGER NOT NULL DEFAULT 0 CHECK (delivered >= 0),
+    -- Assembled, stowed, or aboard.
+    completed INTEGER NOT NULL DEFAULT 0 CHECK (completed >= 0),
+    PRIMARY KEY (entity_id, ordinal),
+    CHECK (claimed + delivered + completed <= required)
+);
+
+-- A trade station is an orbital colony with a flag on it. What the flag confers
+-- is stage 11's business and is not written; the grammar accepts it now so that
+-- a build begun today is the thing the player asked for when the rules land.
+ALTER TABLE entity ADD COLUMN trade_station INTEGER NOT NULL DEFAULT 0
+    CHECK (trade_station IN (0, 1));
+ALTER TABLE under_construction ADD COLUMN trade_station INTEGER NOT NULL DEFAULT 0
+    CHECK (trade_station IN (0, 1));
+
+-- What an order still wants to say when it succeeded and did less than it was
+-- asked for. It is not an error_message: the order succeeded, and a shortage is
+-- a rate rather than a failure.
+ALTER TABLE game_order ADD COLUMN note TEXT;
+
+-- The two questions a build's sweeps ask: which builds does this entity feed,
+-- and what is left on this build.
+CREATE INDEX under_construction_builder_idx ON under_construction(builder_entity_id);
+`,
 }
 
 // SchemaVersion is the latest database schema version.

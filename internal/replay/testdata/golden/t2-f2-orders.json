@@ -30,7 +30,8 @@
         "STATUS",
         "START",
         "FINAL",
-        "ERROR"
+        "ERROR",
+        "NOTE"
       ],
       "rows": []
     },

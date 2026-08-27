@@ -30,11 +30,25 @@
         "STATUS",
         "START",
         "FINAL",
-        "ERROR"
+        "ERROR",
+        "NOTE"
       ],
       "rows": [
         [
           "1",
+          "16",
+          "109",
+          "create",
+          "open-air colony using 40 STRC-2, 2 SNSR-1 transfering 10 FOOD, 5 USK with 4 CWKR",
+          "0",
+          "succeeded",
+          "-",
+          "-",
+          "-",
+          "colony 201 is under construction at ring 0 of its planet"
+        ],
+        [
+          "2",
           "15",
           "108",
           "stow",
@@ -43,10 +57,11 @@
           "succeeded",
           "-",
           "-",
-          "-"
+          "-",
+          "colony 108 stowed 10,000 of 12,000 METL; its 20 units of production labour had 10,000 MU of freight left this turn"
         ],
         [
-          "2",
+          "3",
           "14",
           "107",
           "transfer",
@@ -55,10 +70,11 @@
           "succeeded",
           "-",
           "-",
+          "-",
           "-"
         ],
         [
-          "3",
+          "4",
           "13",
           "107",
           "assemble",
@@ -67,10 +83,11 @@
           "succeeded",
           "-",
           "-",
-          "-"
+          "-",
+          "colony 107 assembled 62 of 100 SNSR-1; its 5 CWKR had 2,500 MU of work left this turn"
         ],
         [
-          "9",
+          "10",
           "8",
           "100",
           "move",
@@ -78,11 +95,12 @@
           "8",
           "succeeded",
           "10/20/30/64",
-          "10/20/31/64",
+          "10/20/31/14",
+          "-",
           "-"
         ],
         [
-          "10",
+          "11",
           "9",
           "104",
           "move",
@@ -91,10 +109,11 @@
           "failed",
           "10/20/30/64",
           "10/20/30/64",
-          "ship 104 needs 4 FUEL to move and holds 1"
+          "ship 104 needs 4 FUEL to move and holds 1",
+          "-"
         ],
         [
-          "11",
+          "12",
           "10",
           "106",
           "move",
@@ -103,10 +122,11 @@
           "succeeded",
           "10/-/-/-",
           "10/-/-/-",
+          "-",
           "-"
         ],
         [
-          "12",
+          "13",
           "11",
           "105",
           "move",
@@ -115,10 +135,11 @@
           "succeeded",
           "10/20/30/64",
           "10/-/-/-",
+          "-",
           "-"
         ],
         [
-          "13",
+          "14",
           "12",
           "105",
           "jump",
@@ -127,6 +148,7 @@
           "succeeded",
           "10/-/-/-",
           "11/-/-/-",
+          "-",
           "-"
         ]
       ]
@@ -146,7 +168,7 @@
       ],
       "rows": [
         [
-          "4",
+          "5",
           "4",
           "100",
           "orbit 4",
@@ -157,7 +179,7 @@
           "-"
         ],
         [
-          "5",
+          "6",
           "4",
           "100",
           "orbit 6",
@@ -168,7 +190,7 @@
           "-"
         ],
         [
-          "6",
+          "7",
           "5",
           "100",
           "system B orbit 4",
@@ -179,7 +201,7 @@
           "-"
         ],
         [
-          "7",
+          "8",
           "6",
           "101",
           "orbit 4",
@@ -190,7 +212,7 @@
           "-"
         ],
         [
-          "8",
+          "9",
           "7",
           "106",
           "system A orbit 4",

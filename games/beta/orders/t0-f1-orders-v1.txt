@@ -6,3 +6,13 @@ id faction 1
 # the jump leaves from there.
 ship 2 move to orbit 11
 ship 2 jump to (-1,1,6)
+
+# A create is a commitment: it succeeds the moment it is given, the colony
+# appears unfinished, and the build runs for as many turns as it needs. Only
+# the structural lines are eligible until the structure is done, so the sensor
+# and the food wait for a later turn.
+colony 1 create enclosed colony
+  using 200 STRC-2, 1 SNSR-1
+  transfering 1 CNGD
+  with 10 CWKR
+end

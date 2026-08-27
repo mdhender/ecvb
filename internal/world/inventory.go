@@ -10,6 +10,7 @@ import (
 	"github.com/mdhender/ecvb/internal/fuel"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"github.com/mdhender/ecvb/internal/labour"
+	"github.com/mdhender/ecvb/internal/lifesupport"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"github.com/mdhender/ecvb/internal/transport"
 	"github.com/mdhender/ecvb/internal/units"
@@ -86,13 +87,52 @@ func (e *Entity) stacksIn(section, unit string) []Stack {
 func (e *Entity) OccupiedVolume() int64 {
 	total := int64(0)
 	for stack, quantity := range e.Inventory {
-		total += quantity * units.OccupiedVolumePerUnit(e.Unit, stack.Section, stack.Unit,
-			stack.TechLevel, units.StoredHasTechLevel(stack.TechLevel))
+		total += quantity * e.occupiedPerUnit(stack.Section, stack.Unit, stack.TechLevel)
 	}
 	for _, quantity := range e.Population {
 		total += quantity * units.PopulationMetrics.CargoVolume
 	}
 	return total
+}
+
+// occupiedPerUnit is what one unit consumes of this entity's enclosed space.
+//
+// It is units.OccupiedVolumePerUnit with one exemption on top, and the
+// exemption is deliberately narrow: STRC and STRL delivered to an entity under
+// construction sit in its cargo consuming nothing, which they could not
+// otherwise do -- the space they would occupy is the space they have not yet
+// created. Nothing else is exempt, which is what makes structure-first forced
+// on a build rather than merely preferred: every other unit needs real enclosed
+// space to be delivered into, so it cannot arrive until structure has made
+// some.
+func (e *Entity) occupiedPerUnit(section, unit string, techLevel int) int64 {
+	if e.UnderConstruction() && section == units.SectionCargo && units.IsStructural(unit) {
+		return 0
+	}
+	return units.OccupiedVolumePerUnit(e.Unit, section, unit, techLevel,
+		units.StoredHasTechLevel(techLevel))
+}
+
+// CargoRoom is the enclosed space the entity has spare. It is what decides
+// whether something can be delivered to it at all: an entity cannot hold more
+// than it encloses, and a transport cannot set down what there is no room for.
+func (e *Entity) CargoRoom() (int64, error) {
+	usable, err := e.UsableEnclosedSpace()
+	if err != nil {
+		return 0, err
+	}
+	return max(usable-e.OccupiedVolume(), 0), nil
+}
+
+// CargoVolumePerUnit is what one unit would consume of this entity's enclosed
+// space as cargo. It is zero for the things that consume none: a bulk resource
+// in the external depots of a COPN or a CORB, and structure delivered to an
+// entity still being built.
+func (e *Entity) CargoVolumePerUnit(unit string, techLevel int) int64 {
+	if units.IsPopulation(unit) {
+		return units.PopulationMetrics.CargoVolume
+	}
+	return e.occupiedPerUnit(units.SectionCargo, unit, techLevel)
 }
 
 // UsableEnclosedSpace is how much room the entity's assembled structure
@@ -275,9 +315,8 @@ type Shift struct {
 func (e *Entity) RoomAfter(shifts []Shift) (occupied, usable int64, err error) {
 	occupied, enclosed := e.OccupiedVolume(), e.EnclosedVolume
 	for _, shift := range shifts {
-		has := units.StoredHasTechLevel(shift.TechLevel)
-		occupied += shift.Quantity * (units.OccupiedVolumePerUnit(e.Unit, shift.To, shift.Unit, shift.TechLevel, has) -
-			units.OccupiedVolumePerUnit(e.Unit, shift.From, shift.Unit, shift.TechLevel, has))
+		occupied += shift.Quantity * (e.occupiedPerUnit(shift.To, shift.Unit, shift.TechLevel) -
+			e.occupiedPerUnit(shift.From, shift.Unit, shift.TechLevel))
 		enclosed += shift.Quantity * (units.EnclosedVolumePerUnit(shift.To, shift.Unit, shift.TechLevel) -
 			units.EnclosedVolumePerUnit(shift.From, shift.Unit, shift.TechLevel))
 	}
@@ -560,10 +599,11 @@ func (w *World) setCadre(entity *Entity, name string, quantity int64) error {
 }
 
 // recomputeAssemblies rebuilds what the entity's component section adds up to.
-// A drive and a sensor array are the sum over their assembled units, so an
-// order that assembles one changes what the entity can do in the same turn.
+// A drive, a sensor array, and life support are each the sum over their
+// assembled units, so an order that assembles one changes what the entity can
+// do in the same turn.
 func (e *Entity) recomputeAssemblies() {
-	e.Drive, e.Sensors = jumpdrive.Drive{}, sensors.Array{}
+	e.Drive, e.Sensors, e.LifeSupport = jumpdrive.Drive{}, sensors.Array{}, lifesupport.Capacity{}
 	for stack, quantity := range e.Inventory {
 		if stack.Section != units.SectionComponent {
 			continue
@@ -573,8 +613,29 @@ func (e *Entity) recomputeAssemblies() {
 			e.Drive = e.Drive.Add(stack.TechLevel, quantity)
 		case sensors.Unit:
 			e.Sensors = e.Sensors.Add(stack.TechLevel, quantity)
+		case lifesupport.Unit:
+			e.LifeSupport = e.LifeSupport.Add(stack.TechLevel, quantity)
 		}
 	}
+}
+
+// SupportedPopulation is how many more population units the entity can keep
+// alive, and whether it is capped at all: what its assembled LFSU supports,
+// less the people already aboard.
+//
+// capped is false for an open-air colony, which breathes the air outside and
+// carries no life support, and there is no number to report for it. Only
+// assembled units support anyone, so LFSU delivered and not yet worked supports
+// nobody -- which is the point of the gate a create order measures against.
+func (e *Entity) SupportedPopulation() (room int64, capped bool) {
+	if lifesupport.OpenAir(e.Unit) {
+		return 0, false
+	}
+	aboard := int64(0)
+	for _, quantity := range e.Population {
+		aboard += quantity
+	}
+	return max(e.LifeSupport.Population-aboard, 0), true
 }
 
 func (w *World) loadInventory() error {

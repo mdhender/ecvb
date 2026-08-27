@@ -106,6 +106,30 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 		return nil, fmt.Errorf("query ships in transit: %w", err)
 	}
 
+	// What is still being built, and how far each line of it has got. A build
+	// outlives the create order that began it -- the order row is purged two
+	// turns on -- so this is the only place a player can read its progress.
+	//
+	// CLAIMED is this turn's call on the builder's stock and is zero between
+	// turns; DELIVERED is on site and not yet worked; DONE is assembled,
+	// stowed, or aboard. What is still wanted is the difference.
+	builds := rpt.Table("UNDER CONSTRUCTION",
+		"ENTITY", "KIND", "BUILDER", "WORKERS", "CLAUSE", "UNIT", "TECH", "REQUIRED", "CLAIMED", "DELIVERED", "DONE")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT uc.entity_id, e.unit, uc.builder_entity_id, uc.cwkr_cap,
+			ci.clause, ci.unit, ci.tech_level, ci.required, ci.claimed, ci.delivered, ci.completed
+		FROM under_construction AS uc
+		JOIN entity AS e ON e.id = uc.entity_id
+		JOIN construction_item AS ci ON ci.entity_id = uc.entity_id
+		WHERE e.faction_id = ?
+		ORDER BY uc.entity_id, ci.ordinal;`, reportRows(factionID, func(stmt *sqlite.Stmt) {
+		builds.Row(stmt.ColumnInt64(0), stmt.ColumnText(1), stmt.ColumnInt64(2), stmt.ColumnInt64(3),
+			stmt.ColumnText(4), stmt.ColumnText(5), stmt.ColumnInt(6), stmt.ColumnInt64(7),
+			stmt.ColumnInt64(8), stmt.ColumnInt64(9), stmt.ColumnInt64(10))
+	})); err != nil {
+		return nil, fmt.Errorf("query entities under construction: %w", err)
+	}
+
 	// What this faction calls things. A name is its own: nobody else's report
 	// shows it, and a place may be named without ever being visited.
 	names := rpt.Table("NAMES", "SUBJECT", "ID", "NAME")

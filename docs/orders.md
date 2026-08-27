@@ -384,6 +384,178 @@ may not hold control characters.
 
 Names resolve in the naming phase, which is the last phase of the turn.
 
+## CREATE
+
+```text
+ship SHIP-ID create ship using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end
+ship SHIP-ID create (open-air | enclosed | orbital) colony [as trade-station] using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end
+colony COLONY-ID create ship using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end
+colony COLONY-ID create (open-air | enclosed | orbital) colony [as trade-station] using QUANTITY UNIT, ... transfering QUANTITY UNIT, ... with QUANTITY CWKR end
+```
+
+A create begins building a ship or a colony. **It is a commitment, not a
+purchase**: the order says *build this as fast as you can*, it succeeds the
+moment it is given, and the build runs for as many turns as it needs.
+Everything after that is rate rather than failure. This is the opposite of most
+orders in the game, and it is the thing to hold on to when a rule below looks
+odd.
+
+A create is the one order that may run over several lines, so it is terminated
+by `end`. Line breaks and spacing inside it mean nothing.
+
+Examples:
+
+```text
+ship 18 create ship
+  using 60 STRC-8,
+        61 HDRV-1, 5 SDRV-1
+        , 5 LFSU-3, 1 SNSR-1
+  transfering 25 FOOD, 5 SKW, 16,800 FUEL, 93 GOLD
+  with 500 CWKR
+end
+
+colony 24 create orbital colony as trade-station
+  using 200 STRC-4, 20 LFSU-2
+  transfering 40 USK
+  with 100 CWKR
+end
+```
+
+All three clauses are required and each names at least one line.
+
+### The three clauses
+
+`using` names the units the new entity is **made of**. A create assembles what
+it is given, so no separate `ASSEMBLE` is written for them: they are set down in
+the new entity's cargo, which is what a transport does with anything, and the
+build's own workers move them into component or operational inventory. A line
+here must name something that can be assembled; a resource or a population class
+belongs in the other list.
+
+`transfering` names what is **handed over** rather than built in: cargo, and
+population. `5 SKW` is five units of skilled workers, which is five hundred
+people, and they go aboard rather than into inventory. A `transfering` line is
+finished the moment it arrives, because cargo is where it was going.
+
+`with QUANTITY CWKR` is a **ceiling on the workers a turn may use**, not a
+reservation. It holds nothing back. Every turn the engine assigns the build up
+to that many construction workers from whatever the builder has idle, and never
+more however many thousands are standing about. A turn that cannot fill the cap
+costs that turn's work and nothing else.
+
+`create` is the only order that names its workers, because it is the only
+assembly that runs for several turns and so the only one worth throttling. It is
+also the only lever over how one entity's workers are split between its builds,
+so it is worth setting deliberately rather than setting to the size of the
+payroll.
+
+**Within each clause, the order you wrote the lines in is their priority.**
+List order decides what gets scarce materials, transport, and workers first.
+
+### What a build does each turn
+
+A build competes for three different things and they are settled at three
+different stages, so its turn is three steps rather than one:
+
+| Stage | What the build does |
+| --- | --- |
+| 5, creation | **Claims** what the builder holds and has not already promised. Claiming moves nothing and needs no transport. |
+| 9, transfers | **Delivers** the claim on the builder's transports, and carries the construction workers out with it. |
+| 10, assembly | **Completes**: the workers assemble what is on site, and then go home. |
+
+Claiming is upstream of transfers and the market, so a build cannot claim units
+that arrived this turn. A claim lives for **one turn**: what does not get
+carried is released, and next turn's claiming runs afresh in seniority order, so
+a senior build's priority is renewed rather than banked.
+
+A build claims from the builder's **cargo**, which is the only section a
+transport loads from -- the same rule a `TRANSFER` follows. `STOW` is what
+readies a load for a build.
+
+Materials are carried before workers. Delivered material keeps across turns
+while a worker who could not be carried costs only that turn's shift, so filling
+the hold with workers first would be the more expensive mistake.
+
+> **Explicitly ordered work outranks a standing commitment.** A `TRANSFER` order
+> is served before a build's claim, and an `ASSEMBLE` order before a build's own
+> assembly. A build takes what is left, which is all it ever needs to do,
+> because a build never fails for want -- it only slows.
+
+A build's assembly is **its own pool**: its workers are at the new entity doing
+that build's work, so their 500 MU a turn is reckoned for that build alone and
+rounds up on its own. It does not pool with the builder's `ASSEMBLE` orders, nor
+with a sibling build. What they share is the cadre they are drawn from.
+
+Where two builds of one entity compete, the **older is served first** and each
+takes up to its own cap.
+
+### Structure comes first
+
+Until every structural `using` line is completed, only the `STRC` and `STRL`
+lines are eligible. This is forced rather than preferred: assembled structure is
+what creates enclosed volume, and everything else an entity holds consumes it,
+so before there is structure there is nowhere to put anything.
+
+The one exemption that makes a build possible at all is narrow: `STRC` and
+`STRL` delivered to an entity under construction sit in its cargo consuming no
+enclosed space. **Nothing else is exempt.**
+
+### Population needs life support first
+
+A population line is eligible only while the new entity's **assembled** `LFSU`
+supports the people already aboard as well as the ones about to arrive.
+Delivered-but-unassembled life support supports nobody. Unsupported people never
+leave the entity handing them over. An open-air colony breathes the air outside
+and is not capped at all.
+
+A line that cannot make progress this turn is **skipped**, and the build goes on
+to the next one. An unavailable line never freezes a build; as soon as it can be
+worked again it takes precedence over everything below it. So a player who
+writes population above life support loses turns rather than the build.
+
+### Where the new entity appears
+
+At the builder's planet, in the ring its kind requires: ring 0 for an open-air
+or enclosed colony, ring 1 for an orbital one, and a ring drawn from 2 through
+99 for a ship, the way an arriving ship draws one. A ship created from an entity
+in the stellium orbit is created there.
+
+A colony therefore requires the builder to be **at a planet**, and an open-air
+colony requires that planet's habitability to be **above 0**. Both are refused
+at submission, because neither can change before the turn resolves.
+
+The new entity takes the **technology level of the entity that created it**.
+
+`as trade-station` is accepted on any of the three colony kinds and recorded on
+the entity. What it confers is the market's business and is not built yet.
+
+### While it is unfinished
+
+The entity **exists from the moment the order is given**. It belongs to the
+faction building it, it has a mass, and probes and passive sensors read it like
+anything else. It grows: its mass rises as material is delivered and its
+enclosed volume as structure is assembled.
+
+It can be **given no order**, and nothing but its own build may deliver to it.
+When the last line completes, the build is over and what is left is an ordinary
+entity.
+
+Read a build's progress in the **UNDER CONSTRUCTION** section of the turn
+report. It is the only place: a build outlives the create order that began it,
+and that order row is purged two turns on.
+
+**A lean turn is not a failure.** A build that gets no materials, no transport,
+or no workers simply does not move that turn, and nothing carries over against
+it. A build with no transports at all is the extreme case and is still not an
+error: the order succeeds, the entity exists, and it delivers nothing until
+transports reach the builder. What still fails is only what could not have
+changed -- a unit code that is not one, or a colony ordered from an entity that
+is not at a planet.
+
+Group creation -- `create factory-group`, `create farm-group`, `create
+mine-group` -- is a different order with a different completion model and is not
+built.
+
 ## UNASSEMBLE
 
 ```text

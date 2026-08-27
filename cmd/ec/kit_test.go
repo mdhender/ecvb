@@ -28,7 +28,10 @@ func TestReadHomePlanetKit(t *testing.T) {
 		controlled       bool
 		inventoryEntries int
 	}{
-		"COPN": {mass: 5499, enclosedVolume: 20000, controlled: true, inventoryEntries: 6},
+		// The home colony carries what a build needs: a CWKR cadre, transports
+		// to reach the site, and structure in cargo, which is the only section
+		// a build claims from.
+		"COPN": {mass: 6831, enclosedVolume: 20000, controlled: true, inventoryEntries: 10},
 		"CSFC": {mass: 5594, enclosedVolume: 20000, controlled: true, inventoryEntries: 7},
 		"CORB": {mass: 71607, enclosedVolume: 350000, controlled: false, inventoryEntries: 6},
 		// The ship carries 20 HDRV-3 and the 3500 FUEL they burn. Bulk

@@ -340,10 +340,10 @@ func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[*orders.Phase][]
 // having moved reads it.
 func updateOutcome(conn *sqlite.Conn, gameID int64, turn int, item outcome) error {
 	if err := sqlitex.ExecuteTransient(conn, `
-		UPDATE game_order SET status = ?, error_message = ?, fuel_spent = ?
+		UPDATE game_order SET status = ?, error_message = ?, fuel_spent = ?, note = ?
 		WHERE game_id = ? AND turn = ? AND faction_id = ? AND sequence = ? AND status = 'pending';`,
 		&sqlitex.ExecOptions{Args: []any{
-			item.status, nullableMessage(item.message), item.fuelSpent,
+			item.status, nullableMessage(item.message), item.fuelSpent, nullableMessage(item.note),
 			gameID, turn, item.factionID, item.sequence,
 		}}); err != nil {
 		return fmt.Errorf("record %s order faction %d sequence %d outcome: %w",

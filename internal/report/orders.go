@@ -35,13 +35,19 @@ func Orders(conn *sqlite.Conn, gameCode, email string, factionID int64, turn int
 // own below because what a probe records is what it read rather than where it
 // went. Which orders belong in which section is a question about the shape of
 // the report now, not about the shape of the schema: they are all one table.
+//
+// NOTE is what an order that succeeded still wanted to say -- that it did less
+// than it was asked for, or that a create put a new entity on the board. It is
+// deliberately not the ERROR column: a shortage is a rate rather than a
+// failure, so it belongs beside a succeeded status rather than in place of one.
 func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64, heading string) error {
-	table := rpt.Table(heading, "SEQUENCE", "LINE", "ENTITY", "VERB", "INPUT", "FUEL", "STATUS", "START", "FINAL", "ERROR")
+	table := rpt.Table(heading, "SEQUENCE", "LINE", "ENTITY", "VERB", "INPUT", "FUEL", "STATUS", "START", "FINAL", "ERROR", "NOTE")
 	// Fuel is the one number that prices a move or a jump: what the order
 	// would burn while it is pending, and what it did burn once it resolves.
 	// An order that has not resolved has no movement row, and reads as "-".
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT o.sequence, o.source_line, o.actor_entity_id, o.verb, o.input, o.fuel_spent, o.status, o.error_message,
+			o.note,
 			m.start_stellium_id, m.start_system_id, m.start_planet_id, m.start_planet_ring,
 			m.final_stellium_id, m.final_system_id, m.final_planet_id, m.final_planet_ring
 		FROM game_order AS o
@@ -56,7 +62,8 @@ func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 			table.Row(
 				stmt.ColumnInt(0), stmt.ColumnInt(1), actor(stmt, 2), stmt.ColumnText(3),
 				stmt.ColumnText(4), stmt.ColumnInt64(5), stmt.ColumnText(6),
-				orderLocation(stmt, 8), orderLocation(stmt, 12), nullableText(stmt, 7))
+				orderLocation(stmt, 9), orderLocation(stmt, 13), nullableText(stmt, 7),
+				nullableText(stmt, 8))
 			return nil
 		},
 	}); err != nil {
@@ -69,6 +76,8 @@ func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 // start and final location; it names the planet it read instead.
 func addProbes(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
 	table := rpt.Table("PROBES", "SEQUENCE", "LINE", "ENTITY", "INPUT", "STATUS", "SYSTEM", "PLANET", "HABITABILITY", "ERROR")
+	// A probe reads a planet or it does not; there is no partial answer to
+	// spend a note on, so the probe section has no NOTE column.
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT o.sequence, o.source_line, o.actor_entity_id, o.input, o.status,
 			s.stellium_id, s.system_id, s.planet_id, s.habitability, o.error_message

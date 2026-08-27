@@ -19,6 +19,7 @@ import (
 
 	"github.com/mdhender/ecvb/internal/fuel"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
+	"github.com/mdhender/ecvb/internal/lifesupport"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -42,6 +43,7 @@ type Point struct {
 type Entity struct {
 	ID        int64
 	Unit      string
+	TechLevel int
 	FactionID int64
 	Location  Location
 	Mass      int64
@@ -64,6 +66,17 @@ type Entity struct {
 	// Transit is the crossing this ship is making, or nil when it is on the
 	// board. A ship in transit has no Location at all.
 	Transit *Transit
+	// Build is the construction still to be finished on this entity, or nil
+	// for an ordinary one. An unfinished entity exists and is visible but can
+	// be given no order; see build.go.
+	Build *Build
+	// LifeSupport is what the entity's assembled LFSU keeps alive. Derived
+	// from the component section like the drive and the sensors, so no
+	// mutation can leave it stale.
+	LifeSupport lifesupport.Capacity
+	// TradeStation is the `as trade-station` flag a create order set. Nothing
+	// reads it yet; stage 11 will.
+	TradeStation bool
 }
 
 // Transit is a crossing between stellia in progress: where the ship is bound
@@ -122,6 +135,11 @@ type World struct {
 	// is the whole of what one hull is worth.
 	hulls   map[hullKey]int64
 	squares map[int64]int64
+	// workers counts the construction workers each build was assigned this
+	// turn, keyed on the entity being built. Turn state like the rest: the
+	// workers were never held, only lent for a shift, so the count starts
+	// empty every turn without anything having to release them.
+	workers map[int64]int64
 }
 
 // orderKey is one kind of order given to one entity.
@@ -155,6 +173,7 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 		work:     make(map[workKey]int64),
 		hulls:    make(map[hullKey]int64),
 		squares:  make(map[int64]int64),
+		workers:  make(map[int64]int64),
 	}
 	loaded.game.Code = gameCode
 	if err := sqlitex.ExecuteTransient(conn,
@@ -238,6 +257,22 @@ func (w *World) System(stelliumID int64, letter string) (int64, error) {
 		return 0, fmt.Errorf("find system %s: %w", letter, err)
 	}
 	return id, nil
+}
+
+// PlanetByID is the planet with an id. found is false when the game holds none,
+// which no caller reaches: an entity stands at a planet of its own game.
+func (w *World) PlanetByID(id int64) (planet Planet, found bool, err error) {
+	if err := sqlitex.ExecuteTransient(w.conn,
+		"SELECT id, habitability FROM planet WHERE id = ?;", &sqlitex.ExecOptions{
+			Args: []any{id},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				planet, found = Planet{ID: stmt.ColumnInt64(0), Habitability: stmt.ColumnInt(1)}, true
+				return nil
+			},
+		}); err != nil {
+		return Planet{}, false, fmt.Errorf("find planet %d: %w", id, err)
+	}
+	return planet, found, nil
 }
 
 // Planet is the planet in an orbit of a system. found is false when the orbit
@@ -465,7 +500,7 @@ func (w *World) loadStellia() error {
 func (w *World) loadEntities() error {
 	if err := sqlitex.ExecuteTransient(w.conn, `
 		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring,
-		       e.mass, e.enclosed_volume
+		       e.mass, e.enclosed_volume, e.trade_station, e.tech_level
 		FROM entity AS e
 		JOIN faction AS f ON f.id = e.faction_id
 		WHERE f.game_id = ?;`, &sqlitex.ExecOptions{
@@ -476,6 +511,8 @@ func (w *World) loadEntities() error {
 				ID: id, Unit: stmt.ColumnText(1), FactionID: stmt.ColumnInt64(2),
 				Location: readLocation(stmt, 3), Mass: stmt.ColumnInt64(7),
 				EnclosedVolume: stmt.ColumnInt64(8),
+				TradeStation:   stmt.ColumnInt(9) != 0,
+				TechLevel:      stmt.ColumnInt(10),
 				Inventory:      make(Inventory),
 				Population:     make(map[string]int64),
 				Cadre:          make(map[string]int64),
@@ -504,7 +541,7 @@ func (w *World) loadEntities() error {
 	}); err != nil {
 		return fmt.Errorf("load ships in transit: %w", err)
 	}
-	return nil
+	return w.loadBuilds()
 }
 
 func readLocation(stmt *sqlite.Stmt, column int) Location {

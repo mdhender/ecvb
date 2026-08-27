@@ -81,6 +81,23 @@
       "rows": []
     },
     {
+      "name": "UNDER CONSTRUCTION",
+      "columns": [
+        "ENTITY",
+        "KIND",
+        "BUILDER",
+        "WORKERS",
+        "CLAUSE",
+        "UNIT",
+        "TECH",
+        "REQUIRED",
+        "CLAIMED",
+        "DELIVERED",
+        "DONE"
+      ],
+      "rows": []
+    },
+    {
       "name": "NAMES",
       "columns": [
         "SUBJECT",
@@ -216,7 +233,8 @@
         "STATUS",
         "START",
         "FINAL",
-        "ERROR"
+        "ERROR",
+        "NOTE"
       ],
       "rows": []
     },

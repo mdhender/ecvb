@@ -33,17 +33,29 @@ type Phase struct {
 // The phases of a turn. Production and combat will be new entries here and a
 // Phase on their orders' Specs; nothing else has to learn about them.
 var (
+	// PhaseCreate is stage 5. Its orders put unfinished entities on the board
+	// and its sweep is the first of a build's three acts: it claims the stock
+	// the builder holds, which is the priority decision and needs no transport.
+	// It is upstream of transfers and the market on purpose, so a build cannot
+	// claim units that only arrived this turn.
+	PhaseCreate = &Phase{Name: "create", Sweep: claimBuilds}
 	// The five inventory phases are stages 6a, 6b, 9, 10a, and 10b of
 	// docs/turn-sequence.md, and they are in that order on purpose. Stage 6
 	// moves units away from the sections they work in and stage 10 moves them
 	// back toward them, with the transports running between; units must be in
 	// cargo to be carried, so a file may unassemble and stow at one entity,
 	// transfer to another, and unstow or assemble there, all in one turn.
+	//
+	// Two of them carry a build's other two acts. A build delivers on the
+	// transfer phase and completes on the assembly phase, because those are
+	// where the transports and the construction workers it competes for are
+	// settled -- and a sweep runs after its phase's orders, which is what makes
+	// explicitly ordered work outrank a standing commitment.
 	PhaseUnassemble = &Phase{Name: "unassemble"}
 	PhaseStow       = &Phase{Name: "stow"}
-	PhaseTransfer   = &Phase{Name: "transfer"}
+	PhaseTransfer   = &Phase{Name: "transfer", Sweep: deliverBuilds}
 	PhaseUnstow     = &Phase{Name: "unstow"}
-	PhaseAssemble   = &Phase{Name: "assemble"}
+	PhaseAssemble   = &Phase{Name: "assemble", Sweep: completeBuilds}
 	PhaseProbe      = &Phase{Name: "probe"}
 	PhaseSensor     = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
 	PhaseMove       = &Phase{Name: "move"}
@@ -63,6 +75,7 @@ var (
 // turn's landings and a ship cannot be caught by a jump order written the turn
 // it arrives.
 var phases = []*Phase{
+	PhaseCreate,
 	PhaseUnassemble, PhaseStow, PhaseTransfer, PhaseUnstow, PhaseAssemble,
 	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
 }
@@ -124,6 +137,11 @@ type Spec struct {
 	Syntax []string
 	// Phase is the stage of a turn the order resolves in.
 	Phase *Phase
+	// Terminator is the keyword that ends an order which may run over several
+	// physical lines, and is empty for the orders that are one line each. Only
+	// a create needs one: its two lists are long enough that a player wants to
+	// break them, and something has to say where the order stops.
+	Terminator string
 	// Movement says whether the order can move the entity it acts on, and so
 	// whether where that entity began and ended is worth recording. It is a
 	// property of the kind of order, not of how one went: an order that can

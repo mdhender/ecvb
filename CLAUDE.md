@@ -176,6 +176,7 @@ A turn is the table in `spec.go` and nothing else:
 
 ```go
 var phases = []*Phase{
+	PhaseCreate,
 	PhaseUnassemble, PhaseStow, PhaseTransfer, PhaseUnstow, PhaseAssemble,
 	PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming,
 }
@@ -241,11 +242,40 @@ settles every cadre back to what is left to fill it. Taking a cadre and its
 people together is the same rule read the other way round and arrives with
 combat and `disband`.
 
+A `create` is the one order that is a **commitment rather than a purchase**: it
+succeeds the moment it is given, an unfinished entity appears, and the build
+runs for as many turns as it needs. Everything after that is rate, never
+failure. `internal/world/build.go` is the only thing that reads or writes
+`under_construction` and `construction_item`, on inventory.go's principle: what
+a build has claimed, delivered, and completed is one story. `internal/orders/build.go`
+holds the rules -- the three sweeps, the two eligibility gates, and what a
+transport can carry and afford.
+
+A build's turn is **three sweeps on three stages**, each hung where the resource
+it competes for is settled: it claims at 5 (`PhaseCreate`), delivers at 9
+(`PhaseTransfer`), and completes at 10 (`PhaseAssemble`). A sweep runs after its
+phase's orders, which is the whole of the rule that **explicitly ordered work
+outranks a standing commitment** -- a `transfer` order before a build's claim,
+an `assemble` order before a build's own assembly. Two gates decide which lines
+a build may work: **structure first**, because assembled `STRC` and `STRL` are
+what create enclosed volume and everything else needs some to be delivered into,
+and **life support before people**, because only assembled `LFSU` supports
+anyone. A line that cannot be worked is skipped rather than waited on. The one
+enclosed-space exemption in the game is deliberately narrow and lives in
+`Entity.occupiedPerUnit`: structure in the cargo of an entity under construction
+consumes nothing, which is what makes structure-first forced rather than merely
+preferred.
+
 A ship travels twice a turn at most, and never the same way twice: one `move`
 and one `jump`, which is how a ship at a planet leaves. `Binder.once` settles
 that at Bind against a per-turn count in `world`, beside the probe budget, so a
 file with two of either is refused whole. The order is spent whatever it goes on
 to do -- a move that failed for want of fuel has still been given.
+
+`create` is also the first order that may **run over several lines**. `Spec.Terminator`
+is the keyword that ends it, `Parse` gathers the physical lines into one `Line`
+before the order is read, and every `Parse` still consumes from one `Line`
+whatever the player's line breaks were.
 
 Two effects outlive the turn that ordered them, and they are not the same shape.
 A `jump` order departs and *succeeds*; what continues is a ship in transit, a
@@ -253,9 +283,10 @@ row of `in_transit` -- ship, destination stellium, arrival turn -- landed by the
 `arrival` phase, so `jump` needed no new order state. That half is **built**: a
 crossing takes \(\lceil d / t \rceil\) turns, the ship is nowhere while it
 makes it (`entity.stellium_id` is null) and can be given no order, and the whole
-fuel bill is drawn on departure. A `create` genuinely keeps running, which the
-three-way `status` CHECK and `ec turn open`'s purge have to learn about first;
-that is now a `create` prerequisite alone.
+fuel bill is drawn on departure. A `create` keeps running too, and it turned out to be the
+*same* shape: the order departs and succeeds, and `under_construction` plus
+`construction_item` carry what continues. No fourth `game_order.status` was
+needed and nothing changed in `ec turn open`'s purge.
 
 ## Turn lifecycle
 
@@ -267,8 +298,8 @@ that is now a `create` prerequisite alone.
    turn. `Check` runs exactly the same thing and keeps nothing.
 2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
    `orders.Phases()` in order: **every order of one phase resolves before any
-   order of the next**, today unassemble, stow, transfer, unstow, assemble,
-   probe, sensor, move, jump, arrival, naming. Expected game-rule
+   order of the next**, today create, unassemble, stow, transfer, unstow,
+   assemble, probe, sensor, move, jump, arrival, naming. Expected game-rule
    failures are recorded on the order row (`status = 'failed'` plus
    `error_message`, final location equal to start location) and do not abort the
    turn; database/state errors roll the turn back. State flips

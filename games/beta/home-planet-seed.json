@@ -6,10 +6,13 @@
       "kind": "COPN",
       "tech-level": 1,
       "population": {
-        "SKW": 14,
+        "SKW": 20,
         "USK": 120,
         "SOL": 235,
         "NAS": 123
+      },
+      "cadres": {
+        "CWKR": 10
       },
       "components": {
         "STRC-10": 200
@@ -17,11 +20,15 @@
       "operational": {
         "FARM-1": 85,
         "FACT-1": 72,
-        "MINE-1": 54
+        "MINE-1": 54,
+        "TRAN-1": 60
       },
       "cargo": {
         "CNGD": 1,
-        "GOLD": 87
+        "GOLD": 87,
+        "STRC-2": 200,
+        "SNSR-1": 5,
+        "FUEL": 200
       }
     },
     "c1a67f6b-1341-4e78-afd7-c4d2fbbf175d": {

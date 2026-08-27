@@ -101,6 +101,23 @@ func newLine(number int, text string) *Line {
 	return &Line{Number: number, tokens: tokenize(text)}
 }
 
+// extend adds another physical line's tokens to this one, for the orders that
+// run to a terminator rather than to the end of a line. The Number stays the
+// line the order began on, which is where a player looks for it.
+func (l *Line) extend(text string) { l.tokens = append(l.tokens, tokenize(text)...) }
+
+// holds reports whether an unquoted keyword appears anywhere in the line. It is
+// how the file scanner knows a multi-line order has reached its terminator
+// without parsing the order to find out.
+func (l *Line) holds(word string) bool {
+	for _, item := range l.tokens {
+		if !item.quoted && strings.EqualFold(item.text, word) {
+			return true
+		}
+	}
+	return false
+}
+
 // empty reports whether the line holds nothing but whitespace and comments.
 func (l *Line) empty() bool { return len(l.tokens) == 0 }
 
