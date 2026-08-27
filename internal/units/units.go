@@ -77,7 +77,16 @@ var componentUnits = map[string]bool{
 }
 
 // The population classes. One unit of any of them stands for 100 persons.
-var populationClasses = map[string]bool{"USK": true, "SKW": true, "SOL": true, "NAS": true}
+const (
+	ClassUnskilled     = "USK"
+	ClassSkilled       = "SKW"
+	ClassSoldier       = "SOL"
+	ClassNonAssignable = "NAS"
+)
+
+var populationClasses = map[string]bool{
+	ClassUnskilled: true, ClassSkilled: true, ClassSoldier: true, ClassNonAssignable: true,
+}
 
 // The cadres. A cadre is a temporary assignment of population rather than a
 // unit, so it is held in none of the inventory sections.

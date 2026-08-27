@@ -6,3 +6,6 @@ ship 100 move to system B orbit 4   # two hops: planet to planet across systems
 ship 100 name "Bellerophon"
 we name (1,2,2) "Near"
 we name (1,2,2) system A orbit 1 "Landfall"
+colony 107 unassemble and stow 10 STRC-10        # into cargo, which is where a transfer needs them
+colony 107 transfer 10 STRC-10, 20 SOL to colony 101  # stage 6 unassembles, stage 9 carries: one turn
+colony 107 assemble 38 SNSR-1                    # the rest of them, and the cadre exactly covers it

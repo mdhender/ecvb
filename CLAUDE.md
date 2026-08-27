@@ -217,6 +217,15 @@ an entity cannot hold more than it encloses, and doing less of the order would
 not fix it. `internal/cadre` holds the 500 MU-a-turn rule and the two pools;
 `internal/transport` holds what a hull carries, who crews it, and what it burns.
 
+A cadre is an assignment of real population, and `internal/cadre.Composition` is
+what says which -- one `CWKR` is one `SKW` plus one `USK`. Two things follow, and
+`world` enforces both: those people are **spoken for**, so `Entity.Unassigned`
+rather than the raw population is what may be given other work (crewing a
+transport, today), and a cadre **cannot outlive them**, so `setPopulation`
+settles every cadre back to what is left to fill it. Taking a cadre and its
+people together is the same rule read the other way round and arrives with
+combat and `disband`.
+
 A ship travels twice a turn at most, and never the same way twice: one `move`
 and one `jump`, which is how a ship at a planet leaves. `Binder.once` settles
 that at Bind against a per-turn count in `world`, beside the probe budget, so a

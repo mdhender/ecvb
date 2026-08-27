@@ -47,7 +47,7 @@ turns out not to be needed at all.**
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 31 orders | **batch 1 built** (3 of 31); the rest blocked on rules | `e3eada9` (NAME), batch 1 |
+| 5 — add the 31 orders | **batch 1 built and under the golden net** (3 of 31); the rest blocked on rules | `e3eada9` (NAME), `b96420d`, the golden commit |
 
 ### What step 0 built
 
@@ -723,15 +723,23 @@ check and submit and a `note` on the engine log line rather than an
 `error_message`, because the order succeeded. Kits may assign a cadre so that
 there is one to draw on before `draft` exists.
 
+**A sixth rule, corrected after the fact.** Transport crew was first written as
+the entity's whole `SKW`, on the grounds that `docs/units.md` says nothing about
+a cadre competing for it. The user's answer is that it does: a cadre is an
+assignment of real people, so those people are not available to be given a
+second job, and a cadre cannot outlive them either. `cadre.Composition` says
+which population a cadre assigns, `Entity.Unassigned` is what may be given other
+work, and `world.setPopulation` settles every cadre back to what is left to fill
+it -- 100 `SKW` and 100 `CWKR` losing three skilled workers leaves 97 `SKW`, 100
+`USK`, and 97 `CWKR`. Taking the cadre and its people together is the same rule
+read the other way round and arrives with combat and `disband`.
+
 **Judgment calls, flagged rather than hidden:**
 
 - **Co-location ignores the ring.** A ring is drawn afresh every time a ship
   settles at a planet, so requiring the same one would make a transfer nearly
   impossible. Same stellium, system, and planet is what `sameBerth` compares.
-- **Transport crew is the entity's whole `SKW`**, not the `SKW` left over after
-  its cadres. `docs/units.md` says "one `SKW` unit operates up to 10 transports
-  in a turn" and nothing about competing with a cadre; the "a worker does one
-  task per turn" rule is stated about construction workers.
+  **Confirmed by the user:** rings matter for combat and not for this.
 - **Nothing checks the recipient's space.** The accepted doc gives one reason a
   transfer is partly filled -- transports -- and says outright that what arrives
   is stowed in cargo. Whether a recipient can refuse for want of room is not
@@ -748,10 +756,37 @@ warnings carry it; a player reading the orders report does not see it. That is
 the `result` column step 4 deliberately did not add, and batch 2 will want it,
 because a build's progress is the same shape.
 
-**Not touched:** `internal/replay`'s scenario and the CLAUDE-01 corpus. Neither
-carries an inventory order, so the goldens are the clean signal that a large
-change to `world` moved nothing: `go test ./internal/replay` green with no
-`-update`, and 147 byte-identical report files.
+**Batch 1 landed in two commits, and the split was deliberate.** The first left
+`internal/replay`'s scenario and the CLAUDE-01 corpus alone, so the goldens were
+the clean signal that a large change to `world` had moved nothing: green with no
+`-update`, and 147 byte-identical report files. The second put the three orders
+under that net.
+
+The scenario gained entity **107**, a depot colony with a `CWKR` cadre, twenty
+`TRAN-1`, a hundred `STRC-10`, and stock to work on, and each of the three turns
+exercises a different half of the rules: turn 0 an assemble rationed by the
+cadre (62 of 100, hand-checkable at 40 MU a sensor against 2,500 MU of cadre)
+and a transfer between two rings of one planet; turn 1 the whole pipeline in one
+turn -- unassemble and stow at stage 6, carry at stage 9, assemble at stage 10 --
+with the second assemble exactly covered by what the first order left of the
+cadre; turn 2 an unassemble refused for want of room (3,040 VU into 0 VU), a
+transfer filled partway by both the stock and the transports, and one refused
+for not being co-located. `TestSubmitRejects` gained the seven failures that
+reject a whole file, including the quantity written without its separators.
+
+Every existing golden moved, in one way that is worth knowing about: **rings
+shifted**. A ring is drawn from the game seed and the order's sequence number,
+sequence numbers are handed out in phase order, and the three new phases come
+*before* the old ones. Appending a phase costs nothing in the goldens, as the
+NAME work found; prepending one renumbers everything after it. Nothing else in
+the old lines changed.
+
+**A gap the goldens could not cover.** `docs/turn-sequence.md` says at stage 10
+that "units that arrived by transfer at stage 9 can be assembled here in the
+same turn". They cannot: a transport sets everything down in `cargo`, `assemble`
+draws from `unassembled`, and no order moves one to the other. Either `assemble`
+should draw from cargo as well, or something is missing from the accepted verb
+list. It is a decision rather than a bug, so it is not made here.
 
 ### The cadres are named, and one of them is specified
 

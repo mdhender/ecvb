@@ -10,3 +10,5 @@ ship 104 move to orbit 6        # 104 holds 1 FUEL and a hop costs 4
 ship 106 move to orbit 11       # already there: nowhere to go and nothing to burn
 ship 105 move to orbit 11
 ship 105 jump to (1,2,2)        # a HDRV-1 takes three turns over a 3 ly crossing
+colony 107 assemble 100 SNSR-1        # 4,000 MU asked of a 2,500 MU cadre: 62 of them
+colony 107 transfer 300 GOLD to ship 100  # ring 0 to ring 64 of one planet is the same place

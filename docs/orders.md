@@ -451,7 +451,9 @@ thing; transfer the population instead.
 asks for more than is in cargo, or for more than the transports carry, moves
 what it can and says how much that was. One `TRAN` at technology level *t*
 carries 20*t*² MU **and** 60*t*² VU in a turn, there and back for one charge;
-both limits hold. One `SKW` crews ten of them. The fuel is reckoned over every
+both limits hold. One `SKW` crews ten of them -- one that is free to, because a
+skilled worker already assigned to a cadre is doing a job and does not crew a
+hull as well. The fuel is reckoned over every
 transport the entity used in the turn at once, so a second transfer that shares
 the round trip pays only what it adds. See [Unit Glossary](units.md).
 

@@ -100,9 +100,30 @@ func (e *Entity) UsableEnclosedSpace() (int64, error) {
 	return units.UsableEnclosedSpace(e.Unit, e.EnclosedVolume)
 }
 
-// SkilledWorkers is the SKW population the entity carries, which is what
-// crews its transports.
-func (e *Entity) SkilledWorkers() int64 { return e.Population["SKW"] }
+// Assigned is how many of a population class the entity's cadres have spoken
+// for.
+func (e *Entity) Assigned(class string) int64 {
+	total := int64(0)
+	for name, quantity := range e.Cadre {
+		for _, part := range cadre.Composition(name) {
+			if part.Name == class {
+				total += quantity * part.PerUnit
+			}
+		}
+	}
+	return total
+}
+
+// Unassigned is the population of a class that is free to be given work.
+//
+// A cadre is an assignment of real people, so the people in it are not
+// available for a second job: a ship with 100 SKW and 100 CWKR has no skilled
+// worker free to crew a transport, and one with 50 CWKR has fifty. The count
+// never reads as negative; a database whose cadre outruns its population reads
+// as having nobody spare rather than as owing people.
+func (e *Entity) Unassigned(class string) int64 {
+	return max(e.Population[class]-e.Assigned(class), 0)
+}
 
 // ConstructionWorkers is the CWKR cadre the entity has assigned.
 func (e *Entity) ConstructionWorkers() int64 { return e.Cadre[cadre.Unit] }
@@ -158,7 +179,7 @@ func (w *World) TransportsFree(entity *Entity) []transport.Hulls {
 	// committed are already crewed, so what is left is the entity's whole
 	// complement less what is out.
 	return transport.Limit(free,
-		transport.CrewedHulls(entity.SkilledWorkers())-w.hullsCommitted(entity.ID))
+		transport.CrewedHulls(entity.Unassigned(units.ClassSkilled))-w.hullsCommitted(entity.ID))
 }
 
 // Squares is the sum of t squared over the transports an entity has committed
@@ -446,6 +467,59 @@ func (w *World) setPopulation(entity *Entity, class string, quantity int64) erro
 		delete(entity.Population, class)
 	} else {
 		entity.Population[class] = quantity
+	}
+	return w.settleCadres(entity)
+}
+
+// settleCadres cuts an entity's cadres back to the population left to fill
+// them.
+//
+// A cadre is an assignment of real people and cannot outlive them. A ship with
+// 100 SKW, 100 USK, and 100 CWKR that loses three skilled workers is left with
+// 97 SKW, 100 USK, and 97 CWKR: the cadre falls with the population, and the
+// three unskilled workers it was pairing them with go back to being
+// unassigned. A ship with only 50 CWKR loses nothing but the workers, because
+// it had fifty skilled workers spare to begin with.
+//
+// The other direction -- taking the cadre and the people in it together, which
+// is what capturing or disbanding one does -- is combat's and the disband
+// order's, and neither is written. It is the same rule read the other way
+// round.
+func (w *World) settleCadres(entity *Entity) error {
+	for name, quantity := range entity.Cadre {
+		allowed := quantity
+		for _, part := range cadre.Composition(name) {
+			if part.PerUnit <= 0 {
+				continue
+			}
+			allowed = min(allowed, entity.Population[part.Name]/part.PerUnit)
+		}
+		if allowed >= quantity {
+			continue
+		}
+		if err := w.setCadre(entity, name, allowed); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *World) setCadre(entity *Entity, name string, quantity int64) error {
+	statement := `
+		INSERT INTO entity_cadre (entity_id, cadre, quantity) VALUES (?, ?, ?)
+		ON CONFLICT (entity_id, cadre) DO UPDATE SET quantity = excluded.quantity;`
+	args := []any{entity.ID, name, quantity}
+	if quantity == 0 {
+		statement = "DELETE FROM entity_cadre WHERE entity_id = ? AND cadre = ?;"
+		args = args[:2]
+	}
+	if err := sqlitex.ExecuteTransient(w.conn, statement, &sqlitex.ExecOptions{Args: args}); err != nil {
+		return fmt.Errorf("set entity %d %s cadre: %w", entity.ID, name, err)
+	}
+	if quantity == 0 {
+		delete(entity.Cadre, name)
+	} else {
+		entity.Cadre[name] = quantity
 	}
 	return nil
 }

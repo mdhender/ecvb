@@ -34,19 +34,55 @@
       ],
       "rows": [
         [
+          "1",
+          "9",
+          "107",
+          "unassemble",
+          "90 STRC-10",
+          "0",
+          "failed",
+          "-",
+          "-",
+          "colony 107 would hold 3,040 VU in 0 VU of enclosed space"
+        ],
+        [
           "2",
+          "10",
+          "107",
+          "transfer",
+          "5,000 GOLD to colony 101",
+          "2",
+          "succeeded",
+          "-",
+          "-",
+          "-"
+        ],
+        [
+          "3",
+          "11",
+          "107",
+          "transfer",
+          "100 GOLD to ship 100",
+          "0",
+          "failed",
+          "-",
+          "-",
+          "colony 107 and ship 100 are not at the same place"
+        ],
+        [
+          "5",
           "5",
           "100",
           "move",
           "orbit 11",
           "8",
           "succeeded",
-          "10/21/32/67",
+          "10/21/32/32",
           "10/-/-/-",
           "-"
         ],
         [
-          "3",
+          "6",
           "6",
           "100",
           "jump",
@@ -58,7 +94,7 @@
           "-"
         ],
         [
-          "4",
+          "7",
           "7",
           "100",
           "name",
@@ -70,7 +106,7 @@
           "-"
         ],
         [
-          "5",
+          "8",
           "8",
           "-",
           "name",
@@ -98,7 +134,7 @@
       ],
       "rows": [
         [
-          "1",
+          "4",
           "4",
           "100",
           "system A orbit 4",

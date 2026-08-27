@@ -9,8 +9,36 @@
 // docs/units.md.
 package cadre
 
+import "github.com/mdhender/ecvb/internal/units"
+
 // Unit is the code of the construction worker cadre.
 const Unit = "CWKR"
+
+// Class is one population class a cadre assigns, and how many of them one unit
+// of that cadre takes.
+type Class struct {
+	Name    string
+	PerUnit int64
+}
+
+// Composition is the population one unit of a cadre assigns. One CWKR is one
+// SKW plus one USK.
+//
+// It is what makes a cadre an assignment rather than a thing. The people in it
+// are already counted in the entity's population, so a cadre adds no mass; but
+// they are spoken for, so they are not available to be given a second job, and
+// the cadre cannot outlive them. Both halves of that are internal/world's to
+// enforce, and this is what it enforces them against.
+//
+// The other four cadres have names and nothing else -- docs/units.md says
+// outright that what they permit and which population they assign is not
+// settled -- so nothing can form one and this reports none.
+func Composition(name string) []Class {
+	if name != Unit {
+		return nil
+	}
+	return []Class{{Name: units.ClassSkilled, PerUnit: 1}, {Name: units.ClassUnskilled, PerUnit: 1}}
+}
 
 // WorkPerUnit is the work in MU that one construction worker does in a turn.
 // A worker does one task per turn, so this is the whole of what one is worth

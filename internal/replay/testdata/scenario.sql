@@ -3,8 +3,10 @@
 -- A small game built to make every rule fire: each kind of move and its fuel
 -- cost, each reason a move or a jump fails, probes of the current and of a
 -- named system, a probe from the stellium orbit, a colony probe, a crossing
--- that finishes in the turn it began and one that takes three, and passive
--- sensor readings of another faction.
+-- that finishes in the turn it began and one that takes three, passive sensor
+-- readings of another faction, and the three inventory orders -- assembly
+-- rationed by the cadre, an unassemble-transfer pipeline inside one turn, a
+-- transfer filled partway, and an unassemble refused for want of room.
 --
 -- A ship moves once a turn and jumps once a turn, so a turn that wants to show
 -- two moves has to spend two ships on it, and a ship that wants to show two
@@ -14,6 +16,9 @@
 --   HDRV-3 masses 135 MU, jumps 3 ly, propels 3,135 MU, burns 40 FUEL/ly.
 --   A hop costs 4 FUEL per unit, crossing systems 8, going nowhere 0.
 --   SNSR-2 launches 2 probes, SNSR-1 launches 1. FUEL masses 1 MU.
+--   SNSR-1 masses 40 MU, so 500 MU of construction work assembles 12 of them.
+--   STRC-10 masses 20 MU and encloses 100 VU assembled, 20 VU anywhere else.
+--   A TRAN-1 carries 20 MU and 60 VU a turn; ten of them burn 1 FUEL.
 
 INSERT INTO users (id, email, role) VALUES
     (1, 'player@example.com', 'non-administrator');
@@ -53,6 +58,8 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
 -- 105 has the slowest drive there is, so its crossing spans turns.
 -- 106 is parked in the stellium orbit, which is the one place a move can go
 --     nowhere and the one place a probe has to name its system.
+-- 107 is the depot: a cadre to assemble with, transports to hand things over
+--     with, and enough structure that unassembling it all leaves no room.
 -- 200 belongs to the other faction and exists to be seen.
 INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
     (100, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 2270),
@@ -62,6 +69,7 @@ INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, pla
     (104, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  271),
     (105, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  400),
     (106, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 5000, 500),
+    (107, 'COPN', 1, 10, 20, 30,  0, 1, 10000, 7940),
     (200, 'SHIP', 1, 10, 20, 31, 55, 2, 5000, 7400);
 
 INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
@@ -82,8 +90,23 @@ INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
     (106, 'component', 'HDRV', 3, 1),
     (106, 'component', 'SNSR', 1, 1),  -- 1 probe a turn, from the stellium orbit
     (106, 'cargo', 'FUEL', 0, 200),
+    -- The depot. 100 STRC-10 enclose 10,000 VU and a COPN uses all of it; the
+    -- 680 VU it starts out holding is population, freight, and the transports.
+    -- Gold and fuel sit in external depots on a COPN and take no room at all.
+    (107, 'component', 'STRC', 10, 100),
+    (107, 'operational', 'TRAN', 1, 20),   -- 400 MU and 1,200 VU a turn
+    (107, 'unassembled', 'SNSR', 1, 100),  -- 4,000 MU of work, against 2,500 of cadre
+    (107, 'cargo', 'GOLD', 0, 1000),
+    (107, 'cargo', 'FUEL', 0, 500),
     (200, 'component', 'HDRV', 3, 2),
     (200, 'cargo', 'FUEL', 0, 5000);
 
 INSERT INTO entity_population (entity_id, class, quantity) VALUES
-    (100, 'SKW', 10), (101, 'USK', 40), (101, 'NAS', 5);
+    (100, 'SKW', 10), (101, 'USK', 40), (101, 'NAS', 5),
+    (107, 'SKW', 50), (107, 'USK', 50), (107, 'SOL', 100);
+
+-- Five construction workers do 2,500 MU a turn between them, which is less
+-- than the depot's first assemble order asks for, so the rationing shows. They
+-- are five of the 50 SKW and five of the 50 USK, which leaves 45 skilled
+-- workers free to crew transports -- far more than the 20 hulls need.
+INSERT INTO entity_cadre (entity_id, cadre, quantity) VALUES (107, 'CWKR', 5);

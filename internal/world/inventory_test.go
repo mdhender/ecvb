@@ -266,11 +266,12 @@ func TestTransportsAreCommittedForTheTurnAndTheirFuelPoolsOverIt(t *testing.T) {
 	}
 }
 
-// One SKW unit operates up to ten transports in a turn, so a ship with two of
-// them can run twenty and no more.
+// One SKW unit operates up to ten transports in a turn -- one that is free to,
+// which is four fewer than the ship carries, its CWKR cadre having spoken for
+// those.
 func TestTheCrewCapsTheTransportsAnEntityCanRun(t *testing.T) {
 	conn := openInventoryTestDatabase(t)
-	testdb.Exec(t, conn, "UPDATE entity_population SET quantity = 1 WHERE entity_id = 40 AND class = 'SKW';")
+	testdb.Exec(t, conn, "UPDATE entity_population SET quantity = 5 WHERE entity_id = 40 AND class = 'SKW';")
 	loaded := loadWorld(t, conn)
 	ship := loaded.Entity(40)
 	free := loaded.TransportsFree(ship)
@@ -280,6 +281,71 @@ func TestTheCrewCapsTheTransportsAnEntityCanRun(t *testing.T) {
 	loaded.CommitTransports(ship, []transport.Hulls{{TechLevel: 1, Count: 10}})
 	if got := loaded.TransportsFree(ship); len(got) != 0 {
 		t.Errorf("free after the crew is out = %+v; want none", got)
+	}
+}
+
+// A cadre is an assignment of real people, so the people in it are not
+// available to be given a second job.
+func TestACadresPeopleAreSpokenForAndNotAvailableTwice(t *testing.T) {
+	conn := openInventoryTestDatabase(t)
+	testdb.Exec(t, conn, "UPDATE entity_cadre SET quantity = 30 WHERE entity_id = 40;")
+	loaded := loadWorld(t, conn)
+	ship := loaded.Entity(40)
+	// Thirty skilled workers and thirty construction workers: none spare.
+	if got := ship.Unassigned(units.ClassSkilled); got != 0 {
+		t.Errorf("unassigned SKW = %d; want 0, the cadre having taken all thirty", got)
+	}
+	if got := ship.Assigned(units.ClassUnskilled); got != 30 {
+		t.Errorf("assigned USK = %d; want 30: one CWKR is one SKW plus one USK", got)
+	}
+	if got := loaded.TransportsFree(ship); len(got) != 0 {
+		t.Errorf("free transports = %+v; want none, there being nobody to crew them", got)
+	}
+}
+
+// A cadre cannot outlive the people in it. Losing skilled workers below what
+// the cadre has spoken for takes the cadre down with them, and the unskilled
+// workers it was pairing them with go back to being unassigned.
+func TestACadreFallsWithThePopulationItAssigned(t *testing.T) {
+	conn := openInventoryTestDatabase(t)
+	testdb.Exec(t, conn, "UPDATE entity_cadre SET quantity = 30 WHERE entity_id = 40;")
+	loaded := loadWorld(t, conn)
+	from, to := loaded.Entity(40), loaded.Entity(41)
+	if err := loaded.HandPopulation(from, to, units.ClassSkilled, 3); err != nil {
+		t.Fatal(err)
+	}
+	if got := from.Population[units.ClassSkilled]; got != 27 {
+		t.Errorf("SKW = %d; want 27", got)
+	}
+	if got := from.Population[units.ClassUnskilled]; got != 30 {
+		t.Errorf("USK = %d; want 30: the unskilled workers went nowhere", got)
+	}
+	if got := from.ConstructionWorkers(); got != 27 {
+		t.Errorf("CWKR = %d; want 27, the cadre having fallen with its skilled workers", got)
+	}
+	if got := storedCadre(t, conn, 40, "CWKR"); got != 27 {
+		t.Errorf("stored CWKR = %d; want 27", got)
+	}
+	// The three unskilled workers the cadre released are unassigned again.
+	if got := from.Unassigned(units.ClassUnskilled); got != 3 {
+		t.Errorf("unassigned USK = %d; want 3", got)
+	}
+}
+
+// A cadre with skilled workers to spare loses nothing but the workers.
+func TestACadreWithPopulationToSpareIsUntouched(t *testing.T) {
+	conn := openInventoryTestDatabase(t)
+	testdb.Exec(t, conn, "UPDATE entity_cadre SET quantity = 15 WHERE entity_id = 40;")
+	loaded := loadWorld(t, conn)
+	from, to := loaded.Entity(40), loaded.Entity(41)
+	if err := loaded.HandPopulation(from, to, units.ClassSkilled, 3); err != nil {
+		t.Fatal(err)
+	}
+	if got := from.ConstructionWorkers(); got != 15 {
+		t.Errorf("CWKR = %d; want 15 untouched: there were fifteen skilled workers spare", got)
+	}
+	if got := from.Unassigned(units.ClassSkilled); got != 12 {
+		t.Errorf("unassigned SKW = %d; want 12", got)
 	}
 }
 
@@ -367,6 +433,12 @@ func storedPopulation(t *testing.T, conn *sqlite.Conn, entityID int64, class str
 	t.Helper()
 	return scalar(t, conn, `SELECT coalesce((SELECT quantity FROM entity_population
 		WHERE entity_id = ? AND class = ?), 0);`, entityID, class)
+}
+
+func storedCadre(t *testing.T, conn *sqlite.Conn, entityID int64, name string) int64 {
+	t.Helper()
+	return scalar(t, conn, `SELECT coalesce((SELECT quantity FROM entity_cadre
+		WHERE entity_id = ? AND cadre = ?), 0);`, entityID, name)
 }
 
 func storedMass(t *testing.T, conn *sqlite.Conn, entityID int64) int64 {

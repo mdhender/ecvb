@@ -62,6 +62,17 @@ enclosed-space efficiency is 0.2.
 named by every `create` order, because a create assembles what it is given. One
 `CWKR` is one `SKW` plus one `USK`.
 
+**Its people are spoken for, and it cannot outlive them.** The `SKW` and `USK`
+in a cadre are already counted in the entity's population -- that is what gives
+a cadre its mass -- but they are not available to be given a second job. And if
+the population falls below what the cadre assigned, the cadre falls with it: a
+ship with 100 `SKW`, 100 `USK`, and 100 `CWKR` that loses three skilled workers
+is left with 97 `SKW`, 100 `USK`, and 97 `CWKR`, the three unskilled workers
+going back to being unassigned. A ship with only 50 `CWKR` loses nothing but the
+workers. Taking the cadre and its people together -- which is what capturing or
+disbanding one does -- is the same rule read the other way round, and waits on
+combat and `disband`.
+
 One unit does up to 500 MU of work a turn, where the work is the mass being
 handled. Work of the same kind is **pooled across an entity**, so the workers it
 needs are reckoned from one total rather than order by order; assembly and
@@ -350,8 +361,10 @@ operational multipliers do not apply to it. In a turn one unit carries at most
 \(20t^2\) MU **and** at most \(60t^2\) VU; both limits hold, and with today's
 unit table it is nearly always the mass that binds.
 
-One `SKW` unit operates up to 10 transports in a turn, allocated by the engine
-rather than by the player. Fuel is reckoned over all the transports an entity
+One **unassigned** `SKW` unit operates up to 10 transports in a turn, allocated
+by the engine rather than by the player. A skilled worker in a cadre is already
+doing a job and does not crew a hull as well, so a ship with 100 `SKW` and 100
+`CWKR` runs no transports at all and one with 50 `CWKR` runs 500. Fuel is reckoned over all the transports an entity
 used, not one at a time, which keeps it in whole numbers:
 \(\lceil \sum t^2 / 10 \rceil\) `FUEL`. Ten `TRAN-1` and five `TRAN-2` in one
 turn cost \(\lceil (10 + 20)/10 \rceil = 3\) `FUEL`; a single `TRAN-1` costs 1.

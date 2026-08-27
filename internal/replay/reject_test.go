@@ -134,6 +134,47 @@ func TestSubmitRejects(t *testing.T) {
 			want:  "system A has no planet in orbit 9",
 		},
 		{
+			name:  "assembling a resource, which is measured rather than made",
+			order: "colony 107 assemble 100 GOLD",
+			want:  "GOLD is a resource; it is measured rather than made, and is never assembled",
+		},
+		{
+			name:  "assembling people",
+			order: "colony 107 assemble 100 SOL",
+			want:  "SOL is population; people are carried and fed, not assembled",
+		},
+		{
+			name:  "assembling a cadre, which is an assignment rather than a thing",
+			order: "colony 107 assemble 5 CWKR",
+			want:  "CWKR is a cadre, an assignment of people rather than a unit, and is never assembled",
+		},
+		{
+			name:  "one order naming the same unit twice",
+			order: "colony 107 unassemble 10 STRC-10, 5 STRC-10",
+			want:  "STRC-10 is named twice",
+		},
+		{
+			// A quantity over 999 separates every three digits with a comma.
+			name:  "a quantity written without its separators",
+			order: "colony 107 assemble 1000 SNSR-1",
+			want:  "a quantity over 999 separates every three digits with a comma, as in 1,000",
+		},
+		{
+			// A faction may hand things to its own entities and to the
+			// derelicts nobody holds, and to nobody else. Refusing another
+			// faction's is in internal/orders, which has a second player to
+			// refuse; this scenario's only other faction is the uncontrolled
+			// one, and handing things to that is allowed.
+			name:  "transferring to itself",
+			order: "colony 107 transfer 100 GOLD to colony 107",
+			want:  "colony 107 cannot transfer to itself",
+		},
+		{
+			name:  "transferring a cadre rather than the people in it",
+			order: "colony 107 transfer 5 CWKR to colony 101",
+			want:  "CWKR is a cadre, an assignment of people rather than a thing to carry",
+		},
+		{
 			name:  "naming another faction's ship",
 			order: `ship 200 name "Easy Target"`,
 			want:  "ship 200 does not belong to faction 1",
