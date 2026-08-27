@@ -13,8 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mdhender/ecvb/internal/jumpdrive"
-	"github.com/mdhender/ecvb/internal/sensors"
+	"github.com/mdhender/ecvb/internal/units"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -57,20 +56,6 @@ type preparedInventory struct {
 	unit      string
 	techLevel int
 	quantity  int64
-}
-
-type unitMetrics struct {
-	mass              int64
-	cargoVolume       int64
-	operationalVolume int64
-	componentVolume   int64
-}
-
-var populationMetrics = unitMetrics{
-	mass:              2,
-	cargoVolume:       2,
-	operationalVolume: 2,
-	componentVolume:   2,
 }
 
 func readKit(path string) (preparedKit, error) {
@@ -161,12 +146,12 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 		if quantity <= 0 {
 			return preparedEntity{}, fmt.Errorf("%s entity %q population %s must be positive", kind, id, class)
 		}
-		if err := addQuantity(&entity.mass, quantity, populationMetrics.mass); err != nil {
+		if err := addQuantity(&entity.mass, quantity, units.PopulationMetrics.Mass); err != nil {
 			return preparedEntity{}, fmt.Errorf("%s entity %q population mass: %w", kind, id, err)
 		}
 		// Population in a starting kit is unassigned. Keep its cargo volume
 		// independent from its operational and component volume definitions.
-		if err := addQuantity(&occupied, quantity, populationMetrics.cargoVolume); err != nil {
+		if err := addQuantity(&occupied, quantity, units.PopulationMetrics.CargoVolume); err != nil {
 			return preparedEntity{}, fmt.Errorf("%s entity %q population volume: %w", kind, id, err)
 		}
 	}
@@ -191,7 +176,7 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 			if quantity <= 0 {
 				return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q must have a positive quantity", kind, id, section.jsonName, tag)
 			}
-			unit, techLevel, hasTechLevel, err := parseUnitTag(tag)
+			unit, techLevel, hasTechLevel, err := units.ParseTag(tag)
 			if err != nil {
 				return preparedEntity{}, fmt.Errorf("%s entity %q %s: %w", kind, id, section.jsonName, err)
 			}
@@ -203,8 +188,8 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 				return preparedEntity{}, fmt.Errorf("%s entity %q has duplicate normalized inventory unit %q", kind, id, tag)
 			}
 			seenInventory[key] = true
-			metrics := metricsForUnit(unit, techLevel, hasTechLevel)
-			if err := addQuantity(&entity.mass, quantity, metrics.mass); err != nil {
+			metrics := units.MetricsFor(unit, techLevel, hasTechLevel)
+			if err := addQuantity(&entity.mass, quantity, metrics.Mass); err != nil {
 				return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q mass: %w", kind, id, section.jsonName, tag, err)
 			}
 			if section.dbName == "component" && (unit == "STRC" || unit == "STRL") {
@@ -212,13 +197,13 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 				if err := addQuantity(&entity.enclosedVolume, quantity, perUnit); err != nil {
 					return preparedEntity{}, fmt.Errorf("%s entity %q enclosed volume: %w", kind, id, err)
 				}
-			} else if !(section.dbName == "cargo" && (kind == "COPN" || kind == "CORB") && isBulkResource(unit)) {
-				volume := metrics.cargoVolume
+			} else if !(section.dbName == "cargo" && (kind == "COPN" || kind == "CORB") && units.IsBulkResource(unit)) {
+				volume := metrics.CargoVolume
 				switch section.dbName {
 				case "component":
-					volume = metrics.componentVolume
+					volume = metrics.ComponentVolume
 				case "operational":
-					volume = metrics.operationalVolume
+					volume = metrics.OperationalVolume
 				}
 				if err := addQuantity(&occupied, quantity, volume); err != nil {
 					return preparedEntity{}, fmt.Errorf("%s entity %q %s unit %q volume: %w", kind, id, section.jsonName, tag, err)
@@ -230,7 +215,7 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 		}
 	}
 
-	enclosedSpace := usableEnclosedSpace(kind, entity.enclosedVolume)
+	enclosedSpace := units.UsableEnclosedSpace(kind, entity.enclosedVolume)
 	required, err := spaceWithTenPercentExcess(occupied)
 	if err != nil {
 		return preparedEntity{}, fmt.Errorf("%s entity %q occupied volume: %w", kind, id, err)
@@ -239,78 +224,6 @@ func prepareEntity(kind, id string, asset kitAsset) (preparedEntity, error) {
 		return preparedEntity{}, fmt.Errorf("%s entity %q has %d VU enclosed space; need at least %d VU for %d VU occupied space", kind, id, enclosedSpace, required, occupied)
 	}
 	return entity, nil
-}
-
-func parseUnitTag(tag string) (unit string, techLevel int, hasTechLevel bool, err error) {
-	if tag == "" {
-		return "", 0, false, fmt.Errorf("unit code is required")
-	}
-	unit = tag
-	if dash := strings.LastIndexByte(tag, '-'); dash >= 0 {
-		unit = tag[:dash]
-		if unit == "" || dash == len(tag)-1 {
-			return "", 0, false, fmt.Errorf("invalid unit tag %q", tag)
-		}
-		techLevel, err = strconv.Atoi(tag[dash+1:])
-		if err != nil || techLevel < 0 || techLevel > 10 {
-			return "", 0, false, fmt.Errorf("invalid unit tag %q", tag)
-		}
-		hasTechLevel = true
-	}
-	for _, r := range unit {
-		if (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
-			return "", 0, false, fmt.Errorf("invalid unit code %q", unit)
-		}
-	}
-	return unit, techLevel, hasTechLevel, nil
-}
-
-func metricsForUnit(unit string, techLevel int, hasTechLevel bool) unitMetrics {
-	// The bulk resources are measured, not manufactured: one unit masses 1 MU
-	// and takes 1 VU wherever it is held, with none of the multipliers that
-	// installing a manufactured unit costs.
-	if isBulkResource(unit) && !hasTechLevel {
-		return unitMetrics{mass: 1, cargoVolume: 1, operationalVolume: 1, componentVolume: 1}
-	}
-	base := int64(6)
-	if hasTechLevel {
-		base = int64(2 * techLevel)
-	}
-	metrics := unitMetrics{
-		mass:              base,
-		cargoVolume:       base,
-		operationalVolume: 2 * base,
-		componentVolume:   4 * base,
-	}
-	// A jump drive and a sensor have defined masses. Their volumes remain
-	// provisional.
-	switch {
-	case unit == jumpdrive.Unit && hasTechLevel:
-		metrics.mass = jumpdrive.UnitMass(techLevel)
-	case unit == sensors.Unit && hasTechLevel:
-		metrics.mass = sensors.UnitMass(techLevel)
-	}
-	return metrics
-}
-
-// isBulkResource reports whether a unit is one of the four raw resources. They
-// share a mass and volume of 1, and as cargo on a COPN or CORB they sit in
-// external depots rather than in enclosed space.
-func isBulkResource(unit string) bool {
-	return unit == "GOLD" || unit == "FUEL" || unit == "METL" || unit == "MNRL"
-}
-
-func usableEnclosedSpace(kind string, enclosedVolume int64) int64 {
-	switch kind {
-	case "COPN":
-		return enclosedVolume
-	case "CSFC":
-		return enclosedVolume / 5
-	case "CORB", "SHIP":
-		return enclosedVolume / 10
-	default:
-		panic("unknown entity kind " + kind)
-	}
 }
 
 func spaceWithTenPercentExcess(occupied int64) (int64, error) {

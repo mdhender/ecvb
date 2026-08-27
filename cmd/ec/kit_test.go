@@ -241,20 +241,3 @@ func writeTestKit(t *testing.T, directory string) {
 		t.Fatal(err)
 	}
 }
-
-func TestBulkResourcesMassAndOccupyOneUnit(t *testing.T) {
-	// The four raw resources are measured, not manufactured: 1 MU and 1 VU
-	// each, in every section, with none of the multipliers that installing a
-	// manufactured unit costs.
-	for _, unit := range []string{"FUEL", "GOLD", "METL", "MNRL"} {
-		got := metricsForUnit(unit, 0, false)
-		if want := (unitMetrics{mass: 1, cargoVolume: 1, operationalVolume: 1, componentVolume: 1}); got != want {
-			t.Errorf("%s metrics = %+v; want %+v", unit, got, want)
-		}
-	}
-	// Another unit without a technology level keeps the general rule.
-	got := metricsForUnit("CNGD", 0, false)
-	if want := (unitMetrics{mass: 6, cargoVolume: 6, operationalVolume: 12, componentVolume: 24}); got != want {
-		t.Errorf("CNGD metrics = %+v; want %+v", got, want)
-	}
-}
