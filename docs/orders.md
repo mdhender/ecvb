@@ -142,11 +142,12 @@ written to the wrong coordinates is not recoverable. The turn report's
 `IN TRANSIT` section is where a crossing ship shows up: where it is bound, and
 the turn it is due.
 
-A ship therefore makes one crossing at a time. Even the shortest crossing takes
-the turn it began in, so a second `JUMP` for the same ship in one file is given
-to a ship that is not there to receive it, and the file is rejected. Both
-`orders check` and the engine apply these limits, so a jump the check rejects is
-a jump the engine would have failed.
+**A ship jumps once a turn.** A second `JUMP` for the same ship in one file is
+rejected, and the whole file with it. Usually the ship is already in transit by
+then and says so; when the first jump failed for want of fuel and left the ship
+where it was, the second is refused for being the second. Both `orders check`
+and the engine apply these limits, so a jump the check rejects is a jump the
+engine would have failed.
 
 ## MOVE
 
@@ -154,6 +155,19 @@ a jump the engine would have failed.
 ship SHIP-ID move to orbit ORBIT
 ship SHIP-ID move to system SYSTEM orbit ORBIT
 ```
+
+**A ship moves once a turn.** A second `MOVE` for the same ship in one file is
+rejected, and the whole file with it. The one move is the whole of what a ship
+does inside its stellium in a turn: it cannot cross to a planet and then carry
+on to another, and it cannot visit a planet and then leave for the stellium
+orbit. Doing both takes two turns.
+
+A ship may still `MOVE` and `JUMP` in one turn, which is exactly how a ship at a
+planet leaves: the move takes it out to the stellium orbit and the jump takes it
+away. Those are the only two journeys a ship makes in a turn.
+
+The order is spent whatever it goes on to do. A move that fails for want of fuel
+has still been given, and the ship does not get another that turn.
 
 Move to a planet in the ship's current system:
 

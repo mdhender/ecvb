@@ -197,9 +197,16 @@ func (p MoveParams) Input() string { return orbitInput(p.System, p.Orbit) }
 // Bind resolves the destination and measures the drive against the ship. Every
 // move inside a stellium is well within the range of any drive, so only the
 // drive's presence and the mass it propels matter.
+//
+// A ship moves once a turn. It may still jump in the same turn, which is what
+// a ship at a planet does to leave, but the one move is the whole of what it
+// does inside its stellium.
 func (p MoveParams) Bind(b *Binder) ([]Bound, error) {
 	ship, err := b.actor(p.ShipID, "ship")
 	if err != nil {
+		return nil, err
+	}
+	if err := b.once("move", ship); err != nil {
 		return nil, err
 	}
 	order := &moveBound{ship: ship, system: p.System, orbit: p.Orbit, stelliumID: ship.Location.StelliumID}
@@ -319,6 +326,13 @@ func (p JumpParams) Input() string { return fmt.Sprintf("(%d,%d,%d)", p.X, p.Y, 
 func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 	ship, err := b.actor(p.ShipID, "ship")
 	if err != nil {
+		return nil, err
+	}
+	// A ship jumps once a turn. A jump that departs says so by itself, because
+	// the ship is then in transit and b.actor turns away everything; this is
+	// what catches the second jump after a first that failed for want of fuel,
+	// which leaves the ship where it was.
+	if err := b.once("jump", ship); err != nil {
 		return nil, err
 	}
 	destinationID := b.World.StelliumAt(p.X, p.Y, p.Z)

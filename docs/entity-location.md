@@ -59,7 +59,9 @@ travel. Ships may be at a planet, at the stellium level, or nowhere.
 
 ## Ship movement
 
-A ship has two forms of movement:
+A ship travels twice a turn at most, and never the same way twice: one move
+inside its stellium and one jump out of it. Those are its two forms of
+movement:
 
 - A **jump** moves the ship between stellia. It departs from the stellium level
   and takes \(\lceil d / t \rceil\) turns to cross _d_ light years at drive
@@ -87,7 +89,8 @@ ship movement lands every ship due that turn in the destination's stellium orbit
 and deletes its row.
 
 A ship therefore makes one crossing at a time, since even the shortest crossing
-occupies the turn it began in.
+occupies the turn it began in -- and one crossing a turn in any case, since a
+ship jumps once a turn.
 
 ## State constraints
 

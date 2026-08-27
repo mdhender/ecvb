@@ -2,8 +2,13 @@
 --
 -- A small game built to make every rule fire: each kind of move and its fuel
 -- cost, each reason a move or a jump fails, probes of the current and of a
--- named system, a probe from the stellium orbit, a colony probe, a probe
--- budget that runs out, and passive sensor readings of another faction.
+-- named system, a probe from the stellium orbit, a colony probe, a crossing
+-- that finishes in the turn it began and one that takes three, and passive
+-- sensor readings of another faction.
+--
+-- A ship moves once a turn and jumps once a turn, so a turn that wants to show
+-- two moves has to spend two ships on it, and a ship that wants to show two
+-- moves has to take two turns over them.
 --
 -- Numbers are chosen so the arithmetic is checkable by hand:
 --   HDRV-3 masses 135 MU, jumps 3 ly, propels 3,135 MU, burns 40 FUEL/ly.
@@ -46,6 +51,8 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
 -- 102 has no drive at all. 103 is too massive for the drive it has.
 -- 104 has a drive and no fuel to run it.
 -- 105 has the slowest drive there is, so its crossing spans turns.
+-- 106 is parked in the stellium orbit, which is the one place a move can go
+--     nowhere and the one place a probe has to name its system.
 -- 200 belongs to the other faction and exists to be seen.
 INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
     (100, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 2270),
@@ -54,6 +61,7 @@ INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, pla
     (103, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 9000),
     (104, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  271),
     (105, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  400),
+    (106, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 5000, 500),
     (200, 'SHIP', 1, 10, 20, 31, 55, 2, 5000, 7400);
 
 INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
@@ -71,6 +79,9 @@ INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
     -- three turns to cross it, because a technology level divides the distance.
     (105, 'component', 'HDRV', 1, 1),
     (105, 'cargo', 'FUEL', 0, 200),
+    (106, 'component', 'HDRV', 3, 1),
+    (106, 'component', 'SNSR', 1, 1),  -- 1 probe a turn, from the stellium orbit
+    (106, 'cargo', 'FUEL', 0, 200),
     (200, 'component', 'HDRV', 3, 2),
     (200, 'cargo', 'FUEL', 0, 5000);
 

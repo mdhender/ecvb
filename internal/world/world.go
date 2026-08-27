@@ -90,6 +90,17 @@ type World struct {
 	// probes counts the probes each entity has launched this turn. It is turn
 	// state rather than stored state: the budget refills every turn.
 	probes map[int64]int64
+	// ordered counts the orders of each kind an entity has been given this
+	// turn, for the orders that may only be given once. Turn state too, and for
+	// the same reason: a World is loaded for one operation and thrown away, so
+	// the count starts empty every turn without anything having to clear it.
+	ordered map[orderKey]int
+}
+
+// orderKey is one kind of order given to one entity.
+type orderKey struct {
+	verb     string
+	entityID int64
 }
 
 // Load reads a game into memory. found is false when no game has that code,
@@ -101,6 +112,7 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 		stellia:  make(map[int64]Point),
 		atPoint:  make(map[Point]int64),
 		probes:   make(map[int64]int64),
+		ordered:  make(map[orderKey]int),
 	}
 	loaded.game.Code = gameCode
 	if err := sqlitex.ExecuteTransient(conn,
@@ -276,6 +288,17 @@ func (w *World) ProbesSpent(entityID int64) int64 { return w.probes[entityID] }
 
 // SpendProbe charges one probe against an entity's budget for the turn.
 func (w *World) SpendProbe(entityID int64) { w.probes[entityID]++ }
+
+// OrdersGiven is how many orders of one verb an entity has been given this
+// turn.
+func (w *World) OrdersGiven(verb string, entityID int64) int {
+	return w.ordered[orderKey{verb: verb, entityID: entityID}]
+}
+
+// RecordOrder counts one order of a kind against an entity for the turn.
+func (w *World) RecordOrder(verb string, entityID int64) {
+	w.ordered[orderKey{verb: verb, entityID: entityID}]++
+}
 
 // RecordProbe snapshots everything at a planet for a faction. Probing the same
 // planet twice in one turn re-reads it rather than failing on the finding

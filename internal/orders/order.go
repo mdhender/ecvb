@@ -170,6 +170,27 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 	return entity, nil
 }
 
+// once refuses an entity a second order of the same kind in one turn, and
+// counts this one against it.
+//
+// A ship travels twice a turn at most, and never the same way twice: it may
+// MOVE inside its stellium and then JUMP out of it, which is how a ship at a
+// planet leaves, but it may not MOVE twice or JUMP twice.
+//
+// The order is counted whatever it goes on to do, because what is spent is the
+// order and not the journey: a MOVE that fails for want of fuel has still been
+// given, and the ship does not get another. This settles at Bind, so a file
+// with two of them is refused rather than half-executed -- how many orders a
+// player wrote for one ship is not something a turn can change.
+func (b *Binder) once(verb string, entity *world.Entity) error {
+	if b.World.OrdersGiven(verb, entity.ID) > 0 {
+		return fmt.Errorf("%s %d already has a %s order this turn and may be given one a turn",
+			noun(entity), entity.ID, strings.ToUpper(verb))
+	}
+	b.World.RecordOrder(verb, entity.ID)
+	return nil
+}
+
 // system is the system an order names: the one the player wrote, which has to
 // belong to the entity's own stellium, or the one the entity is in when the
 // order named none. Zero is the stellium orbit, which is no system at all;

@@ -545,14 +545,25 @@ func TestResolveProbesFromAColony(t *testing.T) {
 
 func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
 	conn := openEngineTestDatabase(t)
-	// Ship 40 starts at planet 30 in system A. It crosses to planet 31 of the
-	// same system, then leaves the planets for the stellium orbit.
+	// Ships 40 and 43 both start at planet 30 in system A. 40 crosses to planet
+	// 31 of the same system; 43 leaves the planets for the stellium orbit. Each
+	// gets one move, because that is all a ship gets in a turn.
+	//
+	// 43 is added here rather than to the fixture because another ship at the
+	// home planet is another contact, and the probe and sensor tests count
+	// those.
 	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO entity (
+			id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
+			faction_id, enclosed_volume, mass
+		) VALUES (43, 'SHIP', 1, 10, 20, 30, 64, 1, 100, 3000);
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
+			(43, 'component', 'HDRV', 4, 1), (43, 'cargo', 'FUEL', 0, 500);
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
 		) VALUES
 			(1, 3, 1, 1, 4, 'move', 40, 'orbit 6', '{"orbit":6}'),
-			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}');
+			(1, 3, 1, 2, 5, 'move', 43, 'orbit 11', '{"orbit":11}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -572,7 +583,7 @@ func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
 		FROM game_order AS o JOIN order_movement AS m
 			ON m.game_id = o.game_id AND m.turn = o.turn
 			AND m.faction_id = o.faction_id AND m.sequence = o.sequence
-		WHERE o.actor_entity_id = 40 AND o.verb = 'move' ORDER BY o.sequence;`, &sqlitex.ExecOptions{
+		WHERE o.verb = 'move' ORDER BY o.sequence;`, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			rows = append(rows, stmt.ColumnText(0))
 			if !stmt.ColumnIsNull(1) {
@@ -596,7 +607,7 @@ func TestResolveMovesAShipToTheStelliumOrbit(t *testing.T) {
 	if err := sqlitex.ExecuteTransient(conn, `
 		SELECT printf('%d|%s|%s|%s', stellium_id, coalesce(system_id, '-'),
 			coalesce(planet_id, '-'), coalesce(planet_ring, '-'))
-		FROM entity WHERE id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+		FROM entity WHERE id = 43;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
 		location = stmt.ColumnText(0)
 		return nil
 	}}); err != nil {
@@ -661,15 +672,15 @@ func TestResolveFailsMovesTheDriveCannotMake(t *testing.T) {
 
 func TestResolveBurnsFuelAndFailsAnOrderTheShipCannotPayFor(t *testing.T) {
 	conn := openEngineTestDatabase(t)
-	// Ship 40 has one HDRV-4 and 500 FUEL. Two moves burn 1 * 0.1 * 40 each,
-	// and the 4-unit jump burns 1 * 4 * 40, leaving 332.
+	// Ship 40 has one HDRV-4 and 500 FUEL. The move out to the stellium orbit
+	// burns 1 * 0.1 * 40 and the 4-light-year jump burns 1 * 4 * 40, leaving
+	// 336. That is a whole turn's travel for one ship: one move and one jump.
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
 		) VALUES
-			(1, 3, 1, 1, 4, 'move', 40, 'orbit 6', '{"orbit":6}', 4),
-			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}', 4),
-			(1, 3, 1, 3, 6, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 160);
+			(1, 3, 1, 1, 4, 'move', 40, 'orbit 11', '{"orbit":11}', 4),
+			(1, 3, 1, 2, 5, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}', 160);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -677,15 +688,15 @@ func TestResolveBurnsFuelAndFailsAnOrderTheShipCannotPayFor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Succeeded != 3 || result.Failed != 0 {
+	if result.Succeeded != 2 || result.Failed != 0 {
 		t.Fatalf("result = %+v; want every order to succeed", result)
 	}
-	if got := shipFuel(t, conn, 40); got != 332 {
-		t.Errorf("fuel left = %d; want 332", got)
+	if got := shipFuel(t, conn, 40); got != 336 {
+		t.Errorf("fuel left = %d; want 336", got)
 	}
-	// The ship started at 3000 MU and burned 168 units of fuel at 1 MU each.
-	if got := shipMass(t, conn, 40); got != 3000-168 {
-		t.Errorf("mass = %d; want %d", got, 3000-168)
+	// The ship started at 3000 MU and burned 164 units of fuel at 1 MU each.
+	if got := shipMass(t, conn, 40); got != 3000-164 {
+		t.Errorf("mass = %d; want %d", got, 3000-164)
 	}
 }
 
@@ -800,14 +811,14 @@ func TestResolveChargesAMoveToTheSamePlanetAndRerollsTheRing(t *testing.T) {
 
 func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
 	conn := openEngineTestDatabase(t)
-	// Ship 40 is sent to the stellium orbit and then ordered there again. The
-	// second move has nowhere to go: no fuel, no change.
+	// Ship 40 is already in the stellium orbit and is ordered there again. The
+	// move has nowhere to go: no fuel, no change. It is put there rather than
+	// moved there, because a ship moves once a turn and this is that move.
 	if err := sqlitex.ExecuteScript(conn, `
+		UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
-		) VALUES
-			(1, 3, 1, 1, 4, 'move', 40, 'orbit 11', '{"orbit":11}', 4),
-			(1, 3, 1, 2, 5, 'move', 40, 'orbit 11', '{"orbit":11}', 0);
+		) VALUES (1, 3, 1, 1, 4, 'move', 40, 'orbit 11', '{"orbit":11}', 0);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -815,8 +826,8 @@ func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Succeeded != 2 {
-		t.Fatalf("result = %+v; want both moves to succeed", result)
+	if result.Succeeded != 1 {
+		t.Fatalf("result = %+v; want the move to succeed", result)
 	}
 	var rows []string
 	if err := sqlitex.ExecuteTransient(conn, `
@@ -829,12 +840,12 @@ func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"1|succeeded|4", "2|succeeded|0"}; strings.Join(rows, "\n") != strings.Join(want, "\n") {
+	if want := []string{"1|succeeded|0"}; strings.Join(rows, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("move orders = %q; want %q", rows, want)
 	}
-	// Only the first move was paid for.
-	if got := shipFuel(t, conn, 40); got != 496 {
-		t.Errorf("fuel left = %d; want 496", got)
+	// A ship with nowhere to go burns nothing getting there.
+	if got := shipFuel(t, conn, 40); got != 500 {
+		t.Errorf("fuel left = %d; want 500", got)
 	}
 }
 

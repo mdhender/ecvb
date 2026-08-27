@@ -298,9 +298,14 @@ turn in the destination's stellium orbit, deleting the row as it goes.
 Departures come before arrivals, so this turn's jumps are settled before this
 turn's landings and a ship cannot be caught by a jump order written the turn it
 arrives. Between the two steps a ship is nowhere at all -- no stellium, no
-system, no planet -- so nothing sees it and no order reaches it. A ship
-therefore makes one crossing at a time: even the shortest takes the turn it
-began in, so a second jump for one ship in one file is refused.
+system, no planet -- so nothing sees it and no order reaches it.
+
+**A ship travels twice a turn at most, and never the same way twice.** One move
+in step a and one jump in step b, which is how a ship at a planet leaves: the
+move takes it out to the stellium orbit and the jump takes it away. Two moves
+for one ship, or two jumps, are refused along with the file that wrote them.
+The order is spent whatever it goes on to do, so a move that failed for want of
+fuel has still been the ship's move for that turn.
 
 A crossing of one turn is the degenerate case rather than a special one: the row
 is written in step b and consumed in step c of the same turn, which is exactly

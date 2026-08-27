@@ -187,6 +187,12 @@ five are orders *and* a sweep -- combat, the market, espionage, ship movement,
 the news service -- where the orders declare intent and one sweep settles all of
 them against each other.
 
+A ship travels twice a turn at most, and never the same way twice: one `move`
+and one `jump`, which is how a ship at a planet leaves. `Binder.once` settles
+that at Bind against a per-turn count in `world`, beside the probe budget, so a
+file with two of either is refused whole. The order is spent whatever it goes on
+to do -- a move that failed for want of fuel has still been given.
+
 Two effects outlive the turn that ordered them, and they are not the same shape.
 A `jump` order departs and *succeeds*; what continues is a ship in transit, a
 row of `in_transit` -- ship, destination stellium, arrival turn -- landed by the

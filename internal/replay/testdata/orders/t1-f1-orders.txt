@@ -1,9 +1,8 @@
 game "GOLD-01" turn 1
 id faction 1
 
-ship 100 probe system A orbit 1
-ship 100 move to system A orbit 1
-ship 100 move to orbit 11
+ship 100 probe orbit 4
+ship 100 move to system B orbit 4   # two hops: planet to planet across systems
 ship 100 name "Bellerophon"
 we name (1,2,2) "Near"
 we name (1,2,2) system A orbit 1 "Landfall"

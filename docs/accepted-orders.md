@@ -355,6 +355,12 @@ A tech level order names no quantity, because a technology level is bought once.
 
 > ship 18 move to system B orbit 8
 
+A ship moves once a turn. It may also jump in the same turn -- that is how a
+ship at a planet leaves, since a jump begins from the stellium orbit -- but the
+one move is the whole of what it does inside its stellium. The order is spent
+whatever it goes on to do: a move that fails for want of fuel has still been
+given.
+
 ## Jump Orders
 
 `ship` _id_ `jump` `to` _coordinates_
@@ -396,9 +402,10 @@ that reads the world happens before movement.
 A crossing of one turn is the same thing with nothing left over: the row is
 written and deleted in the same turn, and the ship arrives where it always did.
 
-A ship makes one crossing at a time. Even the shortest occupies the turn it
-began in, so a second jump order for the same ship in one file is given to a
-ship that is not there to receive it, and the file is refused.
+A ship jumps once a turn, and a second jump order for the same ship in one file
+is refused along with the file. Usually the ship is already in transit by then;
+when the first jump failed for want of fuel and left the ship where it was, the
+second is refused for being the second.
 
 ## Draft Orders
 
