@@ -44,6 +44,14 @@ fail when the turn resolves with the reason. What they are missing is a rule
 rather than a parser -- see "What the code still has to be told" -- and the day
 one lands, its Spec moves to `verbs.go` with a Bound of its own.
 
+**The parser is under a net of its own now.** `acceptedExamples` holds one line
+of every form, three properties run over it -- it parses, it reads back in the
+player's words, it survives being stored and decoded -- and a fourth test holds
+the table against the registry so a verb cannot join without an example. That
+net was written after the question "is the parser actually stronger?" turned up
+two dropped fields nothing was testing for. See "The parser was then hardened,
+and it needed it" below.
+
 ---
 
 ## Progress
@@ -55,7 +63,7 @@ one lands, its Spec moves to `verbs.go` with a Bound of its own.
 | 2 — one implementation of each rule | **done** | `3558c4a` |
 | 3 — data-driven phases | **done** | `bb7a076` |
 | 4 — one order table | **done** | `8e8215c`, `132e928` |
-| 5 — add the 30 orders | **every accepted verb parses**; batches 1, 1b, and 2 built end to end (6 of 30); the other 27 parse and fail on a missing rule | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b), `9cd44f1` (batch 2) |
+| 5 — add the 30 orders | **every accepted verb parses and the parser is under a round-trip net**; batches 1, 1b, and 2 built end to end (6 of 30); the other 27 parse and fail on a missing rule | `e3eada9` (NAME), `b96420d`, `5d7ff31`, `7cfb9d9`, `8972118`, `61c25e2` (batch 1b), `9cd44f1` (batch 2), `91ab40c` (the parser), `49d6922`, `32473dd`, `471e62b`, `4de2459`, `c9e876e` (hardening) |
 
 ### What step 0 built
 
@@ -1033,6 +1041,69 @@ bind to `notBuilt` while the rest of each verb works, which is the "one `Spec`
 may bind a different `Bound` per form" property the create design predicted,
 used for the first time.
 
+### The parser was then hardened, and it needed it
+
+Getting every verb to parse is not the same as the parser being trustworthy.
+Asking the second question separately -- *is it better and stronger than it
+was?* -- found two defects and two behaviours worth settling. All four are
+recorded here because three of them were invisible to the test suite as it
+stood.
+
+**A stored order is JSON plus an actor column, and nothing tested the way
+back.** A `Params` is marshalled at submission and rebuilt by its Spec's
+`Decode` when the turn resolves, so a field the JSON drops is a field the engine
+never sees. Parsing does not exercise that -- the parse is long over by then --
+and a dropped field stays hidden until the verb's rules land and somebody
+finally reads it. Two were already dropped:
+
+- `place` tagged its coordinates `json:"-"`, so every `release`, `grant`, and
+  `refuse` lost the stellium it named. Real data loss in a stored order,
+  introduced with those verbs.
+- `NameParams.Kind` was tagged out too, which predates all of this and which
+  `actorOf` and `SurveyParams` then copied. A name read back rendered as
+  ` 18 "Jalopy"`, the subject missing. Latent only because the engine logs the
+  stored `input` column rather than re-rendering it.
+
+The fix that matters is the test. **`acceptedExamples` is one line of every form
+worth exercising**, and three properties run over it: it parses, it reads back
+in the words the player used, and it survives being marshalled and decoded. A
+fourth test holds the table against the registry, so a verb cannot join the game
+without an example and no property can quietly stop covering one.
+
+**A missing `end` used to swallow the rest of the file.** `gather` read on until
+it found the terminator, so a create without one consumed every line after it:
+the file was refused with a single error and every later mistake went unreported.
+It now stops at the next line that opens an order -- every order names its
+subject first, so a line beginning `ship`, `colony`, or `we` is never a
+continuation -- and pushes that line back to be parsed as itself. That is what
+`lines` in `parse.go` is for, and it is what a multi-line order costs: gathering
+one has to read ahead to find out it has overrun.
+
+**`opensOrder` no longer counts words to find the verb.** It read the second
+token after `we` and the third otherwise, which was a second copy of the subject
+grammar living where nothing would compare it against `parseSubject`. It now
+runs `parseSubject` itself on a cursor `Line.mark` puts back. Whether the
+subject was any *good* is deliberately not asked: a create is still a create
+when its id is mistyped or its subject is missing altogether, and it still has
+to be read to its `end`, or the player is told about the one thing they got
+wrong and about all four lines of the order's body as well. Two tests pin that,
+and both fail if the lookahead is made strict.
+
+**A percentage carries no space before its sign.** `75 %` was already refused,
+but by accident: `%` is not punctuation the tokenizer splits on, so `75%` is one
+token and `75 %` is two. Nothing said whether that was the rule or an artefact,
+which is how a thing gets "fixed" later by somebody who assumes it was an
+oversight. It is the rule, and `docs/accepted-orders.md` says so where it defines
+a commission.
+
+**What is still weak**, so that nobody has to rediscover it:
+
+- `Bind` and `Apply` for the twenty-seven are one shared stub. The parser is
+  exercised; nothing downstream of it is, for those verbs.
+- The `price` reader is the most intricate thing in the tokenizer and has the
+  fewest examples behind it. It is the first place to look when a market order
+  reads oddly.
+
 ### The cadres are named, and one of them is specified
 
 `CWKR`, `PLCF`, `SPCF`, and `TRNE` have `docs/units.md` entries. A cadre
@@ -1168,6 +1239,15 @@ orders report, and the ship's fuel in the turn report.
 For step 4 specifically: `ec db verify` on a fresh database, and confirm the
 tri-state CHECK still rejects a hand-written bad row (`status='failed'` with a
 NULL `error_message`).
+
+**For a change to the parser**, the golden net will not see it: a report shows
+what an order *did*, and a parser bug that drops a field shows up turns later or
+not at all. `acceptedExamples` in `internal/orders/unbuilt_test.go` is the net
+for that, and the way to confirm it still bites is the way the last one was
+found -- break the thing on purpose and watch it fail. Retag a field `json:"-"`
+and check that `TestEveryOrderSurvivesBeingStoredAndReadBack` names it; delete a
+line from the table and check that `TestEveryRegisteredVerbHasAnExample` names
+the verb.
 
 ## Docs to update as you go
 
