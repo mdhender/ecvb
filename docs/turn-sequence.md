@@ -28,17 +28,18 @@ built.
   settled between the fleets that met rather than one order at a time, and the
   market matches offers across every faction that made one.
 
-Six stages are pure sweeps (1, 2, 3, 18, 19, 21) and five are orders and a
-sweep (4, 11, 14, 15, 22). The rest are orders, except that stage 13 is one step
-of orders and one step that is a sweep. Stage 15 is the odd one of the five: its
-sweep settles nothing between the orders, it only lands the ships whose crossing
-finished this turn.
+Six stages are pure sweeps (1, 2, 3, 18, 19, 21) and four are orders and a sweep
+(4, 11, 14, 22), where the orders declare intent and one sweep settles all of
+them against each other. The rest are orders, except stages 13 and 15, which mix
+the two a milder way: a step of orders and then a whole step that is a sweep --
+the passive sensor reading in 13, the ships landing in 15 -- settling nothing
+between the orders, only doing what the stage does apart from anyone's.
 
 A lettered sub-step is a step of a stage, and steps run in the lettered order:
 every order of step a resolves before any order of step b, whichever way round
 a player wrote them. Within a step, the order of the lines in the file decides.
 A step is therefore exactly a `Phase`, which is why move and jump are two
-phases and not one, and why twenty-two stages come to forty-two phases.
+phases and not one, and why twenty-two stages come to forty-three phases.
 
 ## The stages
 
@@ -272,37 +273,39 @@ other as a special case.
 
 ### 15. Ship movement occurs
 
-**Orders and a sweep.**
-
   a. Move orders executed -- `move`
-  b. Jump orders executed -- `jump`, then arrivals
+  b. Jump orders executed -- departures
+  c. Jump orders executed -- arrivals
 
-Step a is orders. Step b is orders and a sweep. They are two phases and not one
-because every move must finish before any jump begins: a ship moves inside its
-stellium, then jumps between stellia, and a file that writes the jump first
-still moves first.
+Steps a and b are orders. Step c is a sweep: nobody writes an arrival, so there
+is nothing in it to order.
 
-A jump begins from the stellium orbit, which is why step a is ahead of step b
-rather than merely beside it: a ship at a planet has to be moved out in the
-same turn before it can go. That much is built.
+They are three phases and not one because each has to finish before the next
+begins. Every move finishes before any jump: a ship moves inside its stellium,
+then jumps between stellia, and a file that writes the jump first still moves
+first. A jump begins from the stellium orbit, which is why step a is ahead of
+step b rather than merely beside it -- a ship at a planet has to be moved out in
+the same turn before it can go.
 
 A jump of _d_ light years by a drive at technology level _t_ takes
-\(\lceil d / t \rceil\) turns to complete, and the crossing is not the order.
-The order departs: it burns the whole fuel bill, takes the ship off the board,
-and succeeds. What is left behind is a row saying which ship is bound for which
-stellium and on which turn it is due. Step b's sweep is what reads those rows,
-and it lands every ship due this turn in the destination's stellium orbit.
+\(\lceil d / t \rceil\) turns to complete, never fewer than one, and **the
+crossing is not the order**. Step b is the whole of the order: it draws the
+whole fuel bill, takes the ship off the board, and succeeds. What it leaves
+behind is an `in_transit` row saying which ship is bound for which stellium and
+on which turn it is due. Step c reads those rows and lands every ship due this
+turn in the destination's stellium orbit, deleting the row as it goes.
 
-The sweep runs after step b's orders, so this turn's departures are settled
-before this turn's arrivals, and an arriving ship cannot be caught by a jump
-order written the turn it lands.
+Departures come before arrivals, so this turn's jumps are settled before this
+turn's landings and a ship cannot be caught by a jump order written the turn it
+arrives. Between the two steps a ship is nowhere at all -- no stellium, no
+system, no planet -- so nothing sees it and no order reaches it. A ship
+therefore makes one crossing at a time: even the shortest takes the turn it
+began in, so a second jump for one ship in one file is refused.
 
 A crossing of one turn is the degenerate case rather than a special one: the row
-is written by the order and consumed by the sweep in the same step b, which is
-the single-turn jump that is built today. One path serves both.
-
-This is a pending change to the order and the schema rather than a rule of the
-stage; it lands when the engine is next worked on.
+is written in step b and consumed in step c of the same turn, which is exactly
+the single-turn jump that was built before crossings could span turns. One path
+serves both, which is why nothing about a short jump changed.
 
 Everything that reads the world -- combat, surveys, probes, sensors, espionage
 -- has already happened, so a turn's movement is what the *next* turn's reports
@@ -486,8 +489,9 @@ not drafted enough of them, are still unwritten.
 ## Stages, phases, and what is built
 
 The engine's `phases` table is flat: it has one entry per *step*, not one per
-stage, so the twenty-two stages below come to forty-two phases. Two of them are
-built.
+stage, so the twenty-two stages below come to forty-three phases. Six of those
+phases are built -- `probe`, `sensor`, `move`, `jump`, `arrival`, `name` -- and
+two stages, 13 and 15, are built entire.
 
 | Stage | Phases, in order | Shape | Built |
 | --- | --- | --- | --- |
@@ -505,7 +509,7 @@ built.
 | 12. Surveys | `survey` | orders | no |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |
 | 14. Espionage | `assess`, `detect`, `obtain`, `convert`, `incite`, `neutralize` | orders + sweep | no |
-| 15. Ship movement | `move`, `jump` | orders, orders + sweep | **yes**, less the arrival sweep |
+| 15. Ship movement | `move`, `jump`, `arrival` | orders, orders, sweep | **yes** |
 | 16. Draft and disband | `draft`, `disband` | orders | no |
 | 17. Pay and rations | `pay`, `rations` | orders | no |
 | 18. Rebellion | `rebellion` | sweep | no |
@@ -515,6 +519,6 @@ built.
 | 22. News service | `news` | orders + sweep | no |
 
 The phase names are the names a player sees in `ec orders help`, not
-identifiers that exist yet. The two that do exist -- `probe` and `sensor` --
-run in that order in `spec.go`, and `move`, `jump`, and `naming` after them,
-which is stages 13, 15, and 20 with everything in between still to be written.
+identifiers that exist yet. The six that do exist run in `spec.go` in the order
+`probe`, `sensor`, `move`, `jump`, `arrival`, `naming` -- stages 13, 15, and 20,
+with everything in between still to be written.

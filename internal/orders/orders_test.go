@@ -74,7 +74,8 @@ func worldSnapshot(t *testing.T, conn *sqlite.Conn) string {
 		`SELECT group_concat(printf('%d/%s/%d', entity_id, section, quantity), ' ')
 			FROM (SELECT * FROM inventory ORDER BY entity_id, section, unit, tech_level)`,
 		`SELECT (SELECT count(*) FROM probe_contact) || '/' || (SELECT count(*) FROM probe_deposit)
-			|| '/' || (SELECT count(*) FROM sensor_survey) || '/' || (SELECT count(*) FROM sensor_contact)`,
+			|| '/' || (SELECT count(*) FROM sensor_survey) || '/' || (SELECT count(*) FROM sensor_contact)
+			|| '/' || (SELECT count(*) FROM in_transit)`,
 	} {
 		if err := sqlitex.ExecuteTransient(conn, query+";", &sqlitex.ExecOptions{
 			ResultFunc: func(stmt *sqlite.Stmt) error {
@@ -408,11 +409,14 @@ ship 40 jump to (2,4,6)
 	}
 }
 
-// A second jump starts where the first one landed. Nothing refuses a long jump
-// any more, so what proves it is the price: stellium 13 at (2,4,6) is 4 light
-// years from stellium 11 at (1,2,3) and 8 from the origin, and the second jump
-// is booked at the shorter one.
-func TestSubmitPricesASecondJumpFromTheFirstDestination(t *testing.T) {
+// A ship makes one crossing at a time. The first jump takes it off the board
+// for the rest of the turn -- arrivals resolve after every order -- so the
+// second is given to a ship that is not there to receive it. That is a Bind
+// failure, so the whole file is refused and nothing is stored.
+//
+// This is the rule that stopped a ship chaining jumps to cross the map in a
+// single turn: the shortest crossing there is still takes the turn it began in.
+func TestSubmitRefusesASecondJumpWhileTheShipIsCrossing(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 3
 id faction 1
@@ -421,47 +425,48 @@ ship 40 move to orbit 11
 ship 40 jump to (1,2,3)
 ship 40 jump to (2,4,6)
 `
-	if _, err := Submit(context.Background(), conn, strings.NewReader(input)); err != nil {
-		t.Fatalf("Submit: %v", err)
+	_, err := Submit(context.Background(), conn, strings.NewReader(input))
+	if err == nil {
+		t.Fatalf("Submit accepted two jumps for one ship in one turn")
 	}
-	var booked []string
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT printf('%s|%s|%d', verb, input, fuel_spent)
-		FROM game_order WHERE faction_id = 1 AND turn = 3 ORDER BY sequence;`, &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			booked = append(booked, stmt.ColumnText(0))
-			return nil
-		},
-	}); err != nil {
-		t.Fatal(err)
+	const want = "line 6: ship 40 is in transit and arrives on turn 3; it can be given no orders until then"
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("Submit error = %v; want it to contain %q", err, want)
 	}
-	// One HDRV unit at 40 FUEL per light year: 4 for the hop out, then two
-	// jumps of 4 light years each. Measured from the origin the second would
-	// have been 8 light years and 320 FUEL.
-	want := []string{"move|orbit 11|4", "jump|(1,2,3)|160", "jump|(2,4,6)|160"}
-	if strings.Join(booked, "\n") != strings.Join(want, "\n") {
-		t.Errorf("orders = %q; want %q", booked, want)
+	// A refused file stores nothing: the fixture's one pre-existing order is
+	// all that is left.
+	if got := orderCount(t, conn); got != 1 {
+		t.Fatalf("order count after a refused submit = %d; want 1", got)
 	}
 }
 
-// A jump leaves the ship in the destination's stellium orbit, which is where
-// the next jump has to begin, so two jumps in one file need no move between
-// them.
-func TestCheckAcceptsASecondJumpWithNoMoveBetween(t *testing.T) {
+// A crossing of one turn is due in the turn it departed, so the arrival step
+// lands the ship before the turn is out and nothing is left in transit. That is
+// what every jump did before a crossing could span turns, and it is why the
+// short case needed no special path.
+//
+// Check rolls everything back, so what this proves is that the dry run reached
+// the end with the ship landed rather than stranded: a crossing left standing
+// would have failed the move on the following line.
+func TestCheckLandsAOneTurnCrossingWithinTheTurn(t *testing.T) {
 	conn := openOrderTestDatabase(t)
+	// Stellium 11 at (1,2,3) is 4 light years from the origin and ship 40's
+	// drive is an HDRV-4, so the crossing is 4/4 = one turn.
 	input := `game "TEST" turn 3
 id faction 1
 
 ship 40 move to orbit 11
 ship 40 jump to (1,2,3)
-ship 40 jump to (2,4,6)
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
 		t.Fatalf("Check: %v", err)
 	}
-	if result.Orders != 3 {
-		t.Errorf("orders = %d; want 3", result.Orders)
+	if result.Orders != 2 {
+		t.Errorf("orders = %d; want 2", result.Orders)
+	}
+	if len(result.Warnings) != 0 {
+		t.Errorf("warnings = %+v; want none", result.Warnings)
 	}
 }
 
@@ -812,28 +817,29 @@ func TestCheckWarnsWhenTheShipCannotPayForItsOrders(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Ship 40 has one HDRV-4 and 200 FUEL. The move out to the stellium orbit
-	// burns 1 * 0.1 * 40 and each 4-light-year jump burns 1 * 4 * 40, so the
-	// tank covers the move and the first jump but comes up short on the second.
+	// burns 1 * 0.1 * 40, leaving 196, and the 4-light-year jump wants
+	// 1 * 4 * 40. The whole jump is billed on departure, so a tank that would
+	// have covered part of the crossing does not send the ship on any of it.
 	input := `game "TEST" turn 3
 id faction 1
 
 ship 40 move to orbit 11
-ship 40 jump to (1,2,3)
-ship 40 jump to (0,0,0)
+ship 40 jump to (2,4,6)
 `
 	result, err := Check(context.Background(), conn, strings.NewReader(input))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Orders != 3 {
-		t.Fatalf("orders = %d; want 3", result.Orders)
+	if result.Orders != 2 {
+		t.Fatalf("orders = %d; want 2", result.Orders)
 	}
 	var lines []string
 	for _, warning := range result.Warnings {
 		lines = append(lines, fmt.Sprintf("%d: %s", warning.Line, warning.Message))
 	}
+	// (2,4,6) is 8 light years from the origin: 320 FUEL, twice what is left.
 	want := []string{
-		"6: ship 40 needs 160 FUEL to jump and holds 36; the order is kept in case that changes before the turn resolves",
+		"5: ship 40 needs 320 FUEL to jump and holds 196; the order is kept in case that changes before the turn resolves",
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("warnings = %q; want %q", lines, want)

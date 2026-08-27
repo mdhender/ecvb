@@ -140,3 +140,30 @@ func TestMoveCostsMatchTheirFractionOfALightYear(t *testing.T) {
 		t.Errorf("crossing systems costs %d; want a fifth of %d", FuelPerCrossSystem, FuelPerLightYear)
 	}
 }
+
+// A technology level divides the distance rather than capping it. Every case
+// here is a crossing some drive can make; what differs is how long it is gone.
+func TestTurnsForJump(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		techLevel  int
+		lightYears int
+		want       int
+	}{
+		{"exactly one turn's worth", 3, 3, 1},
+		{"less than one turn's worth still costs a turn", 3, 1, 1},
+		{"one light year over rounds up", 3, 4, 2},
+		{"a slow drive over a short hop", 1, 3, 3},
+		{"a fast drive over a long haul", 10, 25, 3},
+		{"a jump to the stellium you are in", 4, 0, 1},
+		{"no drive at all is still never zero turns", 0, 5, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			drive := Drive{}.Add(tc.techLevel, 1)
+			if got := drive.TurnsForJump(tc.lightYears); got != tc.want {
+				t.Errorf("TurnsForJump(%d) at tech %d = %d; want %d",
+					tc.lightYears, tc.techLevel, got, tc.want)
+			}
+		})
+	}
+}

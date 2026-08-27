@@ -157,6 +157,16 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 	if entity.FactionID != b.FactionID {
 		return nil, fmt.Errorf("%s %d does not belong to faction %d", noun(entity), id, b.FactionID)
 	}
+	// A ship crossing between stellia is nowhere, and nowhere is out of reach.
+	// This is checked once, here, rather than by each order, because it holds
+	// for every order there will ever be: a crossing cannot be recalled or
+	// redirected, and the ship is not somewhere an order can act on until it
+	// lands. Arrivals resolve after every order that could name a ship, so a
+	// ship due this turn is still out of reach for the whole of it.
+	if entity.InTransit() {
+		return nil, fmt.Errorf("%s %d is in transit and arrives on turn %d; it can be given no orders until then",
+			noun(entity), id, entity.Transit.ArrivalTurn)
+	}
 	return entity, nil
 }
 

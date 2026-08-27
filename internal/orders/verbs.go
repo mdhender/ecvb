@@ -313,9 +313,9 @@ func (p JumpParams) Input() string { return fmt.Sprintf("(%d,%d,%d)", p.X, p.Y, 
 // its planet, and the jump behind it fails for the same reason.
 //
 // Nothing here measures the jump against a range. A drive's technology level
-// no longer caps how far it goes; it will decide how many turns the crossing
-// takes instead, and until then the only limit on a long jump is the FUEL it
-// burns, which is linear in the distance.
+// does not cap how far it goes; it divides the distance to give the turns the
+// crossing takes, so the only limit on a long jump is the FUEL it burns, which
+// is linear in the distance.
 func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 	ship, err := b.actor(p.ShipID, "ship")
 	if err != nil {
@@ -337,9 +337,11 @@ func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 			ship.ID, ship.Mass, ship.Drive.Capacity)
 	}
 	from := b.World.Coordinates(ship.Location.StelliumID)
+	lightYears := jumpdrive.Distance(from.X, from.Y, from.Z, p.X, p.Y, p.Z)
 	return []Bound{&jumpBound{
 		ship: ship, x: p.X, y: p.Y, z: p.Z, destinationID: destinationID,
-		cost: ship.Drive.FuelForJump(jumpdrive.Distance(from.X, from.Y, from.Z, p.X, p.Y, p.Z)),
+		cost:  ship.Drive.FuelForJump(lightYears),
+		turns: ship.Drive.TurnsForJump(lightYears),
 	}}, nil
 }
 
@@ -348,6 +350,10 @@ type jumpBound struct {
 	x, y, z       int
 	destinationID int64
 	cost          int64
+	// turns is how long the crossing takes, never fewer than one. It is the
+	// distance divided by the drive's technology level and rounded up, which is
+	// the whole of what a better drive buys.
+	turns int
 }
 
 // Params is the jump as it will be stored: the point it is bound for.
@@ -357,6 +363,17 @@ func (o *jumpBound) Params() Params {
 
 func (o *jumpBound) Fuel() int64 { return o.cost }
 
+// Apply departs. The whole fuel bill is drawn here, however many turns the
+// crossing takes, so a ship that cannot pay for all of it never leaves; then
+// the ship goes off the board and the crossing continues without it.
+//
+// What the order records as its final location is the destination's stellium
+// orbit, which is where the jump sent the ship -- a jump arrives in the
+// stellium orbit, because a ship crosses to a planet under its own power, with
+// a MOVE. That is where the ship ends up rather than where it stands tonight:
+// order_movement says what the order did, and what the order did was send the
+// ship there. Where the ship is in the meantime is the crossing's business, and
+// the turn report is what answers that.
 func (o *jumpBound) Apply(t *Turn) (Outcome, error) {
 	start := o.ship.Location
 	message, err := spendFuel(t, o.ship, "jump", o.cost)
@@ -366,13 +383,13 @@ func (o *jumpBound) Apply(t *Turn) (Outcome, error) {
 	if message != "" {
 		return failed(start, message), nil
 	}
-	// A jump arrives in the destination's stellium orbit: a ship crosses to a
-	// planet under its own power, with a MOVE.
-	final := world.Location{StelliumID: o.destinationID}
-	if err := t.World.Move(o.ship, final); err != nil {
+	// The crossing finishes on the last of its turns, so a one-turn crossing is
+	// due in the turn it departed and the arrival step lands it before the turn
+	// is out. That is what every jump did before a crossing could span turns.
+	if err := t.World.Depart(o.ship, o.destinationID, t.Number+o.turns-1); err != nil {
 		return Outcome{}, err
 	}
-	return succeeded(start, final, o.cost), nil
+	return succeeded(start, world.Location{StelliumID: o.destinationID}, o.cost), nil
 }
 
 // PROBE -----------------------------------------------------------------

@@ -71,6 +71,16 @@
       ]
     },
     {
+      "name": "IN TRANSIT",
+      "columns": [
+        "SHIP",
+        "DESTINATION",
+        "COORDINATES",
+        "ARRIVES"
+      ],
+      "rows": []
+    },
+    {
       "name": "NAMES",
       "columns": [
         "SUBJECT",

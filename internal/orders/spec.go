@@ -37,13 +37,21 @@ var (
 	PhaseSensor = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
 	PhaseMove   = &Phase{Name: "move"}
 	PhaseJump   = &Phase{Name: "jump"}
-	PhaseNaming = &Phase{Name: "naming"}
+	// PhaseArrival has no orders. A crossing between stellia is not an order --
+	// the jump that began it departed and succeeded turns ago -- so landing the
+	// ships that are due is the whole of the phase.
+	PhaseArrival = &Phase{Name: "arrival", Sweep: (*world.World).LandArrivals}
+	PhaseNaming  = &Phase{Name: "naming"}
 )
 
 // phases is the turn, in the order it happens. Probes and passive sensors both
 // read where things stood when the turn began, so both come before anything
 // moves; a ship that jumps this turn reports its new stellium next turn.
-var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseNaming}
+//
+// Departures come before arrivals, so this turn's jumps are settled before this
+// turn's landings and a ship cannot be caught by a jump order written the turn
+// it arrives.
+var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming}
 
 func init() {
 	for i, phase := range phases {

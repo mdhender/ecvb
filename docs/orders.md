@@ -29,12 +29,14 @@ order they happen:
 | 1 | probe | every `PROBE` order |
 | 2 | sensor | every assembled `SNSR` reads the sky from where it stands; no order is given for it |
 | 3 | move | every `MOVE` order |
-| 4 | jump | every `JUMP` order |
-| 5 | naming | every `NAME` order |
+| 4 | jump | every `JUMP` order departs |
+| 5 | arrival | every ship whose crossing finished lands; no order is given for it |
+| 6 | naming | every `NAME` order |
 
 Probes and passive sensors both read where things stood when the turn began, so
 both settle before anything moves; a ship that jumps this turn reports its new
-stellium in next turn's report. `ec orders help` prints this table from the
+stellium in next turn's report. Departures settle before arrivals, so a ship
+landing this turn cannot be caught by a jump order written the turn it arrives. `ec orders help` prints this table from the
 same list the engine walks, so it cannot fall behind.
 
 ## File names
@@ -101,8 +103,9 @@ ship 2 jump to (6,-9,8)
 ```
 
 The ship must belong to the submitting faction. The coordinates must identify a
-stellium in the named game; a jump cannot end in deep space. When executed, the
-ship moves to that stellium and orbits the stellium rather than a planet.
+stellium in the named game; a jump cannot end in deep space. The ship arrives
+orbiting the stellium rather than a planet: it crosses to a planet from there
+under its own power, with a `MOVE`.
 
 **A jump begins from the stellium orbit.** A ship at a planet cannot jump: send
 it out first, in the same file, with `ship SHIP-ID move to orbit 11`.
@@ -116,18 +119,34 @@ Every `MOVE` resolves before any `JUMP`, so those two lines work in either
 order in the file. A move that fails -- for want of fuel, say -- leaves the
 ship at its planet, and the jump behind it fails for the same reason.
 
-**Distance does not limit a jump.** A drive's technology level no longer caps
-how far it goes, so any ship can be sent to any stellium in the game. What
-limits a long jump is the `FUEL` it burns, which is 40 per assembled `HDRV`
-unit per light year and so grows with the distance. The ship's mass must still
-be within its drive's capacity. See [Unit Glossary](units.md) for the drive
-rules.
+**Distance does not limit a jump.** A drive's technology level does not cap how
+far it goes, so any ship can be sent to any stellium in the game. What limits a
+long jump is the `FUEL` it burns, which is 40 per assembled `HDRV` unit per
+light year and so grows with the distance. The ship's mass must still be within
+its drive's capacity. See [Unit Glossary](units.md) for the drive rules.
 
-A ship with more than one jump order in a turn measures each jump from where the
-previous one left it -- and the second one begins in the stellium orbit the
-first one arrived in, so no move is needed between them. Both `orders check` and
-the engine apply these limits, so a jump the check rejects is a jump the engine
-would have failed.
+**Technology level decides how long the crossing takes.** A jump of _d_ light
+years by a drive at technology level _t_ takes _d_ / _t_ turns, rounded up, and
+never fewer than one. That is the whole of what a better drive buys: not a
+longer reach, since every drive reaches everywhere, but fewer turns spent off
+the board.
+
+**The whole fuel bill is drawn on departure**, however many turns the crossing
+takes, so a ship that cannot pay for all of it never leaves.
+
+**A ship in transit is nowhere.** Until it arrives it is at no stellium, no
+system, and no planet: it cannot be probed, it does not appear on a passive
+sensor sweep, and it can be given no order of any kind. A crossing cannot be
+recalled, redirected, or cancelled, and since the fuel is already spent, a jump
+written to the wrong coordinates is not recoverable. The turn report's
+`IN TRANSIT` section is where a crossing ship shows up: where it is bound, and
+the turn it is due.
+
+A ship therefore makes one crossing at a time. Even the shortest crossing takes
+the turn it began in, so a second `JUMP` for the same ship in one file is given
+to a ship that is not there to receive it, and the file is rejected. Both
+`orders check` and the engine apply these limits, so a jump the check rejects is
+a jump the engine would have failed.
 
 ## MOVE
 

@@ -100,7 +100,9 @@ CREATE TABLE entity (
     id INTEGER PRIMARY KEY,
     unit TEXT NOT NULL CHECK (unit IN ('SHIP', 'COPN', 'CSFC', 'CORB')),
     tech_level INTEGER NOT NULL CHECK (tech_level BETWEEN 0 AND 10),
-    stellium_id INTEGER NOT NULL REFERENCES stellium(id),
+    -- Null for a ship crossing between stellia, which is nowhere until it
+    -- arrives. Nothing else may be nowhere: a colony does not travel.
+    stellium_id INTEGER REFERENCES stellium(id),
     system_id INTEGER,
     planet_id INTEGER,
     planet_ring INTEGER,
@@ -110,14 +112,35 @@ CREATE TABLE entity (
     FOREIGN KEY (system_id, stellium_id) REFERENCES system(id, stellium_id),
     FOREIGN KEY (planet_id, system_id) REFERENCES planet(id, system_id),
     CHECK (
-        (unit = 'SHIP' AND system_id IS NULL AND planet_id IS NULL AND planet_ring IS NULL)
+        (unit = 'SHIP' AND stellium_id IS NULL AND system_id IS NULL AND planet_id IS NULL AND planet_ring IS NULL)
         OR
-        (unit = 'SHIP' AND system_id IS NOT NULL AND planet_id IS NOT NULL AND planet_ring BETWEEN 1 AND 99)
+        (unit = 'SHIP' AND stellium_id IS NOT NULL AND system_id IS NULL AND planet_id IS NULL AND planet_ring IS NULL)
         OR
-        (unit IN ('COPN', 'CSFC') AND system_id IS NOT NULL AND planet_id IS NOT NULL AND planet_ring = 0)
+        (unit = 'SHIP' AND stellium_id IS NOT NULL AND system_id IS NOT NULL AND planet_id IS NOT NULL AND planet_ring BETWEEN 1 AND 99)
         OR
-        (unit = 'CORB' AND system_id IS NOT NULL AND planet_id IS NOT NULL AND planet_ring = 1)
+        (unit IN ('COPN', 'CSFC') AND stellium_id IS NOT NULL AND system_id IS NOT NULL AND planet_id IS NOT NULL AND planet_ring = 0)
+        OR
+        (unit = 'CORB' AND stellium_id IS NOT NULL AND system_id IS NOT NULL AND planet_id IS NOT NULL AND planet_ring = 1)
     )
+);
+
+-- A ship crossing between stellia.
+--
+-- The crossing is not the order that began it. A jump order departs -- it draws
+-- the whole fuel bill, takes the ship off the board, and succeeds -- and this
+-- row is what continues after it. While the row stands the ship is nowhere:
+-- entity.stellium_id is null, so it cannot be probed, does not appear on a
+-- sensor sweep, and can be given no order. The arrival step of ship movement
+-- lands every ship due and deletes its row.
+--
+-- One row per ship, because a ship makes one crossing at a time. Nothing purges
+-- this table: a crossing is live state, not turn history.
+CREATE TABLE in_transit (
+    game_id INTEGER NOT NULL,
+    entity_id INTEGER NOT NULL PRIMARY KEY REFERENCES entity(id),
+    destination_stellium_id INTEGER NOT NULL,
+    arrival_turn INTEGER NOT NULL CHECK (arrival_turn >= 0),
+    FOREIGN KEY (destination_stellium_id, game_id) REFERENCES stellium(id, game_id)
 );
 
 CREATE TABLE inventory (
@@ -338,6 +361,9 @@ CREATE INDEX planet_faction_id_idx ON planet(faction_id);
 CREATE INDEX entity_faction_id_idx ON entity(faction_id);
 CREATE INDEX work_group_deposit_id_idx ON work_group(deposit_id);
 CREATE INDEX game_order_actor_entity_id_idx ON game_order(actor_entity_id);
+
+-- The arrival step asks one question: which ships are due this turn.
+CREATE INDEX in_transit_arrival_idx ON in_transit(game_id, arrival_turn);
 `,
 	`
 -- What a faction calls things.

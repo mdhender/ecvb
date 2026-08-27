@@ -145,8 +145,31 @@ func (d Drive) FuelForMove(kind MoveKind) int64 {
 // FuelForJump returns the FUEL the drive burns crossing lightYears between
 // stellia. A jump distance is always a whole number of light years, because it
 // is a Euclidean distance rounded up.
+//
+// The whole bill is drawn on departure, however many turns the crossing takes,
+// so a ship that cannot pay for the whole crossing never leaves.
 func (d Drive) FuelForJump(lightYears int) int64 {
 	return d.Units * int64(lightYears) * FuelPerLightYear
+}
+
+// TurnsForJump returns how many turns the drive takes to cross lightYears.
+//
+// This is the whole of what a technology level buys. It does not lengthen a
+// drive's reach -- every drive reaches every stellium in the game, and the FUEL
+// is what makes a long jump expensive -- it divides the distance, so a better
+// drive spends fewer turns off the board.
+//
+// Never less than one turn: a crossing that takes one turn arrives in the turn
+// it departed, which is what every jump did before a crossing could span turns.
+func (d Drive) TurnsForJump(lightYears int) int {
+	if lightYears <= 0 || d.TechLevel <= 0 {
+		return 1
+	}
+	turns := (lightYears + d.TechLevel - 1) / d.TechLevel
+	if turns < 1 {
+		return 1
+	}
+	return turns
 }
 
 // Load returns the jump drive assembled on one entity.

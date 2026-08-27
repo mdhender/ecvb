@@ -129,7 +129,7 @@ types.
 | `id` | Primary key. |
 | `unit` | One of `SHIP`, `COPN`, `CSFC`, or `CORB`. |
 | `tech_level` | Required technology level, from 0 through 10. |
-| `stellium_id` | The stellium containing the entity. Required. |
+| `stellium_id` | The stellium containing the entity. Null only for a `SHIP` in transit, which is nowhere. |
 | `system_id` | The entity's system when it is at a planet; otherwise null. |
 | `planet_id` | The entity's planet; optional for a ship and required for a colony. |
 | `planet_ring` | The entity's ring at its planet; null when a ship is at the stellium level. |
@@ -144,9 +144,11 @@ types.
 | `CSFC` | Surface colony. |
 | `CORB` | Orbital colony. |
 
-The location columns must identify one valid location in the hierarchy. A
-selected system and planet must belong to the selected stellium, and a selected
-planet must belong to the selected system. See
+The location columns must identify one valid location in the hierarchy, or no
+location at all. A selected system and planet must belong to the selected
+stellium, and a selected planet must belong to the selected system. All four
+columns are null for a ship crossing between stellia; nothing else may be
+nowhere, because nothing else travels. See
 [Entity Location](entity-location.md) for the unit-specific location rules.
 
 Every entity has a controlling faction. An entity with population is controlled
@@ -211,6 +213,24 @@ unit-specific rule.
 | `work_group_id` | The work group containing the units. |
 | `tech_level` | Required technology level, from 0 through 10. |
 | `quantity` | Number of units at the technology level. |
+
+### `in_transit`
+
+A ship crossing between stellia. The crossing is not the order that began it:
+the jump order departs and succeeds, drawing the whole fuel bill and taking the
+ship off the board, and this row is what continues after it.
+
+| Column | Description |
+| --- | --- |
+| `game_id` | The game the crossing belongs to. |
+| `entity_id` | The ship, and the primary key: a ship makes one crossing at a time. |
+| `destination_stellium_id` | The stellium the ship is bound for. |
+| `arrival_turn` | The turn the crossing finishes. |
+
+While the row stands the ship's location columns are all null, so it cannot be
+probed, does not appear on a sensor sweep, and can be given no order. The
+arrival step of ship movement (stage 15c) lands every ship due and deletes its
+row. Nothing purges this table: a crossing is live state, not turn history.
 
 ## Orders
 

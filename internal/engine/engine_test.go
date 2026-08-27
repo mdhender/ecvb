@@ -5,6 +5,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -834,5 +835,188 @@ func TestResolveLeavesAShipAlreadyInTheStelliumOrbitUntouched(t *testing.T) {
 	// Only the first move was paid for.
 	if got := shipFuel(t, conn, 40); got != 496 {
 		t.Errorf("fuel left = %d; want 496", got)
+	}
+}
+
+// A crossing longer than the drive covers in a turn spans turns. The jump
+// order itself departs and succeeds in the turn it was written: it draws the
+// whole fuel bill and takes the ship off the board. What continues is the
+// crossing, which is a row of its own, and the arrival step lands the ship on
+// the turn it is due.
+//
+// The turn count is the whole of what a technology level buys. Nothing here
+// refuses the distance; a slower drive just spends longer nowhere.
+func TestResolveCarriesALongCrossingAcrossSeveralTurns(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	// Stellium 12 at (6,6,7) is exactly 11 light years from the origin. Ship
+	// 40's drive is an HDRV-4, so the crossing is ceil(11/4) = 3 turns: it
+	// departs on turn 3 and is due at the end of turn 5.
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO stellium (id, game_id, x, y, z) VALUES (12, 1, 6, 6, 7);
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES
+			(1, 3, 1, 1, 4, 'move', 40, 'orbit 11', '{"orbit":11}'),
+			(1, 3, 1, 2, 5, 'jump', 40, '(6,6,7)', '{"x":6,"y":6,"z":7}');
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Resolve(context.Background(), discardLogger(), conn, "TEST", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Succeeded != 2 || result.Failed != 0 {
+		t.Fatalf("result = %+v; want both orders to succeed", result)
+	}
+
+	// The order records the destination as where it sent the ship, and the
+	// whole 11 light years of fuel: 1 HDRV unit at 40 per light year.
+	var finalStellium, fuelSpent int64
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT m.final_stellium_id, o.fuel_spent
+		FROM game_order AS o JOIN order_movement AS m
+			ON m.game_id = o.game_id AND m.turn = o.turn
+			AND m.faction_id = o.faction_id AND m.sequence = o.sequence
+		WHERE o.game_id = 1 AND o.turn = 3 AND o.sequence = 2;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			finalStellium, fuelSpent = stmt.ColumnInt64(0), stmt.ColumnInt64(1)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	if finalStellium != 12 || fuelSpent != 440 {
+		t.Fatalf("jump recorded final stellium %d and %d FUEL; want 12 and 440", finalStellium, fuelSpent)
+	}
+
+	// Two turns of crossing, in which the ship is nowhere at all.
+	for turn := 3; turn <= 4; turn++ {
+		if where := locationOf(t, conn, 40); where != "nowhere" {
+			t.Fatalf("after turn %d the ship is at %s; want it still crossing", turn, where)
+		}
+		if due := arrivalTurn(t, conn, 40); due != 5 {
+			t.Fatalf("after turn %d the ship is due on turn %d; want 5", turn, due)
+		}
+		openAndResolve(t, conn, turn)
+	}
+
+	// The arrival step of turn 5 lands it in the destination's stellium orbit
+	// and the crossing is over.
+	if where := locationOf(t, conn, 40); where != "12/-/-" {
+		t.Fatalf("after turn 5 the ship is at %s; want the stellium orbit of 12", where)
+	}
+	if crossings := countRows(t, conn, "in_transit"); crossings != 0 {
+		t.Fatalf("in_transit holds %d rows after the ship landed; want none", crossings)
+	}
+}
+
+// A ship in the middle of a crossing is not somewhere an order can reach. The
+// order binds against a ship that is nowhere, which fails, and a stored order
+// that fails to bind is a failed order rather than a stopped turn.
+func TestResolveRefusesOrdersToAShipInTransit(t *testing.T) {
+	conn := openEngineTestDatabase(t)
+	if err := sqlitex.ExecuteScript(conn, `
+		INSERT INTO stellium (id, game_id, x, y, z) VALUES (12, 1, 6, 6, 7);
+		UPDATE entity SET system_id = NULL, planet_id = NULL, planet_ring = NULL WHERE id = 40;
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 3, 1, 1, 4, 'jump', 40, '(6,6,7)', '{"x":6,"y":6,"z":7}');
+	`, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Resolve(context.Background(), discardLogger(), conn, "TEST", 3); err != nil {
+		t.Fatal(err)
+	}
+	openAndResolveWithOrders(t, conn, 3, `
+		INSERT INTO game_order (
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
+		) VALUES (1, 4, 1, 1, 4, 'move', 40, 'orbit 4', '{"orbit":4}');`)
+
+	var status, message string
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT status, coalesce(error_message, '') FROM game_order
+		WHERE game_id = 1 AND turn = 4 AND sequence = 1;`, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			status, message = stmt.ColumnText(0), stmt.ColumnText(1)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	const want = "ship 40 is in transit and arrives on turn 5; it can be given no orders until then"
+	if status != "failed" || message != want {
+		t.Fatalf("outcome = %q, %q; want failed with %q", status, message, want)
+	}
+}
+
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+// locationOf renders where an entity stands, or "nowhere" for a ship crossing
+// between stellia.
+func locationOf(t *testing.T, conn *sqlite.Conn, entityID int64) string {
+	t.Helper()
+	where := "nowhere"
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT printf('%d/%s/%s', stellium_id, coalesce(system_id, '-'), coalesce(planet_id, '-'))
+		FROM entity WHERE id = ? AND stellium_id IS NOT NULL;`, &sqlitex.ExecOptions{
+		Args: []any{entityID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			where = stmt.ColumnText(0)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	return where
+}
+
+// arrivalTurn is the turn a crossing is due, or 0 when the ship is not on one.
+func arrivalTurn(t *testing.T, conn *sqlite.Conn, entityID int64) int {
+	t.Helper()
+	due := 0
+	if err := sqlitex.ExecuteTransient(conn,
+		"SELECT arrival_turn FROM in_transit WHERE entity_id = ?;", &sqlitex.ExecOptions{
+			Args: []any{entityID},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				due = stmt.ColumnInt(0)
+				return nil
+			}}); err != nil {
+		t.Fatal(err)
+	}
+	return due
+}
+
+func countRows(t *testing.T, conn *sqlite.Conn, table string) int {
+	t.Helper()
+	count := 0
+	if err := sqlitex.ExecuteTransient(conn, "SELECT count(*) FROM "+table+";", &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			count = stmt.ColumnInt(0)
+			return nil
+		}}); err != nil {
+		t.Fatal(err)
+	}
+	return count
+}
+
+// openAndResolve advances past a resolved turn and resolves the next one, which
+// carries no orders at all: the only thing that happens in it is the sweeps.
+func openAndResolve(t *testing.T, conn *sqlite.Conn, resolvedTurn int) {
+	t.Helper()
+	openAndResolveWithOrders(t, conn, resolvedTurn, "")
+}
+
+func openAndResolveWithOrders(t *testing.T, conn *sqlite.Conn, resolvedTurn int, submit string) {
+	t.Helper()
+	if _, err := OpenNextTurn(context.Background(), conn, "TEST", resolvedTurn); err != nil {
+		t.Fatal(err)
+	}
+	if submit != "" {
+		if err := sqlitex.ExecuteScript(conn, submit, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Resolve(context.Background(), discardLogger(), conn, "TEST", resolvedTurn+1); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -15,7 +15,7 @@ this plan removes them before adding the orders.
 green. Step 5 has begun: NAME is built (`e3eada9`) and `docs/accepted-orders.md`
 is now accepted rather than proposed. The parser now reads that surface: every
 order line is subject first, and `we` is a subject. The accepted verbs are
-mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-two
+mapped onto `docs/turn-sequence.md`, which is twenty-two stages and forty-three
 phases -- see "The turn sequence and the accepted doc are reconciled" below.**
 
 **Step 5 is stopped, and not for want of pipeline. The four structural taxes
@@ -27,8 +27,9 @@ the surrounding detail, but it does not say what a group produces per turn, what
 a spy costs, who the market's counterparty is, or what control confers -- and
 writing those would be authoring the 1978 rules rather than implementing them.
 See "What the code still has to be told" below for the list, verb by verb.
-The `jump` rework is the exception and waits on nothing: it is fully specified
-and buildable today, and it no longer shares a prerequisite with `create`.**
+The `jump` rework, which was the one exception, is now built: a crossing takes
+\(\lceil d / t \rceil\) turns, a ship in transit is nowhere and unreachable,
+and the whole fuel bill is drawn on departure.**
 
 ---
 
@@ -458,7 +459,7 @@ rules, not implementing them, so the user is supplying the 1978 text.
 ### The turn sequence and the accepted doc are reconciled
 
 `docs/turn-sequence.md` was the 1978 twenty-one stages and the accepted doc had
-moved away from it. It is now twenty-two stages and forty-two phases, with every
+moved away from it. It is now twenty-two stages and forty-three phases, with every
 accepted verb landing on a step and every step saying whether it is orders, a
 sweep, or both. That table is what `phases` in `spec.go` grows into.
 
@@ -502,7 +503,7 @@ Not yet read: the multi-line `create` form terminated by `end`, and the
 `quantity` grammar with its mandatory thousands separators. Both arrive with
 the orders that use them.
 
-### Two of the three jump changes are built
+### All three jump changes are built
 
 A jump now **begins from the stellium orbit**: a ship at a planet has to be
 moved out to orbit 11 in the same file, which works because every MOVE resolves
@@ -514,9 +515,11 @@ failed for fuel.
 **Technology level no longer caps the distance.** `Drive.Range` became
 `Drive.TechLevel` and `Drive.Reaches` is gone; any ship can be sent to any
 stellium in the game. `FUEL` is unchanged and was never a function of
-technology level -- 40 per assembled `HDRV` unit per light year -- so it is now
-the only thing that limits a long jump, and it grows linearly with the
-distance. The third change, the crossing taking more than one turn, is below.
+technology level -- 40 per assembled `HDRV` unit per light year -- so it is the
+only thing that limits a long jump, and it grows linearly with the distance.
+What the technology level does instead is divide the distance to give the turns
+the crossing takes, which is the third change and is also built; it is described
+below.
 
 ### Two effects outlive the turn that ordered them
 
@@ -538,7 +541,7 @@ turn resolves is a fourth thing: resolved, not failed, not done. **The status
 column and the purge have to learn about it before batch 2 (`create`) can be
 built.** The `jump` rework was thought to need it too, and does not.
 
-Two rules that were open here are now settled:
+Two rules that were open here were settled, and both are now built:
 
 - **A jump's fuel is drawn in full on departure.** The whole bill -- 40 per
   assembled `HDRV` unit per light year -- is charged in the turn the order
@@ -548,9 +551,9 @@ Two rules that were open here are now settled:
   that needs no rule for running dry halfway. `docs/accepted-orders.md` carried
   this as a TODO and now carries the decision.
 - **A ship in transit is nowhere, and a crossing is a row of its own.**
-  `entity.stellium_id` becomes nullable and the location CHECK grows an arm for
-  a ship with no stellium, no system, no planet, and no ring; a new `in_transit`
-  table holds the ship, the stellium it is bound for, and the turn it is due.
+  `entity.stellium_id` is nullable and the location CHECK has an arm for a ship
+  with no stellium, no system, no planet, and no ring; an `in_transit` table
+  holds the ship, the stellium it is bound for, and the turn it is due.
   The row is written when the jump executes and deleted when the ship arrives,
   and it is the only thing that knows where the ship went. A crossing ship is
   invisible to probes, to passive sensors, and to the turn report, and can be
@@ -559,22 +562,41 @@ Two rules that were open here are now settled:
   everywhere, it spends fewer turns off the board. That is what makes building
   one worth doing.
 
-**This is what splits `jump` from `create`, and it is the useful consequence.**
+**This is what split `jump` from `create`, and it is the useful consequence.**
 The crossing is not the order: the jump order departs, burns the whole fuel
-bill, and *succeeds*. So `jump` needs no fourth status and no change to the
-purge. It needs the nullable location, the `in_transit` table, and an arrival
-sweep on the existing jump phase, which lands every ship due that turn in the
-destination's stellium orbit at the end of stage 15b. A one-turn crossing is the
-degenerate case, written and consumed in the same sweep, so today's behaviour
-and its goldens fall out of the one path. The fourth status is now a `create`
-prerequisite alone, and `jump` can be built first and by itself.
+bill, and *succeeds*. So `jump` needed no fourth status and no change to the
+purge, and the fourth status is a `create` prerequisite alone.
 
-The nullable location is still the expensive half, because every query that
-assumes an entity has a stellium has to be read: `world.Load`'s entity load, the
-probe and sensor sweeps, and the turn and stellium reports. It is a schema
-change, so it is a new migration, and `docs/model.md` and
-`docs/entity-location.md` move with it. None of that is written yet -- the
-schema still has the CHECK it always had.
+### The jump rework is built
+
+Stage 15 is three steps rather than two -- move, departures, arrivals -- so
+`PhaseArrival` is a sweep-only phase beside `PhaseSensor`, and the turn is still
+nothing but its table. What it cost:
+
+- `entity.stellium_id` is nullable with a CHECK arm for a ship that is nowhere,
+  and `in_transit` holds the ship, its destination, and the turn it is due. The
+  baseline migration was edited rather than appended to, which the rule still
+  allows because no live game has been built from it; **`games/beta/rebuild.sh`
+  has to be run against any database made before this.**
+- `world` gained `Depart` and `LandArrivals` and a `Transit` on `Entity`;
+  `Drive.TurnsForJump` is the whole of the rule.
+- `Binder.actor` refuses a ship in transit, once, for every order there will
+  ever be.
+- The turn report gained an `IN TRANSIT` section, because otherwise a ship
+  simply vanishes for the length of its crossing.
+
+Two things fell out that were not designed for. A one-turn crossing is written
+and consumed within the same turn, so it is the *same* path as a long one and
+every existing golden held still -- the only diff in the replay was the new
+report section and the new ship. And a ship can no longer chain jumps within a
+turn to cross the map, because the shortest crossing still occupies the turn it
+began in; two of the old tests existed to assert the opposite and now assert the
+refusal.
+
+The nullable location was the half expected to be expensive, and was not: the
+probe sweep already filtered on `planet_id`, `locationAttr` already treated a
+zero stellium as nowhere, and only the sensor sweep, the entity report, and
+`order_movement` for a failed order needed anything said to them.
 
 ### What the code still has to be told
 
@@ -654,17 +676,15 @@ be told", and it is the 1978 text the user is supplying, verb by verb. Nothing
 in the code has to be prepared for it first, so a batch can be built the week
 its rules land.
 
-Two pieces are blocked on this repository rather than on the rules, and they
-have come apart. The **`jump` rework** is fully specified and depends on nothing
-else: a nullable entity location, an `in_transit` table, and an arrival sweep on
-the jump phase. It can be built today, ahead of any rules. **`create`** still
-needs the fourth order status and a purge that keeps it, which is now its
-prerequisite alone. Build order when work resumes: the `jump` rework, then
-whichever batch has rules, with `create` behind whatever its design settles on.
+One piece was blocked on this repository rather than on the rules, and it is
+done: the **`jump` rework** is built -- see "The jump rework is built" above.
+**`create`** still needs the fourth order status and a purge that keeps it,
+which is now its prerequisite alone, and whether it needs one at all depends on
+its design. Everything else waits on rules.
 
 The accepted doc carries thirty-five verbs. Four are built -- `move`, `jump`,
-`probe`, `name` -- and two of those still need reworking: `name` for naming
-another faction's ships and colonies, and `jump` for taking more than one turn.
+`probe`, `name` -- and one of those still needs reworking: `name`, for naming
+another faction's ships and colonies. `jump` is finished, crossings and all.
 Thirty-one remain, batched so that each exercises what the next needs:
 
 1. **Inventory & cargo** — `assemble`, `unassemble`, `transfer`. Establishes
@@ -672,7 +692,8 @@ Thirty-one remain, batched so that each exercises what the next needs:
 2. **Entities & groups** — `create`, `add`, `remove`, `idle`, `activate`,
    `retool`. Establishes `CreateEntity`, the `work_group` tables, and is the
    first batch to exercise a multi-line order end to end. Blocked on the
-   outlives-its-turn work above, which the `jump` rework also needs.
+   fourth order status above, which is now `create`'s alone: the `jump` rework
+   turned out not to need it and is built.
 3. **Population & upkeep** — `draft`, `disband`, `pay`, `rations`. A population
    system on the `internal/fuel` / `jumpdrive` / `sensors` package template.
 4. **Market** — `buy`, `sell`, for units and for tech levels. Currency,

@@ -18,8 +18,9 @@ INSERT INTO game (id, code, turn, turn_state, seed_high, seed_low) VALUES
 INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
 INSERT INTO faction (id, game_id, agent_id) VALUES (2, 1, 1);
 
--- Home is the origin. NEAR is 3 ly away, exactly a HDRV-3's range. FAR is
--- 5 ly away, one more than any drive here can reach.
+-- Home is the origin. NEAR is 3 ly away and FAR is 5. Technology level does not
+-- cap the distance -- every drive reaches everywhere -- it divides it: a HDRV-3
+-- crosses to NEAR in one turn and a HDRV-1 takes three.
 INSERT INTO stellium (id, game_id, x, y, z) VALUES
     (10, 1, 0, 0, 0),   -- HOME
     (11, 1, 1, 2, 2),   -- NEAR, distance 3
@@ -44,6 +45,7 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
 -- 101 is its home colony, which may probe but never move.
 -- 102 has no drive at all. 103 is too massive for the drive it has.
 -- 104 has a drive and no fuel to run it.
+-- 105 has the slowest drive there is, so its crossing spans turns.
 -- 200 belongs to the other faction and exists to be seen.
 INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
     (100, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 2270),
@@ -51,6 +53,7 @@ INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, pla
     (102, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  500),
     (103, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 9000),
     (104, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  271),
+    (105, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  400),
     (200, 'SHIP', 1, 10, 20, 31, 55, 2, 5000, 7400);
 
 INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
@@ -64,6 +67,10 @@ INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
     (103, 'cargo', 'FUEL', 0, 500),
     (104, 'component', 'HDRV', 3, 1),   -- a working drive
     (104, 'cargo', 'FUEL', 0, 1),       -- and one unit of fuel
+    -- 1 HDRV-1: capacity 1,045 MU, 4 FUEL a hop, 120 FUEL for a 3 ly jump, and
+    -- three turns to cross it, because a technology level divides the distance.
+    (105, 'component', 'HDRV', 1, 1),
+    (105, 'cargo', 'FUEL', 0, 200),
     (200, 'component', 'HDRV', 3, 2),
     (200, 'cargo', 'FUEL', 0, 5000);
 

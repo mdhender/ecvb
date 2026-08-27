@@ -344,7 +344,11 @@ func updateOutcome(conn *sqlite.Conn, gameID int64, turn int, item outcome) erro
 		return fmt.Errorf("record %s order faction %d sequence %d outcome: order changed",
 			item.orderType, item.factionID, item.sequence)
 	}
-	if item.movement {
+	// An order given to a ship that is nowhere -- one crossing between stellia
+	// -- records no movement, because there is no place to record. It fails to
+	// bind, so it never went anywhere either; the failure and its reason are on
+	// the order itself, where a report will find them.
+	if item.movement && item.start.StelliumID != 0 {
 		if err := sqlitex.ExecuteTransient(conn, `
 			INSERT INTO order_movement (
 				game_id, turn, faction_id, sequence,

@@ -396,6 +396,10 @@ that reads the world happens before movement.
 A crossing of one turn is the same thing with nothing left over: the row is
 written and deleted in the same turn, and the ship arrives where it always did.
 
+A ship makes one crossing at a time. Even the shortest occupies the turn it
+began in, so a second jump order for the same ship in one file is given to a
+ship that is not there to receive it, and the file is refused.
+
 ## Draft Orders
 
 ### Draft Orders

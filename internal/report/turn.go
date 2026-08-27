@@ -76,13 +76,34 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 		ORDER BY e.id;`, &sqlitex.ExecOptions{
 		Args: []any{factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
+			// A ship crossing between stellia is nowhere, and its whole
+			// location reads as absent. Where it is bound is the next table.
 			entities.Row(
-				stmt.ColumnInt64(0), stmt.ColumnText(1), stmt.ColumnInt(2), stmt.ColumnInt64(3),
+				stmt.ColumnInt64(0), stmt.ColumnText(1), stmt.ColumnInt(2), nullableInt(stmt, 3),
 				nullableText(stmt, 4), nullableInt(stmt, 5), nullableInt(stmt, 6), stmt.ColumnInt64(7), stmt.ColumnInt64(8))
 			return nil
 		},
 	}); err != nil {
 		return nil, fmt.Errorf("query entities: %w", err)
+	}
+
+	// Where the ships that are nowhere have gone. Without this a ship simply
+	// vanishes from the report for the length of its crossing, which is the one
+	// thing a player cannot be left to guess: the crossing cannot be recalled,
+	// so all they can do is know when it ends.
+	crossings := rpt.Table("IN TRANSIT", "SHIP", "DESTINATION", "COORDINATES", "ARRIVES")
+	if err := sqlitex.ExecuteTransient(conn, `
+		SELECT t.entity_id, st.id, st.x, st.y, st.z, t.arrival_turn
+		FROM in_transit AS t
+		JOIN entity AS e ON e.id = t.entity_id
+		JOIN stellium AS st ON st.id = t.destination_stellium_id
+		WHERE e.faction_id = ?
+		ORDER BY t.entity_id;`, reportRows(factionID, func(stmt *sqlite.Stmt) {
+		crossings.Row(stmt.ColumnInt64(0), stmt.ColumnInt64(1),
+			fmt.Sprintf("(%d,%d,%d)", stmt.ColumnInt(2), stmt.ColumnInt(3), stmt.ColumnInt(4)),
+			stmt.ColumnInt(5))
+	})); err != nil {
+		return nil, fmt.Errorf("query ships in transit: %w", err)
 	}
 
 	// What this faction calls things. A name is its own: nobody else's report

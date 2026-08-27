@@ -153,7 +153,7 @@ measure a ship as the first order left it.
 A turn is the table in `spec.go` and nothing else:
 
 ```go
-var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseNaming}
+var phases = []*Phase{PhaseProbe, PhaseSensor, PhaseMove, PhaseJump, PhaseArrival, PhaseNaming}
 ```
 
 `orders.Phases()` is what both `simulate` and `engine.resolve` loop over, so
@@ -181,18 +181,21 @@ parser reads neither, so the parser rewrite comes before the rest of the orders;
 
 The two docs are reconciled: every accepted verb lands on a step of a stage, and
 `docs/turn-sequence.md` is the authority on *when* an order takes effect. Its
-twenty-two stages are forty-two phases, because a stage's lettered steps run in
+twenty-two stages are forty-three phases, because a stage's lettered steps run in
 their letter order and a step is exactly a `Phase`. Six stages are pure sweeps;
 five are orders *and* a sweep -- combat, the market, espionage, ship movement,
 the news service -- where the orders declare intent and one sweep settles all of
 them against each other.
 
-Two effects will outlive the turn that ordered them, and they are not the same
-shape. A `jump` order departs and *succeeds*; what continues is a ship in
-transit, which will be a row of its own -- ship, destination stellium, arrival
-turn -- landed by a sweep on the jump phase, so `jump` needs no new order state.
-A `create` keeps running, which the three-way `status` CHECK and `ec turn
-open`'s purge have to learn about first.
+Two effects outlive the turn that ordered them, and they are not the same shape.
+A `jump` order departs and *succeeds*; what continues is a ship in transit, a
+row of `in_transit` -- ship, destination stellium, arrival turn -- landed by the
+`arrival` phase, so `jump` needed no new order state. That half is **built**: a
+crossing takes \(\lceil d / t \rceil\) turns, the ship is nowhere while it
+makes it (`entity.stellium_id` is null) and can be given no order, and the whole
+fuel bill is drawn on departure. A `create` genuinely keeps running, which the
+three-way `status` CHECK and `ec turn open`'s purge have to learn about first;
+that is now a `create` prerequisite alone.
 
 ## Turn lifecycle
 
@@ -204,14 +207,15 @@ open`'s purge have to learn about first.
    turn. `Check` runs exactly the same thing and keeps nothing.
 2. `ec turn resolve` runs `internal/engine.Resolve` in one transaction, walking
    `orders.Phases()` in order: **every order of one phase resolves before any
-   order of the next**, today probe, sensor, move, jump, naming. Expected game-rule
+   order of the next**, today probe, sensor, move, jump, arrival, naming. Expected game-rule
    failures are recorded on the order row (`status = 'failed'` plus
    `error_message`, final location equal to start location) and do not abort the
    turn; database/state errors roll the turn back. State flips
    `open → resolved`; the turn number does not change.
 3. `ec turn open` advances the turn number and purges order rows older than the most
    recently resolved turn, so the previous turn's outcomes stay readable via
-   `ecrpt show orders --turn N`.
+   `ecrpt show orders --turn N`. `in_transit` is deliberately not purged: a
+   crossing is live state that outlives the turn it began in.
 
 Every order is a row of `game_order`, whatever its verb: `verb`, `actor_entity_id`,
 `input` (the order in the words the player wrote), and `params` (everything else it

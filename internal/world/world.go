@@ -48,7 +48,22 @@ type Entity struct {
 	Fuel      int64
 	Drive     jumpdrive.Drive
 	Sensors   sensors.Array
+	// Transit is the crossing this ship is making, or nil when it is on the
+	// board. A ship in transit has no Location at all.
+	Transit *Transit
 }
+
+// Transit is a crossing between stellia in progress: where the ship is bound
+// and the turn it is due. It is what outlives the jump order that began it.
+type Transit struct {
+	DestinationID int64
+	ArrivalTurn   int
+}
+
+// InTransit reports whether the entity is crossing between stellia, and so is
+// nowhere: not probeable, not on a sensor sweep, and not able to be given an
+// order until it arrives.
+func (e *Entity) InTransit() bool { return e.Transit != nil }
 
 // Planet is a planet of a system, as much of it as the rules read.
 type Planet struct {
@@ -175,12 +190,14 @@ func (w *World) Planet(systemID int64, orbit int) (planet Planet, found bool, er
 	return planet, found, nil
 }
 
-// Move puts an entity at a location, in the database and in the loaded copy.
+// Move puts an entity at a location, in the database and in the loaded copy. A
+// zero stellium is nowhere at all, which only a ship crossing between stellia
+// may be; Depart is what puts one there.
 func (w *World) Move(entity *Entity, to Location) error {
 	if err := sqlitex.ExecuteTransient(w.conn, `
 		UPDATE entity SET stellium_id = ?, system_id = ?, planet_id = ?, planet_ring = ? WHERE id = ?;`,
 		&sqlitex.ExecOptions{
-			Args: []any{to.StelliumID, nullableID(to.SystemID), nullableID(to.PlanetID), nullableRing(to), entity.ID},
+			Args: []any{nullableID(to.StelliumID), nullableID(to.SystemID), nullableID(to.PlanetID), nullableRing(to), entity.ID},
 		}); err != nil {
 		return fmt.Errorf("update entity %d location: %w", entity.ID, err)
 	}
@@ -188,6 +205,57 @@ func (w *World) Move(entity *Entity, to Location) error {
 		return fmt.Errorf("update entity %d location: entity does not exist", entity.ID)
 	}
 	entity.Location = to
+	return nil
+}
+
+// Depart sends a ship on a crossing between stellia: it takes the ship off the
+// board and records where it is bound and when it is due.
+//
+// The crossing outlives the order that began it, which is why it is a row of
+// its own. The ship is nowhere while it stands -- no stellium, no system, no
+// planet -- so nothing can see it and no order can reach it. A crossing that
+// takes one turn is written here and consumed by the same turn's arrival step,
+// which is what every jump did before a crossing could span turns.
+func (w *World) Depart(entity *Entity, destinationID int64, arrivalTurn int) error {
+	if err := sqlitex.ExecuteTransient(w.conn, `
+		INSERT INTO in_transit (game_id, entity_id, destination_stellium_id, arrival_turn)
+		VALUES (?, ?, ?, ?);`, &sqlitex.ExecOptions{
+		Args: []any{w.game.ID, entity.ID, destinationID, arrivalTurn},
+	}); err != nil {
+		return fmt.Errorf("send entity %d in transit: %w", entity.ID, err)
+	}
+	if err := w.Move(entity, Location{}); err != nil {
+		return err
+	}
+	entity.Transit = &Transit{DestinationID: destinationID, ArrivalTurn: arrivalTurn}
+	return nil
+}
+
+// LandArrivals is the arrival step of ship movement: every ship whose crossing
+// finished lands in its destination's stellium orbit and its crossing is over.
+// A ship reaches a planet from there under its own power, with a MOVE, which
+// is next turn's business.
+//
+// It is a sweep rather than an order because no player writes it: what the
+// jump order left behind is what the step reads. Ships land in id order so the
+// step does the same thing every time it is run.
+func (w *World) LandArrivals(turn int) error {
+	for _, entity := range w.Entities() {
+		if entity.Transit == nil || entity.Transit.ArrivalTurn > turn {
+			continue
+		}
+		destination := entity.Transit.DestinationID
+		if err := sqlitex.ExecuteTransient(w.conn,
+			"DELETE FROM in_transit WHERE entity_id = ?;", &sqlitex.ExecOptions{
+				Args: []any{entity.ID},
+			}); err != nil {
+			return fmt.Errorf("land entity %d: %w", entity.ID, err)
+		}
+		entity.Transit = nil
+		if err := w.Move(entity, Location{StelliumID: destination}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -267,6 +335,11 @@ func (w *World) SetName(factionID int64, of Subject, id int64, name string) erro
 func (w *World) RecordSensors(turn int) error {
 	for _, entity := range w.Entities() {
 		if !entity.Sensors.Installed() {
+			continue
+		}
+		// A ship crossing between stellia is nowhere, so its sensors have
+		// nothing to read and nothing reads them.
+		if entity.InTransit() {
 			continue
 		}
 		if err := sqlitex.ExecuteTransient(w.conn, `
@@ -356,6 +429,19 @@ func (w *World) loadEntities() error {
 		if entity, ok := w.entities[id]; ok {
 			entity.Fuel = quantity
 		}
+	}
+	if err := sqlitex.ExecuteTransient(w.conn, `
+		SELECT entity_id, destination_stellium_id, arrival_turn
+		FROM in_transit WHERE game_id = ?;`, &sqlitex.ExecOptions{
+		Args: []any{w.game.ID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			if entity, ok := w.entities[stmt.ColumnInt64(0)]; ok {
+				entity.Transit = &Transit{DestinationID: stmt.ColumnInt64(1), ArrivalTurn: stmt.ColumnInt(2)}
+			}
+			return nil
+		},
+	}); err != nil {
+		return fmt.Errorf("load ships in transit: %w", err)
 	}
 	return nil
 }
