@@ -206,19 +206,39 @@ func parseIdentityLine(line *Line, submission *Submission) error {
 }
 
 // opensOrder is the order a line names and the word that follows its verb, read
-// without consuming anything. A subject is either `we`, which takes no id, or a
-// word and an id, so the verb is the second token or the third and nothing else
-// has to be understood to find it.
+// without consuming anything.
 //
 // It exists for one question the file scanner has to answer before the order is
 // parsed: does this order run to a terminator? The word after the verb goes
 // with it because the answer can depend on the form, and a form is named there.
+//
+// The subject is read with begins and parseSubject, which is what parseOrder
+// reads it with, rather than by counting the tokens a subject takes. Counting
+// worked -- `we` takes one word and every other subject two, so the verb was
+// the second token or the third -- but it was a second copy of the subject
+// grammar living where nothing would ever compare it against the first, and it
+// would have gone on agreeing with it only for as long as no subject was ever
+// written any other way.
+//
+// Nothing is consumed: the mark is taken before a word is read and restored
+// however this returns, because Parse hands the same Line to parseOrder
+// afterwards and that line has to still be at its beginning.
 func opensOrder(line *Line) (spec *Spec, form string, ok bool) {
-	offset := 2
-	if word, ok := line.peek(); ok && !word.quoted && strings.EqualFold(word.text, SubjectFaction) {
-		offset = 1
+	restore := line.mark()
+	defer restore()
+	// A line that never named a subject opens no order, whatever words follow
+	// it, and saying why is parseOrder's job rather than this lookahead's.
+	if !line.begins() {
+		return nil, "", false
 	}
-	word, found := line.peekAt(offset)
+	// It named one, so the subject is however many words parseSubject reads and
+	// the verb is what comes after them. Whether the player wrote a good id is
+	// again parseOrder's to report: a create whose id is mistyped is still a
+	// create, and still has to be read to its `end`, or the player would be told
+	// about every line of its body as well as about the one thing they got
+	// wrong.
+	_, _ = parseSubject(line)
+	word, found := line.next()
 	if !found || word.quoted {
 		return nil, "", false
 	}
@@ -226,7 +246,7 @@ func opensOrder(line *Line) (spec *Spec, form string, ok bool) {
 	if !ok {
 		return nil, "", false
 	}
-	if next, found := line.peekAt(offset + 1); found && !next.quoted {
+	if next, found := line.peek(); found && !next.quoted {
 		form = next.text
 	}
 	return spec, form, true

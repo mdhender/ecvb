@@ -372,3 +372,42 @@ func TestHelpListsEveryOrder(t *testing.T) {
 		t.Errorf("HelpFor(PROBE) = %q, %v; want probe's subjects", got, err)
 	}
 }
+
+// opensOrder is a lookahead: it finds the verb of a line the same way the
+// parser proper does, by reading the subject, and it has to leave the line
+// exactly as it found it, because Parse hands that same Line straight on to
+// parseOrder. This is the test of both halves at once -- the verb it read and
+// the cursor it did not move.
+func TestOpensOrderReadsTheVerbAndConsumesNothing(t *testing.T) {
+	for _, item := range []struct {
+		text string
+		verb string
+		form string
+	}{
+		// Every subject the grammar has, because the verb sits at a different
+		// word in each of them.
+		{"ship 2 move to orbit 6", "move", "to"},
+		{"colony 50 create ship using 60 STRC-8 end", "create", "ship"},
+		{`we name (-1,2,3) "Stellium Joe"`, "name", "("},
+		// A line that is not an order at all, which is every continuation line
+		// of a create, and a line whose verb is not one the game has.
+		{"  using 60 STRC-8", "", ""},
+		{"ship 2 fly to orbit 6", "", ""},
+	} {
+		line := newLine(1, item.text)
+		spec, form, ok := opensOrder(line)
+		switch {
+		case item.verb == "" && ok:
+			t.Errorf("%q opens %q; want no order", item.text, spec.Verb)
+		case item.verb != "" && !ok:
+			t.Errorf("%q opens no order; want %q", item.text, item.verb)
+		case item.verb != "" && (spec.Verb != item.verb || form != item.form):
+			t.Errorf("%q opens %q with form %q; want %q and %q",
+				item.text, spec.Verb, form, item.verb, item.form)
+		}
+		if line.pos != 0 {
+			t.Errorf("%q left the line at word %d; want it back at the beginning",
+				item.text, line.pos)
+		}
+	}
+}

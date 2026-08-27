@@ -162,6 +162,18 @@ func (l *Line) peekAt(offset int) (token, bool) {
 	return l.tokens[l.pos+offset], true
 }
 
+// mark saves where the line is being read from and hands back what puts it
+// there again.
+//
+// It is what a lookahead is written with. Finding out what a line says means
+// reading it, and reading it moves the cursor; a reader that has to leave the
+// line untouched takes a mark first and restores it on the way out, so the
+// parser that comes after cannot tell the lookahead happened.
+func (l *Line) mark() (restore func()) {
+	pos := l.pos
+	return func() { l.pos = pos }
+}
+
 // keyword consumes the next token when it matches one of the given words,
 // ignoring case, and reports which one. Keywords are always unquoted.
 func (l *Line) keyword(words ...string) (string, bool) {

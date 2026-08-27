@@ -83,6 +83,29 @@ colony 50 assemble 6 SNSR-99
 	}
 }
 
+// A create whose id the player mistyped is still a create, so it is still read
+// to its `end`. The file scanner has to decide that a line runs to a terminator
+// before anything has checked what the line says, and an id it cannot read is
+// no reason to stop: reading the order whole is what leaves the player with the
+// one thing they got wrong instead of that plus a complaint about every line of
+// the order's body.
+func TestACreateWithAMistypedIdIsStillReadWhole(t *testing.T) {
+	body := `colony fifty create ship
+  using 60 STRC-8
+  transfering 25 FOOD
+  with 5 CWKR
+end
+`
+	_, err := Parse(strings.NewReader(header + body))
+	if err == nil {
+		t.Fatal("a create with a mistyped id was accepted; want it refused")
+	}
+	want := `line 4: invalid colony id: "fifty" is not a number`
+	if err.Error() != want {
+		t.Errorf("error = %q;\n  want exactly %q", err, want)
+	}
+}
+
 // A blank line or a comment inside a multi-line order is part of it, not the
 // end of it.
 func TestBlankLinesAndCommentsInsideACreateAreNotTheEndOfIt(t *testing.T) {
