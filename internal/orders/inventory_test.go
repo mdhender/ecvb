@@ -98,6 +98,45 @@ func TestAssembleSendsTheSixToComponentsAndTheRestToOperational(t *testing.T) {
 	}
 }
 
+// A transport sets its load down in cargo and nowhere else, and stage 10
+// assembles what stage 9 delivered, so an assemble looks in cargo as well --
+// after unassembled inventory, which is the section units are kept in to be
+// worked on.
+func TestAssembleDrawsFromUnassembledFirstAndThenFromCargo(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	// 30 sensors in cargo beside the 100 unassembled. Asking for 110 empties
+	// the unassembled hundred and takes ten out of cargo.
+	testdb.Exec(t, conn, `
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+			VALUES (50, 'cargo', 'SNSR', 1, 30);
+		UPDATE entity_cadre SET quantity = 20 WHERE entity_id = 50;`)
+	apply(t, conn, "colony 50 assemble 110 SNSR-1\n")
+	if got := storedQuantity(t, conn, 50, "component", "SNSR", 1); got != 110 {
+		t.Errorf("component SNSR-1 = %d; want 110", got)
+	}
+	if got := storedQuantity(t, conn, 50, "unassembled", "SNSR", 1); got != 0 {
+		t.Errorf("unassembled SNSR-1 = %d; want none: it is drawn on first", got)
+	}
+	if got := storedQuantity(t, conn, 50, "cargo", "SNSR", 1); got != 20 {
+		t.Errorf("cargo SNSR-1 = %d; want 20: only the ten it still needed came out of cargo", got)
+	}
+}
+
+// The two sections are one pool for the cadre, which does not care where a
+// unit was kept.
+func TestTheCadreRationsAnAssembleAcrossBothItsSections(t *testing.T) {
+	conn := openInventoryOrderDatabase(t)
+	testdb.Exec(t, conn, `
+		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
+			VALUES (50, 'cargo', 'SNSR', 1, 30);`)
+	// Five workers do 2,500 MU and a sensor masses 40 MU, so 62 are assembled
+	// however they are split between the sections, and cargo is untouched.
+	result := check(t, conn, "colony 50 assemble 110 SNSR-1\n")
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0].Message, "assembled 62 of 110 SNSR-1") {
+		t.Fatalf("warnings = %+v; want the order stopped at 62", result.Warnings)
+	}
+}
+
 // A shortage is a rate rather than a failure: the order does what the cadre
 // paid for, says how much that was, and is not refused.
 func TestAssembleDoesWhatTheCadrePaysForAndSaysSo(t *testing.T) {

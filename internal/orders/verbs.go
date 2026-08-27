@@ -778,17 +778,42 @@ func unitListInput(items []UnitQuantity) string {
 	return strings.Join(parts, ", ")
 }
 
-// bindUnitShifts resolves the tags an order named into the moves through
+// unitWork is one lot of units an assemble or unassemble order named, resolved
+// to the sections it moves between.
+//
+// from is a draw order rather than one section, because an assemble has two
+// places to look. Which of them a lot actually comes out of depends on what is
+// where when the order runs, so the split is Apply's; the list is Bind's.
+type unitWork struct {
+	tag       string
+	unit      string
+	techLevel int
+	quantity  int64
+	from      []string
+	to        string
+}
+
+// assembleSources is where an assemble takes its units from, in order.
+//
+// Unassembled inventory goes first: it is what an unassemble leaves behind and
+// what the market deals in, so it is the section units are kept in to be worked
+// on. Cargo goes second because a transport sets its load down there and
+// nowhere else, and stage 10 assembles what stage 9 delivered -- without this
+// the unassemble-carry-assemble pipeline the turn sequence is arranged around
+// would stop one step short at the far end.
+var assembleSources = []string{units.SectionUnassembled, units.SectionCargo}
+
+// bindUnitWork resolves the tags an order named into the moves through
 // inventory it is asking for.
 //
 // Which section a unit works in is a property of the unit code, so it cannot
 // change during a turn and belongs here rather than in Apply. So does naming
 // something that is never assembled at all, and naming the same unit twice --
 // both are mistakes in the file rather than things the world might yet oblige.
-func bindUnitShifts(items []UnitQuantity, assembling, stow bool) ([]world.Shift, error) {
+func bindUnitWork(items []UnitQuantity, assembling, stow bool) ([]unitWork, error) {
 	var found bindErrors
 	seen := make(map[string]bool, len(items))
-	shifts := make([]world.Shift, 0, len(items))
+	work := make([]unitWork, 0, len(items))
 	for _, item := range items {
 		unit, techLevel, _, err := units.ParseTag(item.Tag)
 		if err != nil {
@@ -805,20 +830,20 @@ func bindUnitShifts(items []UnitQuantity, assembling, stow bool) ([]world.Shift,
 			found = append(found, notAssemblable(item.Tag, unit))
 			continue
 		}
-		from, to := units.SectionUnassembled, assembled
+		from, to := assembleSources, assembled
 		if !assembling {
-			from, to = assembled, units.SectionUnassembled
+			from, to = []string{assembled}, units.SectionUnassembled
 			if stow {
 				to = units.SectionCargo
 			}
 		}
-		shifts = append(shifts, world.Shift{From: from, To: to,
-			Unit: unit, TechLevel: techLevel, Quantity: item.Quantity})
+		work = append(work, unitWork{tag: item.Tag, unit: unit, techLevel: techLevel,
+			quantity: item.Quantity, from: from, to: to})
 	}
 	if len(found) != 0 {
 		return nil, found
 	}
-	return shifts, nil
+	return work, nil
 }
 
 // notAssemblable says why a thing an order named is never put together, in the
@@ -857,12 +882,12 @@ func (p AssembleParams) Bind(b *Binder) ([]Bound, error) {
 	if err != nil {
 		return nil, err
 	}
-	shifts, err := bindUnitShifts(p.Units, true, false)
+	work, err := bindUnitWork(p.Units, true, false)
 	if err != nil {
 		return nil, err
 	}
 	return []Bound{&workBound{params: p, entity: entity, pool: cadre.Assembly,
-		verb: "assembled", shifts: shifts}}, nil
+		verb: "assembled", work: work}}, nil
 }
 
 // UnassembleParams is an UNASSEMBLE as written. Stow says the units are put
@@ -893,12 +918,12 @@ func (p UnassembleParams) Bind(b *Binder) ([]Bound, error) {
 	if err != nil {
 		return nil, err
 	}
-	shifts, err := bindUnitShifts(p.Units, false, p.Stow)
+	work, err := bindUnitWork(p.Units, false, p.Stow)
 	if err != nil {
 		return nil, err
 	}
 	return []Bound{&workBound{params: p, entity: entity, pool: cadre.Unassembly,
-		verb: "unassembled", shifts: shifts}}, nil
+		verb: "unassembled", work: work}}, nil
 }
 
 // workBound is an ASSEMBLE or an UNASSEMBLE. They are one thing in two
@@ -913,8 +938,8 @@ type workBound struct {
 	// separates the rounding of the one from the rounding of the other.
 	pool string
 	// verb is the past tense the note reads in: assembled, unassembled.
-	verb   string
-	shifts []world.Shift
+	verb string
+	work []unitWork
 }
 
 // Params is the order as it will be stored.
@@ -936,28 +961,36 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 	at := o.entity.Location
 	allowed := t.World.WorkAllowed(o.pool, o.entity)
 	done := int64(0)
-	shifts := make([]world.Shift, 0, len(o.shifts))
+	shifts := make([]world.Shift, 0, len(o.work))
 	var short []string
 	cadreBound := false
-	for _, want := range o.shifts {
-		quantity := want.Quantity
-		if held := o.entity.Held(want.From, want.Unit, want.TechLevel); held < quantity {
-			quantity = held
-		}
+	for _, want := range o.work {
 		// The work is the mass being handled, so a heavier unit is more work.
 		// A unit that masses nothing is no work at all and is not rationed.
-		if unitMass := units.MetricsForStored(want.Unit, want.TechLevel).Mass; unitMass > 0 {
-			if room := (allowed - done) / unitMass; room < quantity {
-				quantity, cadreBound = max(room, 0), true
+		unitMass := units.MetricsForStored(want.unit, want.techLevel).Mass
+		moved := int64(0)
+		for _, section := range want.from {
+			if moved == want.quantity {
+				break
 			}
-			done += quantity * unitMass
+			quantity := min(want.quantity-moved, o.entity.Held(section, want.unit, want.techLevel))
+			if unitMass > 0 {
+				if room := (allowed - done) / unitMass; room < quantity {
+					quantity, cadreBound = max(room, 0), true
+				}
+				done += quantity * unitMass
+			}
+			if quantity == 0 {
+				continue
+			}
+			shifts = append(shifts, world.Shift{From: section, To: want.to,
+				Unit: want.unit, TechLevel: want.techLevel, Quantity: quantity})
+			moved += quantity
 		}
-		if quantity != want.Quantity {
+		if moved != want.quantity {
 			short = append(short, fmt.Sprintf("%s of %s %s",
-				formatQuantity(quantity), formatQuantity(want.Quantity), want.Tag()))
+				formatQuantity(moved), formatQuantity(want.quantity), want.tag))
 		}
-		want.Quantity = quantity
-		shifts = append(shifts, want)
 	}
 	occupied, usable, err := o.entity.RoomAfter(shifts)
 	if err != nil {

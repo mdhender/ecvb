@@ -207,6 +207,9 @@ them against each other.
 Three orders move units through inventory, and they resolve in that order --
 stages 6, 9, and 10 of `docs/turn-sequence.md` -- so one file may unassemble at
 one entity, `transfer` to another, and `assemble` again there, all in one turn.
+The far end of that only works because `assemble` draws from `unassembled`
+first and from `cargo` after it: a transport sets its load down in cargo and
+nowhere else.
 Two rules shape all three. **A shortage is a rate rather than a failure**: an
 order that outruns the `CWKR` cadre, the stock on hand, or the transports does
 what it can and carries no more; it is not refused, and what it did not do does

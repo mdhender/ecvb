@@ -52,7 +52,8 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
     (42, 31, 1, 'metals', 10, 60000, 60000);
 
 -- 100 is the working ship: a drive it can afford to run and sensors to spend.
--- 101 is its home colony, which may probe but never move.
+-- 101 is its home colony, which may probe but never move. It carries a small
+--     cadre so that it can assemble what 107 hands it, in the turn it arrives.
 -- 102 has no drive at all. 103 is too massive for the drive it has.
 -- 104 has a drive and no fuel to run it.
 -- 105 has the slowest drive there is, so its crossing spans turns.
@@ -63,7 +64,7 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
 -- 200 belongs to the other faction and exists to be seen.
 INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
     (100, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 2270),
-    (101, 'COPN', 1, 10, 20, 30,  0, 1, 5000, 1000),
+    (101, 'COPN', 1, 10, 20, 30,  0, 1, 5000, 1010),
     (102, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  500),
     (103, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 9000),
     (104, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  271),
@@ -102,11 +103,11 @@ INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
     (200, 'cargo', 'FUEL', 0, 5000);
 
 INSERT INTO entity_population (entity_id, class, quantity) VALUES
-    (100, 'SKW', 10), (101, 'USK', 40), (101, 'NAS', 5),
+    (100, 'SKW', 10), (101, 'SKW', 5), (101, 'USK', 40), (101, 'NAS', 5),
     (107, 'SKW', 50), (107, 'USK', 50), (107, 'SOL', 100);
 
 -- Five construction workers do 2,500 MU a turn between them, which is less
 -- than the depot's first assemble order asks for, so the rationing shows. They
 -- are five of the 50 SKW and five of the 50 USK, which leaves 45 skilled
 -- workers free to crew transports -- far more than the 20 hulls need.
-INSERT INTO entity_cadre (entity_id, cadre, quantity) VALUES (107, 'CWKR', 5);
+INSERT INTO entity_cadre (entity_id, cadre, quantity) VALUES (107, 'CWKR', 5), (101, 'CWKR', 2);

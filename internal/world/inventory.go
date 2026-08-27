@@ -225,11 +225,6 @@ type Shift struct {
 	Quantity  int64
 }
 
-// Tag renders a shift's unit the way a player writes it.
-func (s Shift) Tag() string {
-	return Stack{Unit: s.Unit, TechLevel: s.TechLevel}.Tag()
-}
-
 // RoomAfter is the space an entity would occupy and the space it would have if
 // a set of shifts went through. Both are needed together, because a shift can
 // change either: assembling a unit usually costs volume, and assembling

@@ -781,12 +781,19 @@ sequence numbers are handed out in phase order, and the three new phases come
 NAME work found; prepending one renumbers everything after it. Nothing else in
 the old lines changed.
 
-**A gap the goldens could not cover.** `docs/turn-sequence.md` says at stage 10
-that "units that arrived by transfer at stage 9 can be assembled here in the
-same turn". They cannot: a transport sets everything down in `cargo`, `assemble`
-draws from `unassembled`, and no order moves one to the other. Either `assemble`
-should draw from cargo as well, or something is missing from the accepted verb
-list. It is a decision rather than a bug, so it is not made here.
+**A seventh rule, found by writing the goldens.** `docs/turn-sequence.md` says
+at stage 10 that "units that arrived by transfer at stage 9 can be assembled
+here in the same turn". As first built they could not: a transport sets
+everything down in `cargo`, `assemble` drew only from `unassembled`, and no
+order moved one to the other, so the pipeline the turn sequence is arranged
+around stopped one step short at its far end. **The user's answer: `assemble`
+draws from `unassembled` first and from `cargo` after it.** Unassembled
+inventory is the section units are kept in to be worked on -- what an
+`unassemble` leaves behind and what the market deals in -- so it goes first; the
+cadre does not care which section a unit came out of, and rations the two as one
+pool. The scenario's turn 1 now runs the whole pipeline to its end: 107
+unassembles and stows, carries to 101, and 101 assembles what arrived, in that
+turn.
 
 ### The cadres are named, and one of them is specified
 

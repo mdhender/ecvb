@@ -74,7 +74,7 @@ disbanding one does -- is the same rule read the other way round, and waits on
 combat and `disband`.
 
 One unit does up to 500 MU of work a turn, where the work is the mass being
-handled. Work of the same kind is **pooled across an entity**, so the workers it
+handled, and it does not care which section a unit was kept in. Work of the same kind is **pooled across an entity**, so the workers it
 needs are reckoned from one total rather than order by order; assembly and
 unassembly are two pools that round up on their own and never pool with each
 other. A worker does one task per turn, so the pool is drawn down as the turn

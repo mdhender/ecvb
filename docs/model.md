@@ -155,9 +155,9 @@ Every entity has a controlling faction. An entity with population is controlled
 by its player's faction. An entity without population is controlled by the
 game's `uncontrolled` agent faction.
 
-A unit is assembled out of `unassembled` inventory and into one of the two
-working sections, and which one is a property of the unit code rather than
-anything an order says. `HDRV`, `SNSR`, `SDRV`, `LFSU`, `STRC`, and `STRL` go to
+A unit is assembled out of `unassembled` inventory, or out of `cargo` when the
+unassembled section runs short, and into one of the two working sections. Which
+one is a property of the unit code rather than anything an order says. `HDRV`, `SNSR`, `SDRV`, `LFSU`, `STRC`, and `STRL` go to
 `component`, which is the only section they work in; everything else goes to
 `operational`. Resources, population, and cadres are never assembled.
 

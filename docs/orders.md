@@ -404,7 +404,8 @@ colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
 ```
 
 `and stow` puts the units down in cargo instead, which is what a `TRANSFER`
-needs: units must be in cargo to be carried.
+needs: units must be in cargo to be carried. Either section can be assembled
+from, so stowing costs nothing but the room a unit takes.
 
 Unassembling is work, and the same `CWKR` cadre does it at the same rate as
 assembling. See [What construction workers do](#what-construction-workers-do).
@@ -442,7 +443,9 @@ They may be in different rings of that planet. A transfer to an entity
 somewhere else fails; there is no partial answer to being in the wrong place.
 
 Units must be in **cargo** to be transferred, and are stowed in the recipient's
-cargo on arrival: a transport sets down freight and does not assemble it.
+cargo on arrival: a transport sets down freight and does not assemble it. The
+recipient may assemble it in the same turn, because `ASSEMBLE` draws from cargo
+too and resolves after every transfer.
 Population moves the same way and is charged the same mass and volume. A cadre
 cannot be transferred, because it is an assignment of people rather than a
 thing; transfer the population instead.
@@ -466,8 +469,14 @@ ship SHIP-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...
 colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...
 ```
 
-Assembling puts unassembled units to work. It usually costs volume: a unit
-takes twice its cargo volume operational and four times it as a component.
+Assembling puts units to work. It usually costs volume: a unit takes twice its
+cargo volume operational and four times it as a component.
+
+It draws from **unassembled inventory first and from cargo after it**.
+Unassembled inventory is where units are kept to be worked on -- it is what an
+`UNASSEMBLE` leaves behind and what the market deals in -- and cargo is where a
+transport sets its load down, so a `TRANSFER` at stage 9 can be assembled at
+stage 10 of the same turn.
 
 Examples:
 
