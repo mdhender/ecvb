@@ -13,8 +13,10 @@ not available to be given a second job, and the cadre cannot outlive them. One
 other three permit is not settled.
 
 _commission_ is an integer percentage amount, range 1 to 100, followed by a `%`.
+The `%` carries no space before it: 75% is accepted and 75 % is rejected.
 
-_commitment_ is an integer percentage amount, range 1 to 100, followed by a `%`.
+_commitment_ is an integer percentage amount, range 1 to 100, followed by a `%`,
+written the same way as _commission_.
 
 _coordinates_ are integer X, Y, Z coordinates, separated by commas and surrounded by `(` and `)`.
 Interior ASCII spaces or tabs are ignored.
@@ -26,7 +28,8 @@ For example, 800,000 GOLD.
 
 _groupNo_ is the sequence number of a factory, farm, or mine group, starting at 1.
 
-_payRate_ is an integer percentage amount, at least 0, followed by a `%`.
+_payRate_ is an integer percentage amount, at least 0, followed by a `%`,
+written the same way as _commission_. There is no ceiling: a faction may overpay.
 
 _population_ is one of the population classes: `USK` unskilled worker, `SKW`
 skilled worker, `SOL` soldier, and `NAS` non-assignable. One population unit
@@ -37,7 +40,8 @@ It must include at least one digit before the decimal, if there is a decimal amo
 The digits before the decimal point are written with commas the same way as _quantity_.
 For example, 1.0 GOLD, 3 CNGD, 0.1 GOLD, 25,600 CNGD.
 
-_rationRate_ is an integer percentage amount, at least 0, followed by a `%`.
+_rationRate_ is an integer percentage amount, at least 0, followed by a `%`,
+written the same way as _commission_. There is no ceiling: a faction may overfeed.
 
 _quantity_ is an integer, greater than 0.
 A quantity greater than 999 must separate every three digits with a comma: 5,000 is accepted and 5000 is rejected.

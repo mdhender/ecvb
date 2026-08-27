@@ -75,6 +75,13 @@ func TestTheParserRefusesAMalformedUnbuiltOrder(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
 		{"colony 50 attack ship 18 150%", "it runs from 1% to 100%"},
 		{"colony 50 attack ship 18 75", "a percentage is digits and a % sign"},
+		// The % carries no space before it. It is one token to the tokenizer,
+		// which does not split on %, so a space makes the digits a token of
+		// their own and the percentage is not there at all.
+		{"colony 50 attack ship 18 75 %", "a percentage is digits and a % sign"},
+		{"colony 50 rations 75 %", "a percentage is digits and a % sign"},
+		{"colony 50 pay USK 15 %", "a percentage is digits and a % sign"},
+		{"colony 50 sell 100 FOOD 3 CNGD 5 %", "expected ship SHIP-ID sell"},
 		// A line that never matched the shape of its order is answered with that
 		// order's forms rather than with the token that failed.
 		{"colony 50 attack planet 18 75%", "expected ship SHIP-ID attack (ship | colony) ID PERCENT%"},
