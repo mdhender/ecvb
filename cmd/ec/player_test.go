@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/mdhender/ecvb/internal/database"
+	"github.com/mdhender/ecvb/internal/prng"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -245,16 +247,55 @@ func TestSelectHomeCandidateIsDeterministicAcrossInputOrder(t *testing.T) {
 		{planetID: 4, x: 13, y: 2, z: -6},
 	}
 	reversed := []homeCandidate{ascending[3], ascending[2], ascending[1], ascending[0]}
-	first, found := selectHomeCandidate(ascending, nil, 19, 12)
+	seeds := prng.New(19, 12)
+	first, found := selectHomeCandidate(ascending, nil, seeds, 2)
 	if !found {
 		t.Fatal("selectHomeCandidate found no candidate")
 	}
-	second, found := selectHomeCandidate(reversed, nil, 19, 12)
+	second, found := selectHomeCandidate(reversed, nil, seeds, 2)
 	if !found {
 		t.Fatal("selectHomeCandidate found no candidate for reversed input")
 	}
 	if first != second {
 		t.Fatalf("selection differs by input order: %+v and %+v", first, second)
+	}
+}
+
+// Each faction draws its own permutation, addressed by its number. Before this
+// every faction shuffled the identical list and was told apart only by what the
+// factions ahead of it had already taken.
+func TestSelectHomeCandidateDiffersByFaction(t *testing.T) {
+	candidates := make([]homeCandidate, 0, 24)
+	for i := range 24 {
+		candidates = append(candidates, homeCandidate{planetID: int64(i + 1), x: i, y: -i, z: i * 2})
+	}
+	seeds := prng.New(19, 12)
+
+	picks := make(map[int64]homeCandidate, 8)
+	for faction := int64(2); faction <= 9; faction++ {
+		fresh := slices.Clone(candidates)
+		selected, found := selectHomeCandidate(fresh, nil, seeds, faction)
+		if !found {
+			t.Fatalf("faction %d got no candidate", faction)
+		}
+		picks[faction] = selected
+	}
+
+	distinct := make(map[int64]bool, len(picks))
+	for _, pick := range picks {
+		distinct[pick.planetID] = true
+	}
+	if len(distinct) < 2 {
+		t.Fatalf("every faction picked the same planet: %+v", picks)
+	}
+
+	// And the draw is still a function of the faction, not of the call order.
+	for faction, want := range picks {
+		fresh := slices.Clone(candidates)
+		got, found := selectHomeCandidate(fresh, nil, seeds, faction)
+		if !found || got != want {
+			t.Errorf("faction %d drew %+v on a second call; want %+v", faction, got, want)
+		}
 	}
 }
 

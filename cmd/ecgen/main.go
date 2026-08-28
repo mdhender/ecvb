@@ -4,20 +4,18 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 
 	"github.com/mdhender/ecvb/internal/dotenv"
+	"github.com/mdhender/ecvb/internal/mapkey"
+	"github.com/mdhender/ecvb/internal/prng"
 	"github.com/peterbourgon/ff/v4"
 )
 
@@ -25,6 +23,27 @@ const stelliaSeedFilename = "stellia-seed.json"
 const systemsSeedFilename = "systems-seed.json"
 const planetsSeedFilename = "planets-seed.json"
 const depositsSeedFilename = "deposits-seed.json"
+
+// Each stage roots its draws at Derive(stageTag, generatorID, version) and owns
+// its addressing below that root. The version is the knob that lets a stage's
+// rules change without touching prng's frozen tag registry: bump it and every
+// draw of that stage moves, while a map generated under the old version stays
+// reproducible by the code that still writes it.
+//
+// Bump version when what a stage DECIDES changes. Leave it alone for a
+// refactor -- the whole point of addressing a draw is that moving the lines
+// around cannot move the map.
+const (
+	genStellia  prng.Key = 1
+	genSystems  prng.Key = 1
+	genPlanets  prng.Key = 1
+	genDeposits prng.Key = 1
+
+	versionStellia  prng.Key = 1
+	versionSystems  prng.Key = 1
+	versionPlanets  prng.Key = 1
+	versionDeposits prng.Key = 1
+)
 
 func main() {
 	env, ok := os.LookupEnv("EC_ENV")
@@ -105,59 +124,117 @@ func run(ctx context.Context, args []string) error {
 	return root.ParseAndRun(ctx, args, ff.WithEnvVarPrefix("EC"))
 }
 
-type stelliaSeed struct {
-	Seed    pcgSeed    `json:"seed"`
-	Stellia []stellium `json:"stellia"`
-}
-
+// pcgSeed is the map's two master seeds, rendered as unsigned decimal strings
+// because JSON numbers cannot carry a uint64 without losing the top bits.
+//
+// Every stage copies this block forward from its input, and every stage
+// rebuilds the same prng.Seeds from it. That is what makes the file, rather
+// than the --stellia-seed flag, the authority on how a map was drawn: the flag
+// is read once, by `ecgen stellia`.
 type pcgSeed struct {
 	High string `json:"high"`
 	Lo   string `json:"lo"`
 }
 
+func newPCGSeed(high, lo uint64) pcgSeed {
+	return pcgSeed{High: strconv.FormatUint(high, 10), Lo: strconv.FormatUint(lo, 10)}
+}
+
+// seeds rebuilds the prng root this pair addresses.
+func (p pcgSeed) seeds() (prng.Seeds, error) {
+	if p.High == "" || p.Lo == "" {
+		return prng.Seeds{}, fmt.Errorf("has no seed block; it was not written by ecgen")
+	}
+	high, err := strconv.ParseUint(p.High, 10, 64)
+	if err != nil {
+		return prng.Seeds{}, fmt.Errorf("has seed high %q, which is not a uint64", p.High)
+	}
+	lo, err := strconv.ParseUint(p.Lo, 10, 64)
+	if err != nil {
+		return prng.Seeds{}, fmt.Errorf("has seed lo %q, which is not a uint64", p.Lo)
+	}
+	return prng.New(high, lo), nil
+}
+
+// generatorInfo records which stage wrote a file and under which rules, so that
+// a map carries the version that produced it rather than leaving a reader to
+// guess from the repository's history.
+type generatorInfo struct {
+	Stage   string   `json:"stage"`
+	ID      prng.Key `json:"id"`
+	Version prng.Key `json:"version"`
+}
+
+// Every record below is keyed by its own prng address -- a stellium by its
+// coordinates, a system by its stellium and sequence, and so on down. There are
+// no UUIDs: the address is the join key AND the thing a draw is addressed by, so
+// the two cannot drift apart.
+
+type stelliaSeed struct {
+	Seed      pcgSeed       `json:"seed"`
+	Generator generatorInfo `json:"generator"`
+	Stellia   []stellium    `json:"stellia"`
+}
+
 type stellium struct {
-	UUID        string `json:"uuid"`
-	X           int    `json:"x"`
-	Y           int    `json:"y"`
-	Z           int    `json:"z"`
-	SystemCount int    `json:"system-count"`
+	X           int `json:"x"`
+	Y           int `json:"y"`
+	Z           int `json:"z"`
+	SystemCount int `json:"system-count"`
 }
 
 type systemsSeed struct {
-	Systems []system `json:"systems"`
+	Seed      pcgSeed       `json:"seed"`
+	Generator generatorInfo `json:"generator"`
+	Systems   []system      `json:"systems"`
 }
 
 type system struct {
-	UUID         string `json:"uuid"`
-	StelliumUUID string `json:"stellium-uuid"`
-	Sequence     string `json:"sequence"`
+	X        int    `json:"x"`
+	Y        int    `json:"y"`
+	Z        int    `json:"z"`
+	Sequence string `json:"sequence"`
 }
 
 type planetsSeed struct {
-	Planets []planet `json:"planets"`
+	Seed      pcgSeed       `json:"seed"`
+	Generator generatorInfo `json:"generator"`
+	Planets   []planet      `json:"planets"`
 }
 
 type planet struct {
-	UUID         string `json:"uuid"`
-	SystemUUID   string `json:"system-uuid"`
+	X            int    `json:"x"`
+	Y            int    `json:"y"`
+	Z            int    `json:"z"`
+	Sequence     string `json:"sequence"`
 	Orbit        int    `json:"orbit"`
 	Type         string `json:"type"`
 	Habitability int    `json:"habitability"`
 }
 
 type depositsSeed struct {
-	Deposits []deposit `json:"deposits"`
+	Seed      pcgSeed       `json:"seed"`
+	Generator generatorInfo `json:"generator"`
+	Deposits  []deposit     `json:"deposits"`
 }
 
+// A deposit's own ordinal on its planet is "deposit-no" and not "sequence":
+// "sequence" is the system's A-through-E letter, and both now appear in one
+// record. The database column is still deposit.sequence; cmd/ec/load.go is the
+// single place the two names meet.
 type deposit struct {
-	PlanetUUID string `json:"planet-uuid"`
-	Sequence   int    `json:"sequence"`
-	Resource   string `json:"resource"`
-	Quantity   int    `json:"quantity"`
-	Quality    int    `json:"quality"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
+	Z         int    `json:"z"`
+	Sequence  string `json:"sequence"`
+	Orbit     int    `json:"orbit"`
+	DepositNo int    `json:"deposit-no"`
+	Resource  string `json:"resource"`
+	Quantity  int    `json:"quantity"`
+	Quality   int    `json:"quality"`
 }
 
-func generateStellia(directory string, seed int64) (err error) {
+func generateStellia(directory string, seed int64) error {
 	info, err := os.Stat(directory)
 	if err != nil {
 		return fmt.Errorf("stat output directory %s: %w", directory, err)
@@ -165,53 +242,57 @@ func generateStellia(directory string, seed int64) (err error) {
 	if !info.IsDir() {
 		return fmt.Errorf("output path %s is not a directory", directory)
 	}
-
-	path := filepath.Join(directory, stelliaSeedFilename)
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("output file %s already exists", path)
-		}
-		return fmt.Errorf("create output file %s: %w", path, err)
-	}
-	complete := false
-	defer func() {
-		if closeErr := file.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close output file %s: %w", path, closeErr)
-		}
-		if !complete {
-			_ = os.Remove(path)
-		}
-	}()
-
-	data := newStelliaSeed(seed)
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("write output file %s: %w", path, err)
-	}
-	complete = true
-	return nil
+	return writeSeedFile(directory, stelliaSeedFilename, newStelliaSeed(seed))
 }
 
+// newStelliaSeed picks the 100 stellia of a map.
+//
+// Every point of the lattice is given a placement key drawn at its own address,
+// and the points are taken in that key's order. The key is a pure function of
+// the seeds and the coordinates, so the order the map comes out in does not
+// depend on the order anything is computed -- which is the whole reason this
+// draws from internal/prng at all. The generator before this one shuffled one
+// sequential stream and then drew a hundred UUIDs from the same stream, so
+// inserting a single draw anywhere in this function silently rewrote the map.
+//
+// A shuffle would have been the smaller change and is what Roller.Shuffle is
+// there for, but it is still one stream: any later draw taken from it would
+// move every stellium. A key per point cannot be broken that way, and thirty
+// thousand hashes cost nothing against a stage that writes a megabyte of JSON.
 func newStelliaSeed(seed int64) stelliaSeed {
 	state := uint64(seed)
 	high, lo := splitMix64(&state), splitMix64(&state)
-	rng := rand.New(rand.NewPCG(high, lo))
+	root := prng.New(high, lo).Derive(prng.TagCluster, genStellia, versionStellia)
 
-	locations := make([]stellium, 0, 31*31*31-1)
-	for x := -15; x <= 15; x++ {
-		for y := -15; y <= 15; y++ {
-			for z := -15; z <= 15; z++ {
-				if x != 0 || y != 0 || z != 0 {
-					locations = append(locations, stellium{X: x, Y: y, Z: z})
+	type candidate struct {
+		stellium
+		key uint64
+	}
+	locations := make([]candidate, 0, 31*31*31-1)
+	for x := mapkey.MinCoordinate; x <= mapkey.MaxCoordinate; x++ {
+		for y := mapkey.MinCoordinate; y <= mapkey.MaxCoordinate; y++ {
+			for z := mapkey.MinCoordinate; z <= mapkey.MaxCoordinate; z++ {
+				if x == 0 && y == 0 && z == 0 {
+					continue
 				}
+				locations = append(locations, candidate{
+					stellium: stellium{X: x, Y: y, Z: z},
+					key:      root.Stream(mapkey.Stellium(x, y, z)...).Uint64(),
+				})
 			}
 		}
 	}
-	rng.Shuffle(len(locations), func(i, j int) {
-		locations[i], locations[j] = locations[j], locations[i]
+	// Ties break on coordinates so the order is total: two points sharing a key
+	// is vanishingly unlikely, but "vanishingly unlikely" is not "reproducible".
+	slices.SortFunc(locations, func(a, b candidate) int {
+		if a.key < b.key {
+			return -1
+		} else if a.key > b.key {
+			return 1
+		}
+		return compareStellia(a.stellium, b.stellium)
 	})
+
 	selected := make([]stellium, 0, 100)
 	for _, candidate := range locations {
 		tooClose := false
@@ -225,284 +306,215 @@ func newStelliaSeed(seed int64) stelliaSeed {
 		if tooClose {
 			continue
 		}
+		next := candidate.stellium
 		switch len(selected) {
 		case 0:
-			candidate.SystemCount = 4
+			next.SystemCount = 4
 		case 1, 2:
-			candidate.SystemCount = 3
+			next.SystemCount = 3
 		case 3, 4, 5, 6, 7, 8, 9:
-			candidate.SystemCount = 2
+			next.SystemCount = 2
 		default:
-			candidate.SystemCount = 1
+			next.SystemCount = 1
 		}
-		selected = append(selected, candidate)
+		selected = append(selected, next)
 		if len(selected) == 100 {
 			break
 		}
 	}
-	slices.SortFunc(selected, func(a, b stellium) int {
-		if n := a.X - b.X; n != 0 {
-			return n
-		}
-		if n := a.Y - b.Y; n != 0 {
-			return n
-		}
-		return a.Z - b.Z
-	})
-	for i := range selected {
-		selected[i].UUID = randomUUID(rng)
-	}
+	slices.SortFunc(selected, compareStellia)
 
 	return stelliaSeed{
-		Seed: pcgSeed{
-			High: strconv.FormatInt(int64(high), 10),
-			Lo:   strconv.FormatInt(int64(lo), 10),
-		},
-		Stellia: selected,
+		Seed:      newPCGSeed(high, lo),
+		Generator: generatorInfo{Stage: "stellia", ID: genStellia, Version: versionStellia},
+		Stellia:   selected,
 	}
 }
 
-func generateSystems(directory string) (err error) {
+func compareStellia(a, b stellium) int {
+	if n := a.X - b.X; n != 0 {
+		return n
+	}
+	if n := a.Y - b.Y; n != 0 {
+		return n
+	}
+	return a.Z - b.Z
+}
+
+// stelliumKey, systemKey, and planetKey are the address tuples the stages join
+// and deduplicate on. They are comparable, so they are map keys directly.
+type stelliumKey struct{ x, y, z int }
+type systemKey struct {
+	stelliumKey
+	sequence string
+}
+type planetKey struct {
+	systemKey
+	orbit int
+}
+
+func (k stelliumKey) String() string { return fmt.Sprintf("(%d,%d,%d)", k.x, k.y, k.z) }
+func (k systemKey) String() string   { return fmt.Sprintf("system %s at %s", k.sequence, k.stelliumKey) }
+func (k planetKey) String() string   { return fmt.Sprintf("orbit %d of %s", k.orbit, k.systemKey) }
+
+func generateSystems(directory string) error {
 	inputPath := filepath.Join(directory, stelliaSeedFilename)
-	input, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("open input file %s: %w", inputPath, err)
-	}
-	defer input.Close()
-
 	var stellia stelliaSeed
-	decoder := json.NewDecoder(input)
-	if err := decoder.Decode(&stellia); err != nil {
-		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	if err := readSeedFile(inputPath, &stellia); err != nil {
+		return err
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			err = errors.New("unexpected additional JSON value")
-		}
+	if _, err := stellia.Seed.seeds(); err != nil {
 		return fmt.Errorf("parse input file %s: %w", inputPath, err)
 	}
 
-	data := systemsSeed{Systems: make([]system, 0, len(stellia.Stellia))}
-	seenStellia := make(map[string]bool, len(stellia.Stellia))
+	data := systemsSeed{
+		Seed:      stellia.Seed,
+		Generator: generatorInfo{Stage: "systems", ID: genSystems, Version: versionSystems},
+		Systems:   make([]system, 0, len(stellia.Stellia)),
+	}
+	seen := make(map[stelliumKey]bool, len(stellia.Stellia))
 	for i, s := range stellia.Stellia {
-		if s.UUID == "" {
-			return fmt.Errorf("parse input file %s: stellia[%d] has no uuid", inputPath, i)
+		key := stelliumKey{s.X, s.Y, s.Z}
+		if err := checkCoordinates(s.X, s.Y, s.Z); err != nil {
+			return fmt.Errorf("parse input file %s: stellia[%d] %w", inputPath, i, err)
 		}
-		if seenStellia[s.UUID] {
-			return fmt.Errorf("parse input file %s: stellia[%d] has duplicate uuid %q", inputPath, i, s.UUID)
+		if seen[key] {
+			return fmt.Errorf("parse input file %s: stellia[%d] repeats the stellium at %s", inputPath, i, key)
 		}
-		seenStellia[s.UUID] = true
+		seen[key] = true
 		if s.SystemCount < 1 || s.SystemCount > 5 {
 			return fmt.Errorf("parse input file %s: stellia[%d] system-count %d is outside 1 through 5", inputPath, i, s.SystemCount)
 		}
 		for sequence := 0; sequence < s.SystemCount; sequence++ {
-			letter := string(rune('A' + sequence))
 			data.Systems = append(data.Systems, system{
-				UUID:         systemUUID(s.UUID, letter),
-				StelliumUUID: s.UUID,
-				Sequence:     letter,
+				X: s.X, Y: s.Y, Z: s.Z,
+				Sequence: string(rune('A' + sequence)),
 			})
 		}
 	}
-
-	outputPath := filepath.Join(directory, systemsSeedFilename)
-	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("output file %s already exists", outputPath)
-		}
-		return fmt.Errorf("create output file %s: %w", outputPath, err)
-	}
-	complete := false
-	defer func() {
-		if closeErr := output.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close output file %s: %w", outputPath, closeErr)
-		}
-		if !complete {
-			_ = os.Remove(outputPath)
-		}
-	}()
-
-	encoder := json.NewEncoder(output)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("write output file %s: %w", outputPath, err)
-	}
-	complete = true
-	return nil
+	return writeSeedFile(directory, systemsSeedFilename, data)
 }
 
-func systemUUID(stelliumUUID, sequence string) string {
-	id := sha256.Sum256([]byte("ecvb/system/" + stelliumUUID + "/" + sequence))
-	id[6] = id[6]&0x0f | 0x40
-	id[8] = id[8]&0x3f | 0x80
-	return formatUUID([16]byte(id[:16]))
-}
-
-func generatePlanets(directory string) (err error) {
+func generatePlanets(directory string) error {
 	inputPath := filepath.Join(directory, systemsSeedFilename)
-	input, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("open input file %s: %w", inputPath, err)
-	}
-	defer input.Close()
-
 	var systems systemsSeed
-	decoder := json.NewDecoder(input)
-	if err := decoder.Decode(&systems); err != nil {
-		return fmt.Errorf("parse input file %s: %w", inputPath, err)
+	if err := readSeedFile(inputPath, &systems); err != nil {
+		return err
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			err = errors.New("unexpected additional JSON value")
-		}
+	if _, err := systems.Seed.seeds(); err != nil {
 		return fmt.Errorf("parse input file %s: %w", inputPath, err)
 	}
 
+	// A system's planets are a fixed template rather than a draw: orbit decides
+	// type and habitability, and always has.
 	types := [...]string{
 		"rocky", "rocky", "rocky", "rocky", "asteroid",
 		"gas-giant", "ice-giant", "ice-giant", "ice-giant", "asteroid",
 	}
 	habitability := [...]int{0, 1, 8, 25, 0, 15, 4, 2, 0, 0}
-	data := planetsSeed{Planets: make([]planet, 0, len(systems.Systems)*len(types))}
-	seenSystems := make(map[string]bool, len(systems.Systems))
-	for i, system := range systems.Systems {
-		if system.UUID == "" {
-			return fmt.Errorf("parse input file %s: systems[%d] has no uuid", inputPath, i)
+
+	data := planetsSeed{
+		Seed:      systems.Seed,
+		Generator: generatorInfo{Stage: "planets", ID: genPlanets, Version: versionPlanets},
+		Planets:   make([]planet, 0, len(systems.Systems)*len(types)),
+	}
+	seen := make(map[systemKey]bool, len(systems.Systems))
+	for i, s := range systems.Systems {
+		key := systemKey{stelliumKey{s.X, s.Y, s.Z}, s.Sequence}
+		if err := checkCoordinates(s.X, s.Y, s.Z); err != nil {
+			return fmt.Errorf("parse input file %s: systems[%d] %w", inputPath, i, err)
 		}
-		if seenSystems[system.UUID] {
-			return fmt.Errorf("parse input file %s: systems[%d] has duplicate uuid %q", inputPath, i, system.UUID)
+		if _, err := mapkey.Sequence(s.Sequence); err != nil {
+			return fmt.Errorf("parse input file %s: systems[%d] %w", inputPath, i, err)
 		}
-		seenSystems[system.UUID] = true
+		if seen[key] {
+			return fmt.Errorf("parse input file %s: systems[%d] repeats %s", inputPath, i, key)
+		}
+		seen[key] = true
 		for index := range types {
-			orbit := index + 1
 			data.Planets = append(data.Planets, planet{
-				UUID:         planetUUID(system.UUID, orbit),
-				SystemUUID:   system.UUID,
-				Orbit:        orbit,
+				X: s.X, Y: s.Y, Z: s.Z,
+				Sequence:     s.Sequence,
+				Orbit:        index + 1,
 				Type:         types[index],
 				Habitability: habitability[index],
 			})
 		}
 	}
-
-	outputPath := filepath.Join(directory, planetsSeedFilename)
-	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("output file %s already exists", outputPath)
-		}
-		return fmt.Errorf("create output file %s: %w", outputPath, err)
-	}
-	complete := false
-	defer func() {
-		if closeErr := output.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close output file %s: %w", outputPath, closeErr)
-		}
-		if !complete {
-			_ = os.Remove(outputPath)
-		}
-	}()
-
-	encoder := json.NewEncoder(output)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("write output file %s: %w", outputPath, err)
-	}
-	complete = true
-	return nil
+	return writeSeedFile(directory, planetsSeedFilename, data)
 }
 
-func planetUUID(systemUUID string, orbit int) string {
-	id := sha256.Sum256([]byte("ecvb/planet/" + systemUUID + "/" + strconv.Itoa(orbit)))
-	id[6] = id[6]&0x0f | 0x40
-	id[8] = id[8]&0x3f | 0x80
-	return formatUUID([16]byte(id[:16]))
-}
-
-func generateDeposits(directory string) (err error) {
+func generateDeposits(directory string) error {
 	inputPath := filepath.Join(directory, planetsSeedFilename)
-	input, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("open input file %s: %w", inputPath, err)
-	}
-	defer input.Close()
-
 	var planets planetsSeed
-	decoder := json.NewDecoder(input)
-	if err := decoder.Decode(&planets); err != nil {
+	if err := readSeedFile(inputPath, &planets); err != nil {
+		return err
+	}
+	seeds, err := planets.Seed.seeds()
+	if err != nil {
 		return fmt.Errorf("parse input file %s: %w", inputPath, err)
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			err = errors.New("unexpected additional JSON value")
-		}
-		return fmt.Errorf("parse input file %s: %w", inputPath, err)
-	}
+	root := seeds.Derive(prng.TagDeposit, genDeposits, versionDeposits)
 
-	data := depositsSeed{Deposits: make([]deposit, 0, len(planets.Planets)*20)}
-	seenPlanets := make(map[string]bool, len(planets.Planets))
-	for i, planet := range planets.Planets {
-		if planet.UUID == "" {
-			return fmt.Errorf("parse input file %s: planets[%d] has no uuid", inputPath, i)
+	data := depositsSeed{
+		Seed:      planets.Seed,
+		Generator: generatorInfo{Stage: "deposits", ID: genDeposits, Version: versionDeposits},
+		Deposits:  make([]deposit, 0, len(planets.Planets)*20),
+	}
+	seen := make(map[planetKey]bool, len(planets.Planets))
+	for i, p := range planets.Planets {
+		key := planetKey{systemKey{stelliumKey{p.X, p.Y, p.Z}, p.Sequence}, p.Orbit}
+		if err := checkCoordinates(p.X, p.Y, p.Z); err != nil {
+			return fmt.Errorf("parse input file %s: planets[%d] %w", inputPath, i, err)
 		}
-		if seenPlanets[planet.UUID] {
-			return fmt.Errorf("parse input file %s: planets[%d] has duplicate uuid %q", inputPath, i, planet.UUID)
+		sequence, err := mapkey.Sequence(p.Sequence)
+		if err != nil {
+			return fmt.Errorf("parse input file %s: planets[%d] %w", inputPath, i, err)
 		}
-		seenPlanets[planet.UUID] = true
+		if p.Orbit < mapkey.MinOrbit || p.Orbit > mapkey.MaxOrbit {
+			return fmt.Errorf("parse input file %s: planets[%d] orbit %d is outside %d through %d", inputPath, i, p.Orbit, mapkey.MinOrbit, mapkey.MaxOrbit)
+		}
+		if seen[key] {
+			return fmt.Errorf("parse input file %s: planets[%d] repeats %s", inputPath, i, key)
+		}
+		seen[key] = true
 
 		count, sides := 15, 6
-		switch planet.Type {
+		switch p.Type {
 		case "rocky":
 			count, sides = 20, 3
 		case "asteroid":
 			count, sides = 35, 100
 		case "gas-giant", "ice-giant":
 		default:
-			return fmt.Errorf("parse input file %s: planets[%d] has invalid type %q", inputPath, i, planet.Type)
+			return fmt.Errorf("parse input file %s: planets[%d] has invalid type %q", inputPath, i, p.Type)
 		}
-		for sequence := 1; sequence <= count; sequence++ {
-			roll := depositRoll(planet.UUID, sequence, sides)
+		for number := 1; number <= count; number++ {
+			// One roller per deposit, at the deposit's own address. The old
+			// hand-rolled sha256 % sides was biased toward the low faces;
+			// RollN rejects rather than folds.
+			roll := root.Roller(mapkey.Deposit(p.X, p.Y, p.Z, sequence, p.Orbit, number)...).RollN(1, sides)
 			data.Deposits = append(data.Deposits, deposit{
-				PlanetUUID: planet.UUID,
-				Sequence:   sequence,
-				Resource:   depositResource(planet.Type, roll),
-				Quantity:   10_000_000,
-				Quality:    5,
+				X: p.X, Y: p.Y, Z: p.Z,
+				Sequence:  p.Sequence,
+				Orbit:     p.Orbit,
+				DepositNo: number,
+				Resource:  depositResource(p.Type, roll),
+				Quantity:  10_000_000,
+				Quality:   5,
 			})
 		}
 	}
-
-	outputPath := filepath.Join(directory, depositsSeedFilename)
-	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("output file %s already exists", outputPath)
-		}
-		return fmt.Errorf("create output file %s: %w", outputPath, err)
-	}
-	complete := false
-	defer func() {
-		if closeErr := output.Close(); err == nil && closeErr != nil {
-			err = fmt.Errorf("close output file %s: %w", outputPath, closeErr)
-		}
-		if !complete {
-			_ = os.Remove(outputPath)
-		}
-	}()
-
-	encoder := json.NewEncoder(output)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("write output file %s: %w", outputPath, err)
-	}
-	complete = true
-	return nil
+	return writeSeedFile(directory, depositsSeedFilename, data)
 }
 
-func depositRoll(planetUUID string, sequence, sides int) int {
-	digest := sha256.Sum256([]byte("ecvb/deposit/" + planetUUID + "/" + strconv.Itoa(sequence)))
-	return int(binary.BigEndian.Uint64(digest[:8])%uint64(sides)) + 1
+func checkCoordinates(x, y, z int) error {
+	for _, n := range [3]int{x, y, z} {
+		if n < mapkey.MinCoordinate || n > mapkey.MaxCoordinate {
+			return fmt.Errorf("has coordinates (%d,%d,%d) outside %d through %d", x, y, z, mapkey.MinCoordinate, mapkey.MaxCoordinate)
+		}
+	}
+	return nil
 }
 
 func depositResource(planetType string, roll int) string {
@@ -539,33 +551,67 @@ func depositResource(planetType string, roll int) string {
 	return "minerals"
 }
 
+// readSeedFile decodes one stage's input and insists the file holds exactly one
+// JSON value, so a concatenated or truncated file is a complaint rather than a
+// half-read map.
+func readSeedFile(path string, dst any) error {
+	input, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open input file %s: %w", path, err)
+	}
+	defer input.Close()
+
+	decoder := json.NewDecoder(input)
+	if err := decoder.Decode(dst); err != nil {
+		return fmt.Errorf("parse input file %s: %w", path, err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			err = errors.New("unexpected additional JSON value")
+		}
+		return fmt.Errorf("parse input file %s: %w", path, err)
+	}
+	return nil
+}
+
+// writeSeedFile writes one stage's output, refusing to overwrite and removing a
+// partial file if the encode fails. Every stage writes the same way, so it is
+// written once.
+func writeSeedFile(directory, filename string, data any) (err error) {
+	path := filepath.Join(directory, filename)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("output file %s already exists", path)
+		}
+		return fmt.Errorf("create output file %s: %w", path, err)
+	}
+	complete := false
+	defer func() {
+		if closeErr := file.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close output file %s: %w", path, closeErr)
+		}
+		if !complete {
+			_ = os.Remove(path)
+		}
+	}()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("write output file %s: %w", path, err)
+	}
+	complete = true
+	return nil
+}
+
+// splitMix64 expands one memorable --stellia-seed into the pair prng roots at.
+// Mixing quality is no longer its job -- SHA-256 does that inside prng -- but
+// one integer on a command line is friendlier than two.
 func splitMix64(state *uint64) uint64 {
 	*state += 0x9e3779b97f4a7c15
 	z := *state
 	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
 	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
 	return z ^ (z >> 31)
-}
-
-func randomUUID(rng *rand.Rand) string {
-	var id [16]byte
-	binary.BigEndian.PutUint64(id[:8], rng.Uint64())
-	binary.BigEndian.PutUint64(id[8:], rng.Uint64())
-	id[6] = id[6]&0x0f | 0x40
-	id[8] = id[8]&0x3f | 0x80
-	return formatUUID(id)
-}
-
-func formatUUID(id [16]byte) string {
-	var text [36]byte
-	hex.Encode(text[0:8], id[0:4])
-	text[8] = '-'
-	hex.Encode(text[9:13], id[4:6])
-	text[13] = '-'
-	hex.Encode(text[14:18], id[6:8])
-	text[18] = '-'
-	hex.Encode(text[19:23], id[8:10])
-	text[23] = '-'
-	hex.Encode(text[24:36], id[10:16])
-	return string(text[:])
 }

@@ -1,5 +1,5 @@
 game "EAGLE-01" turn 4
 id faction 5
 
-we name (4,1,-2) "Far Country"
-we name (-12,-7,11) "Hearth Reborn"
+we name (14,-6,15) "Far Country"
+we name (-8,-6,-7) "Hearth Reborn"

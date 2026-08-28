@@ -11,6 +11,18 @@ set -euo pipefail
     exit 2
 }
 
+# The map in games/claude/*-seed.json is committed and is an INPUT here: this
+# script loads it and never regenerates it. It was made with
+#
+#     for stage in stellia systems planets deposits; do
+#         go run ./cmd/ecgen "$stage" --stellia-seed 2026 games/claude
+#     done
+#
+# (only the first stage reads the flag; the rest take the seed from the file
+# they read). ecgen refuses to overwrite, so regenerating means deleting the
+# four files first -- and doing that invalidates every coordinate the order
+# files name.
+
 rm -f games/claude/ecvb.db games/claude/ecvb.db-*
 
 echo " info: create the database..."

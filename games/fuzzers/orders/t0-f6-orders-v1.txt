@@ -1,4 +1,4 @@
 game "FUZZ-01" turn 0
 id faction 6
 ship 310738 move to orbit 11
-ship 310738 jump to (-2,12,-5)
+ship 310738 jump to (-14,-10,12)

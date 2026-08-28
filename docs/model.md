@@ -83,6 +83,10 @@ The plural of *stellium* is *stellia*.
 | `y` | Y coordinate, from -15 through 15. |
 | `z` | Z coordinate, from -15 through 15. |
 
+A stellium is named in a `prng` key path by `(x, y, z)` — see `internal/mapkey`.
+Coordinates are what is intrinsic to it; `id` is not, because a row id depends
+on the order rows were written.
+
 The distance between stellia is their three-dimensional Euclidean distance,
 rounded up to the next integer. For stellia at \((x_1, y_1, z_1)\) and
 \((x_2, y_2, z_2)\), the distance is:
@@ -101,7 +105,9 @@ rounded up to the next integer. For stellia at \((x_1, y_1, z_1)\) and
 | `stellium_id` | The stellium containing the system. |
 | `sequence` | System sequence, from `A` through `E`. |
 
-`sequence` is unique within a stellium.
+`sequence` is unique within a stellium. A system is named in a `prng` key path
+by its stellium's `(x, y, z)` plus its sequence as a number, A being 1 through E
+being 5; a planet adds its orbit, and a deposit its number on that planet.
 
 ### `planet`
 
@@ -375,8 +381,11 @@ final location differs from its start when the order failed, because a failed
 order goes nowhere.
 
 A successful move to a planet places the ship in a ring drawn from 2 through
-99; the draw is seeded from `game.seed_high`, `game.seed_low`, the turn, and
-the order, so resolving a turn twice reaches the same rings. Distance inside a
+99. The draw is *addressed* rather than sequenced: `internal/prng` hashes
+`game.seed_high` and `game.seed_low` together with the planet's coordinates,
+its system's sequence, its orbit, the turn, the faction's number and the ship's
+number. Nothing in that address is a row id or a position in the turn, so
+resolving a turn twice reaches the same rings however the turn is resolved. Distance inside a
 stellium is not stored: it takes one of three fixed values, which the engine
 reads off the start and destination systems, and fuel is the number a player
 sees. A successful jump clears the ship's system, planet, and ring, because a

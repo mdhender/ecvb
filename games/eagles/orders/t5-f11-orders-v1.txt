@@ -1,5 +1,5 @@
 game "EAGLE-01" turn 5
 id faction 11
 
-ship 190238 jump to (11,4,-5)
+ship 190238 jump to (-11,0,-11)
 ship 190238 move to orbit 11

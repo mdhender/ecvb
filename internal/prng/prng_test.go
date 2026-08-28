@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/mdhender/ecvb/internal/prng"
@@ -38,6 +39,8 @@ type golden struct {
 	Derives []deriveVector `json:"derives"`
 	Rolls   []rollVector   `json:"rolls"`
 	Roots   []rootVector   `json:"roots"`
+
+	Shuffles []shuffleVector `json:"shuffles"`
 }
 
 type streamVector struct {
@@ -85,6 +88,25 @@ type rootVector struct {
 	Version  prng.Key   `json:"version"`
 	SubPath  []prng.Key `json:"sub_path"`
 	Draw     uint64     `json:"draw"`
+}
+
+// shuffleVector pins Shuffle and Perm for a fixed seed + address.
+//
+// These are pinned because the map generators lean on them: which 100 of the
+// lattice's 29,790 points become stellia, and which home planet a faction is
+// given, are both a Shuffle and nothing else. Roller's doc argues the rand/v2
+// bounded-int mapping is frozen by the Go team, and it is -- but Shuffle's own
+// swap order is not something this repo should discover has moved by watching a
+// map change.
+type shuffleVector struct {
+	Seed1 uint64     `json:"seed1"`
+	Seed2 uint64     `json:"seed2"`
+	Path  []prng.Key `json:"path"`
+	N     int        `json:"n"`
+	// Out is 0..N-1 after Shuffle; Perm is Perm(N) from a fresh Roller at the
+	// same address, which must therefore start from the same stream state.
+	Out  []int `json:"out"`
+	Perm []int `json:"perm"`
 }
 
 // goldenInputs enumerates the addresses whose outputs we freeze. Extend by
@@ -195,6 +217,26 @@ func goldenInputs() golden {
 			Draw:    root.Stream(in.subPath...).Uint64(),
 		})
 	}
+	// Shuffle and Perm at the two addresses the generators and the home-planet
+	// draw actually use.
+	shuffleInputs := []struct {
+		path []prng.Key
+		n    int
+	}{
+		{[]prng.Key{prng.TagCluster}, 16},
+		{[]prng.Key{prng.TagFaction, 2}, 16},
+	}
+	for _, in := range shuffleInputs {
+		out := make([]int, in.n)
+		for i := range out {
+			out[i] = i
+		}
+		seeds.Roller(in.path...).Shuffle(in.n, func(i, j int) { out[i], out[j] = out[j], out[i] })
+		g.Shuffles = append(g.Shuffles, shuffleVector{
+			Seed1: s1, Seed2: s2, Path: in.path, N: in.n,
+			Out: out, Perm: seeds.Roller(in.path...).Perm(in.n),
+		})
+	}
 	return g
 }
 
@@ -235,6 +277,20 @@ func TestGolden(t *testing.T) {
 			if got != w {
 				t.Errorf("Roller(%v).%s roll %d = %d, want %d (frozen surface changed?)", v.Path, v.Kind, i, got, w)
 			}
+		}
+	}
+	for _, v := range want.Shuffles {
+		seeds := prng.New(v.Seed1, v.Seed2)
+		got := make([]int, v.N)
+		for i := range got {
+			got[i] = i
+		}
+		seeds.Roller(v.Path...).Shuffle(v.N, func(i, j int) { got[i], got[j] = got[j], got[i] })
+		if !slices.Equal(got, v.Out) {
+			t.Errorf("Roller(%v).Shuffle(%d) = %v, want %v (frozen surface changed?)", v.Path, v.N, got, v.Out)
+		}
+		if perm := seeds.Roller(v.Path...).Perm(v.N); !slices.Equal(perm, v.Perm) {
+			t.Errorf("Roller(%v).Perm(%d) = %v, want %v (frozen surface changed?)", v.Path, v.N, perm, v.Perm)
 		}
 	}
 	for _, v := range want.Roots {

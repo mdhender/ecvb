@@ -5,7 +5,7 @@ id faction 2
 # before any jump, so the one move takes the ship out to the stellium orbit and
 # the jump leaves from there.
 ship 503683 move to orbit 11
-ship 503683 jump to (-1,1,6)
+ship 503683 jump to (3,-8,-15)
 
 # A create is a commitment: it succeeds the moment it is given, the colony
 # appears unfinished, and the build runs for as many turns as it needs. Only

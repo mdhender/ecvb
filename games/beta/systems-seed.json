@@ -1,574 +1,697 @@
 {
+  "seed": {
+    "high": "8689188781110619769",
+    "lo": "13340689291258921863"
+  },
+  "generator": {
+    "stage": "systems",
+    "id": 1,
+    "version": 1
+  },
   "systems": [
     {
-      "uuid": "b8fa714f-bddb-4d8a-a2ff-56be047334dd",
-      "stellium-uuid": "5b2bf721-c56b-4855-992b-af7005dc99a4",
+      "x": -15,
+      "y": -11,
+      "z": -12,
       "sequence": "A"
     },
     {
-      "uuid": "595b57d7-e1dd-4c75-bd3a-bec5fc1d6879",
-      "stellium-uuid": "ba3416a8-2afa-486b-b5af-01ae866ccfdf",
+      "x": -15,
+      "y": -7,
+      "z": -15,
       "sequence": "A"
     },
     {
-      "uuid": "0c03d795-7949-4126-b558-8c0e94c6b9ea",
-      "stellium-uuid": "ba3416a8-2afa-486b-b5af-01ae866ccfdf",
+      "x": -14,
+      "y": -3,
+      "z": -4,
+      "sequence": "A"
+    },
+    {
+      "x": -14,
+      "y": 1,
+      "z": 12,
+      "sequence": "A"
+    },
+    {
+      "x": -14,
+      "y": 5,
+      "z": -14,
+      "sequence": "A"
+    },
+    {
+      "x": -14,
+      "y": 6,
+      "z": -10,
+      "sequence": "A"
+    },
+    {
+      "x": -14,
+      "y": 6,
+      "z": 9,
+      "sequence": "A"
+    },
+    {
+      "x": -13,
+      "y": -5,
+      "z": -5,
+      "sequence": "A"
+    },
+    {
+      "x": -13,
+      "y": 6,
+      "z": -2,
+      "sequence": "A"
+    },
+    {
+      "x": -13,
+      "y": 7,
+      "z": 1,
+      "sequence": "A"
+    },
+    {
+      "x": -12,
+      "y": -10,
+      "z": 9,
+      "sequence": "A"
+    },
+    {
+      "x": -12,
+      "y": -6,
+      "z": -13,
+      "sequence": "A"
+    },
+    {
+      "x": -12,
+      "y": 14,
+      "z": 13,
+      "sequence": "A"
+    },
+    {
+      "x": -11,
+      "y": -15,
+      "z": 13,
+      "sequence": "A"
+    },
+    {
+      "x": -11,
+      "y": -8,
+      "z": 0,
+      "sequence": "A"
+    },
+    {
+      "x": -11,
+      "y": 1,
+      "z": -10,
+      "sequence": "A"
+    },
+    {
+      "x": -11,
+      "y": 12,
+      "z": -14,
+      "sequence": "A"
+    },
+    {
+      "x": -10,
+      "y": -5,
+      "z": 6,
+      "sequence": "A"
+    },
+    {
+      "x": -9,
+      "y": 3,
+      "z": -15,
+      "sequence": "A"
+    },
+    {
+      "x": -9,
+      "y": 5,
+      "z": 15,
+      "sequence": "A"
+    },
+    {
+      "x": -9,
+      "y": 9,
+      "z": 1,
+      "sequence": "A"
+    },
+    {
+      "x": -9,
+      "y": 15,
+      "z": -14,
+      "sequence": "A"
+    },
+    {
+      "x": -8,
+      "y": -14,
+      "z": 7,
+      "sequence": "A"
+    },
+    {
+      "x": -8,
+      "y": -13,
+      "z": 10,
+      "sequence": "A"
+    },
+    {
+      "x": -8,
+      "y": -1,
+      "z": -13,
+      "sequence": "A"
+    },
+    {
+      "x": -8,
+      "y": 15,
+      "z": 14,
+      "sequence": "A"
+    },
+    {
+      "x": -7,
+      "y": 7,
+      "z": -15,
+      "sequence": "A"
+    },
+    {
+      "x": -7,
+      "y": 10,
+      "z": -1,
+      "sequence": "A"
+    },
+    {
+      "x": -7,
+      "y": 13,
+      "z": -1,
+      "sequence": "A"
+    },
+    {
+      "x": -6,
+      "y": -15,
+      "z": 7,
+      "sequence": "A"
+    },
+    {
+      "x": -6,
+      "y": 9,
+      "z": -9,
+      "sequence": "A"
+    },
+    {
+      "x": -6,
+      "y": 13,
+      "z": 12,
+      "sequence": "A"
+    },
+    {
+      "x": -5,
+      "y": -15,
+      "z": 13,
+      "sequence": "A"
+    },
+    {
+      "x": -5,
+      "y": -12,
+      "z": -3,
+      "sequence": "A"
+    },
+    {
+      "x": -5,
+      "y": -12,
+      "z": -3,
       "sequence": "B"
     },
     {
-      "uuid": "0ee84f94-b8c2-4b73-a18c-0aab84654c12",
-      "stellium-uuid": "ba3416a8-2afa-486b-b5af-01ae866ccfdf",
+      "x": -5,
+      "y": -10,
+      "z": -12,
+      "sequence": "A"
+    },
+    {
+      "x": -5,
+      "y": -8,
+      "z": -10,
+      "sequence": "A"
+    },
+    {
+      "x": -5,
+      "y": -8,
+      "z": -7,
+      "sequence": "A"
+    },
+    {
+      "x": -4,
+      "y": -15,
+      "z": -8,
+      "sequence": "A"
+    },
+    {
+      "x": -4,
+      "y": -15,
+      "z": -6,
+      "sequence": "A"
+    },
+    {
+      "x": -4,
+      "y": -15,
+      "z": -6,
+      "sequence": "B"
+    },
+    {
+      "x": -4,
+      "y": -1,
+      "z": 3,
+      "sequence": "A"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 1,
+      "sequence": "A"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": -8,
+      "sequence": "A"
+    },
+    {
+      "x": -3,
+      "y": 15,
+      "z": -10,
+      "sequence": "A"
+    },
+    {
+      "x": -2,
+      "y": -9,
+      "z": -10,
+      "sequence": "A"
+    },
+    {
+      "x": -2,
+      "y": -1,
+      "z": 2,
+      "sequence": "A"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": 15,
+      "sequence": "A"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 10,
+      "sequence": "A"
+    },
+    {
+      "x": -2,
+      "y": 13,
+      "z": 12,
+      "sequence": "A"
+    },
+    {
+      "x": -1,
+      "y": -6,
+      "z": 13,
+      "sequence": "A"
+    },
+    {
+      "x": -1,
+      "y": 5,
+      "z": -14,
+      "sequence": "A"
+    },
+    {
+      "x": 0,
+      "y": 13,
+      "z": -2,
+      "sequence": "A"
+    },
+    {
+      "x": 1,
+      "y": -3,
+      "z": 0,
+      "sequence": "A"
+    },
+    {
+      "x": 1,
+      "y": -3,
+      "z": 0,
+      "sequence": "B"
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": -11,
+      "sequence": "A"
+    },
+    {
+      "x": 2,
+      "y": -10,
+      "z": 1,
+      "sequence": "A"
+    },
+    {
+      "x": 2,
+      "y": -7,
+      "z": 12,
+      "sequence": "A"
+    },
+    {
+      "x": 2,
+      "y": -5,
+      "z": 5,
+      "sequence": "A"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -5,
+      "sequence": "A"
+    },
+    {
+      "x": 2,
+      "y": 12,
+      "z": -14,
+      "sequence": "A"
+    },
+    {
+      "x": 3,
+      "y": -8,
+      "z": -15,
+      "sequence": "A"
+    },
+    {
+      "x": 3,
+      "y": -4,
+      "z": 13,
+      "sequence": "A"
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "z": 11,
+      "sequence": "A"
+    },
+    {
+      "x": 3,
+      "y": 11,
+      "z": -4,
+      "sequence": "A"
+    },
+    {
+      "x": 3,
+      "y": 11,
+      "z": -4,
+      "sequence": "B"
+    },
+    {
+      "x": 3,
+      "y": 11,
+      "z": -4,
       "sequence": "C"
     },
     {
-      "uuid": "1f96d4fe-4b4c-46f7-8876-16157750f0d9",
-      "stellium-uuid": "3aa2d53b-8de7-4171-844f-1147bba9f31c",
+      "x": 3,
+      "y": 15,
+      "z": 1,
       "sequence": "A"
     },
     {
-      "uuid": "b0f8615c-9fcd-41a8-b2db-108c1c74499e",
-      "stellium-uuid": "a8daa078-6574-4abb-9f40-5af883104deb",
+      "x": 4,
+      "y": -12,
+      "z": 6,
       "sequence": "A"
     },
     {
-      "uuid": "ae6b25c8-712d-45fa-b7e9-6afdbbf471d7",
-      "stellium-uuid": "21c477a7-550c-4a36-b8c8-375f152922a4",
+      "x": 4,
+      "y": -10,
+      "z": 3,
       "sequence": "A"
     },
     {
-      "uuid": "b25980d8-c782-4fc9-8435-303fa975e9c4",
-      "stellium-uuid": "52c54be1-a7c7-4bc4-b549-f9557c1ca2b3",
+      "x": 4,
+      "y": -5,
+      "z": 5,
       "sequence": "A"
     },
     {
-      "uuid": "cf9c2065-e054-4929-b1e0-945996fbbe59",
-      "stellium-uuid": "d8086af6-ed10-45ca-9936-9ee893b6ad1b",
+      "x": 4,
+      "y": 4,
+      "z": 8,
       "sequence": "A"
     },
     {
-      "uuid": "3579fac2-14d3-4130-8ea4-7b059af7dce8",
-      "stellium-uuid": "4996df50-9f8c-4439-a2b8-f61647b4c786",
-      "sequence": "A"
-    },
-    {
-      "uuid": "30df9628-cea2-4f16-942d-dffa9baac7f9",
-      "stellium-uuid": "1eff812a-0595-4182-87f5-0c917a479e5a",
-      "sequence": "A"
-    },
-    {
-      "uuid": "58efc33a-5d65-4193-b637-513fd879210a",
-      "stellium-uuid": "80cdc669-d187-40af-87e3-8faec13bc529",
-      "sequence": "A"
-    },
-    {
-      "uuid": "4c22dcea-b3f8-4b07-b42c-3e3d5c0dfefe",
-      "stellium-uuid": "4c888669-070e-462c-9399-5a50b62d814c",
-      "sequence": "A"
-    },
-    {
-      "uuid": "deeb59c4-7861-49a9-9806-200432a2a71e",
-      "stellium-uuid": "380ffb9e-4b57-47bd-b7b7-e99a6f712ebe",
-      "sequence": "A"
-    },
-    {
-      "uuid": "f2493de1-9d01-4c67-ba55-37ca78abbb1d",
-      "stellium-uuid": "1c024b7d-889b-45b4-9f16-25515530f43d",
-      "sequence": "A"
-    },
-    {
-      "uuid": "b404a483-71c3-46e4-bf84-815029724049",
-      "stellium-uuid": "7584ad09-5c33-4503-969c-72a50cac03d9",
-      "sequence": "A"
-    },
-    {
-      "uuid": "aba1a767-4a82-4225-b689-86983dea20bb",
-      "stellium-uuid": "32d982d5-60a3-4a97-aabc-f24f96a84194",
-      "sequence": "A"
-    },
-    {
-      "uuid": "96348bb8-b055-4623-a8e3-30f228cc017b",
-      "stellium-uuid": "14416de5-2f60-4b71-b5d8-8ae45cfcddf6",
-      "sequence": "A"
-    },
-    {
-      "uuid": "cc80aa95-5b94-4c29-90bb-f6f9813bd4b2",
-      "stellium-uuid": "3c168b86-9e5e-4836-85cb-606b6df464bf",
-      "sequence": "A"
-    },
-    {
-      "uuid": "5b8d647b-37f5-4fc2-9fbb-b4c8ae2551d9",
-      "stellium-uuid": "78be9f55-bcdd-424c-9ef7-79b4186424e2",
-      "sequence": "A"
-    },
-    {
-      "uuid": "b0f20caa-5cb3-45f6-9e7f-fb66e93603f7",
-      "stellium-uuid": "3f7625ea-c3f0-4b99-9ec1-cbeaf651fdf9",
-      "sequence": "A"
-    },
-    {
-      "uuid": "2f2289e4-9ed6-4ed2-923f-72e84c1cb2b5",
-      "stellium-uuid": "c774b7c2-b46a-4eed-b3e8-ee6f679c4b26",
-      "sequence": "A"
-    },
-    {
-      "uuid": "9ba818fb-4c9e-4e5e-b255-fcf5fe72be7f",
-      "stellium-uuid": "8c88ea84-e6c4-47b9-b74a-103105f1b880",
-      "sequence": "A"
-    },
-    {
-      "uuid": "d0ed0f65-fd87-4d1a-ba72-608ed98524bf",
-      "stellium-uuid": "9eecfa33-6ab9-4664-b20d-3a84c68c9c69",
-      "sequence": "A"
-    },
-    {
-      "uuid": "0fc0fde2-da5c-4564-9c46-7058217a2b97",
-      "stellium-uuid": "f409f39c-d0e7-4e79-bc7a-edbf71b5b4f4",
-      "sequence": "A"
-    },
-    {
-      "uuid": "6112ffb8-d82a-4d1c-a6ea-4d79ac2fc34d",
-      "stellium-uuid": "14fbe757-5de9-4293-90a2-a3fc1e0af60f",
-      "sequence": "A"
-    },
-    {
-      "uuid": "10f3f519-fc5e-4e84-9969-db24c821bec8",
-      "stellium-uuid": "a919b58b-4f1d-41cb-884a-8e6b34df8f56",
-      "sequence": "A"
-    },
-    {
-      "uuid": "608127af-1bfd-4386-90ab-744afae62c04",
-      "stellium-uuid": "9d713384-8d3f-47f1-a01b-2f0582832b66",
-      "sequence": "A"
-    },
-    {
-      "uuid": "403c4d38-bbe2-49d1-aca7-0bb5ff94ebfa",
-      "stellium-uuid": "9d713384-8d3f-47f1-a01b-2f0582832b66",
+      "x": 4,
+      "y": 4,
+      "z": 8,
       "sequence": "B"
     },
     {
-      "uuid": "8f481573-0fc8-4ec2-953f-b7e62bc176e0",
-      "stellium-uuid": "aca9e741-8552-4d36-9cfc-94dc871f62c3",
-      "sequence": "A"
-    },
-    {
-      "uuid": "4068cf1a-dd19-4d40-9c4c-0b5cd1d38070",
-      "stellium-uuid": "e01ce162-87cc-44ac-b1dc-10012169d282",
-      "sequence": "A"
-    },
-    {
-      "uuid": "572345a7-280a-47b4-9e4a-48b5a403306c",
-      "stellium-uuid": "341019e7-19df-4e48-a354-29bfc53bc200",
-      "sequence": "A"
-    },
-    {
-      "uuid": "ae712428-65d7-47a2-b252-363badb06681",
-      "stellium-uuid": "9bc0d301-ccdd-44d9-9e4b-d408b8b81217",
-      "sequence": "A"
-    },
-    {
-      "uuid": "62745d12-df2e-4921-90c3-4e45cefe1238",
-      "stellium-uuid": "b83f40e6-ea13-4d50-921b-6763b8caf632",
-      "sequence": "A"
-    },
-    {
-      "uuid": "461759f5-a685-4a75-b1e8-49f94f013517",
-      "stellium-uuid": "7a8103ef-1cd8-4ad1-9806-3e44d26d47fd",
-      "sequence": "A"
-    },
-    {
-      "uuid": "44d4c0f6-2197-4995-a2b4-57c173d2ae75",
-      "stellium-uuid": "e615d9f0-e35d-4ced-aa72-54bd977e6a19",
-      "sequence": "A"
-    },
-    {
-      "uuid": "1ed8077a-3667-41b2-9c47-2172394eb05e",
-      "stellium-uuid": "324df85d-cb65-4cda-9365-a5976a979b15",
-      "sequence": "A"
-    },
-    {
-      "uuid": "cddc8bdc-bf17-4816-9c6b-ea5404104e6e",
-      "stellium-uuid": "7901d4bd-6117-4317-a64c-dbb2ea4478a6",
-      "sequence": "A"
-    },
-    {
-      "uuid": "efe680e6-48c9-4353-b26c-38804ec54a4c",
-      "stellium-uuid": "7901d4bd-6117-4317-a64c-dbb2ea4478a6",
-      "sequence": "B"
-    },
-    {
-      "uuid": "3ace2d1a-a58c-4b39-accf-a12fada71d4c",
-      "stellium-uuid": "b2383f61-f919-4bc9-9526-c24b8465ace2",
-      "sequence": "A"
-    },
-    {
-      "uuid": "6975075c-89db-41db-89c3-c2fb9396a705",
-      "stellium-uuid": "a171d7de-3126-417e-9849-f4739580e448",
-      "sequence": "A"
-    },
-    {
-      "uuid": "ef785345-43ae-43e7-a51f-d7d99fb8bf61",
-      "stellium-uuid": "d823aae0-56a9-458f-a636-692e9d3f3435",
-      "sequence": "A"
-    },
-    {
-      "uuid": "a736cff4-79aa-4ab7-976f-90793e2bf130",
-      "stellium-uuid": "710d3339-ce7c-4aa7-9d9d-e1cb719809ec",
-      "sequence": "A"
-    },
-    {
-      "uuid": "06dec213-c24b-481c-a69b-87e9dead2877",
-      "stellium-uuid": "99482e96-dbd2-4987-b51b-55d24839d6ea",
-      "sequence": "A"
-    },
-    {
-      "uuid": "d7fede2e-7edc-48d6-844a-edc7e375307f",
-      "stellium-uuid": "c7b5f16f-9352-405a-b81a-1b63b60ca9ad",
-      "sequence": "A"
-    },
-    {
-      "uuid": "1ca148e0-3352-4470-bb1f-a4f06cdd668b",
-      "stellium-uuid": "79c9991d-e5b6-4943-b9fd-5cfcd90b8dbf",
-      "sequence": "A"
-    },
-    {
-      "uuid": "a068bb7b-de61-4c59-b835-889902b4bfda",
-      "stellium-uuid": "63bcfab7-cd7a-45c4-9a40-14ffe4728cab",
-      "sequence": "A"
-    },
-    {
-      "uuid": "96a90e60-d725-411d-85df-facf48ec8075",
-      "stellium-uuid": "9ef86293-c3a8-4fbd-959f-7213b570a799",
-      "sequence": "A"
-    },
-    {
-      "uuid": "6b967119-5b99-4aaa-90bd-7e4389143b97",
-      "stellium-uuid": "6c838499-5d7e-4602-b2c6-dd2768d45258",
-      "sequence": "A"
-    },
-    {
-      "uuid": "64207c56-f03e-408b-94bf-ecfe328be23d",
-      "stellium-uuid": "8eea2abc-fb3e-4ceb-ba29-d7e3d324d04a",
-      "sequence": "A"
-    },
-    {
-      "uuid": "59cb0db5-c545-4b27-9c5d-ac98a6e103e8",
-      "stellium-uuid": "af465e10-5fa1-43ba-adbe-fe364487d66c",
-      "sequence": "A"
-    },
-    {
-      "uuid": "05f8424c-4803-4de3-b41a-b87cb3c4096b",
-      "stellium-uuid": "0cf98420-17c5-4248-ac4d-19fee9b0a2bf",
-      "sequence": "A"
-    },
-    {
-      "uuid": "d13817c1-cfc0-4b99-97c5-d3dd2ae604ba",
-      "stellium-uuid": "10ed0ec3-6f0b-44d3-94aa-d3075389b099",
-      "sequence": "A"
-    },
-    {
-      "uuid": "7ec6d9e9-5657-4385-8a1c-49b035742b4c",
-      "stellium-uuid": "10ed0ec3-6f0b-44d3-94aa-d3075389b099",
-      "sequence": "B"
-    },
-    {
-      "uuid": "2fe947a5-c97d-41b3-a842-c5158d4c66ca",
-      "stellium-uuid": "10ed0ec3-6f0b-44d3-94aa-d3075389b099",
+      "x": 4,
+      "y": 4,
+      "z": 8,
       "sequence": "C"
     },
     {
-      "uuid": "8cc0301f-575a-438e-8acb-9e6108191fa4",
-      "stellium-uuid": "10ed0ec3-6f0b-44d3-94aa-d3075389b099",
+      "x": 4,
+      "y": 4,
+      "z": 8,
       "sequence": "D"
     },
     {
-      "uuid": "8949f743-3e77-4ef8-92a1-d8458b49ea1f",
-      "stellium-uuid": "26acbcc9-1ba6-472d-ae73-0491e6d64f47",
+      "x": 4,
+      "y": 9,
+      "z": 7,
       "sequence": "A"
     },
     {
-      "uuid": "a0c2d82d-a147-4e3d-b38e-f1d21886e016",
-      "stellium-uuid": "99bbec68-62bf-4fb1-9940-fde4e6a250eb",
+      "x": 4,
+      "y": 14,
+      "z": -8,
       "sequence": "A"
     },
     {
-      "uuid": "b516823d-9932-4ccf-b1e5-fefe3f728069",
-      "stellium-uuid": "ec2551f4-98b6-4977-bd92-435fd43f4f8a",
+      "x": 5,
+      "y": -2,
+      "z": 2,
       "sequence": "A"
     },
     {
-      "uuid": "5d01aab4-5ec6-45e0-a225-65b16ba14270",
-      "stellium-uuid": "13b0f48e-d542-4b3f-bcfe-a9f3ca90a891",
+      "x": 5,
+      "y": 9,
+      "z": -3,
       "sequence": "A"
     },
     {
-      "uuid": "2a9f5f5e-444b-4874-b81c-8a40396ea80c",
-      "stellium-uuid": "02da68b2-5a3e-4006-92ae-1918b9d7be9e",
+      "x": 6,
+      "y": -2,
+      "z": 9,
       "sequence": "A"
     },
     {
-      "uuid": "86aa45d8-cad6-4d09-9ff0-552cd14eb1d3",
-      "stellium-uuid": "966e65ad-0155-466b-ae04-6b997bcb7f6a",
+      "x": 6,
+      "y": 0,
+      "z": -2,
       "sequence": "A"
     },
     {
-      "uuid": "13f7ee6f-d01f-4dad-823f-e0d623f639dc",
-      "stellium-uuid": "32e0a3a2-549b-4868-8754-191a1b7cae0c",
+      "x": 7,
+      "y": -5,
+      "z": -10,
       "sequence": "A"
     },
     {
-      "uuid": "1d6ca17e-5c97-4bc3-a3ac-ba18e453bde3",
-      "stellium-uuid": "ad8000a9-cbb6-4214-96e4-d586605a5f8c",
+      "x": 7,
+      "y": 1,
+      "z": 14,
       "sequence": "A"
     },
     {
-      "uuid": "40bf5904-61bf-4abc-9279-05d4fb849e85",
-      "stellium-uuid": "c1540ad5-a88c-48f9-af4e-2928478e493f",
+      "x": 8,
+      "y": -14,
+      "z": 10,
       "sequence": "A"
     },
     {
-      "uuid": "7c28e1a2-ce16-427b-97c0-498deac1c6ab",
-      "stellium-uuid": "b77f9052-730f-4c25-971e-a03462be2ab0",
+      "x": 8,
+      "y": 14,
+      "z": -14,
       "sequence": "A"
     },
     {
-      "uuid": "bcef6d89-1bf0-4373-90ed-5b86c521ba38",
-      "stellium-uuid": "fd55e664-b945-4c42-8d86-8565b049674f",
+      "x": 9,
+      "y": -15,
+      "z": -4,
       "sequence": "A"
     },
     {
-      "uuid": "b34269f8-9c86-4902-ae8e-044375a63ac8",
-      "stellium-uuid": "c620322c-451d-451d-ba15-9175563cd06f",
+      "x": 9,
+      "y": -9,
+      "z": 2,
       "sequence": "A"
     },
     {
-      "uuid": "ec1094fa-51cc-49ba-9076-f54f18a540f6",
-      "stellium-uuid": "25bbe790-fd9a-49a7-8e51-68f2220f9454",
-      "sequence": "A"
-    },
-    {
-      "uuid": "a0f712f7-6b6a-4dc3-bdae-b52a2c5d5c0f",
-      "stellium-uuid": "25bbe790-fd9a-49a7-8e51-68f2220f9454",
+      "x": 9,
+      "y": -9,
+      "z": 2,
       "sequence": "B"
     },
     {
-      "uuid": "2d303b1e-18bb-4544-a9be-56901c584570",
-      "stellium-uuid": "296903d6-2c53-4450-a5d7-9b39fa0c5ff5",
+      "x": 9,
+      "y": 4,
+      "z": -7,
       "sequence": "A"
     },
     {
-      "uuid": "4d951da1-6f89-423b-ad27-1c932057d525",
-      "stellium-uuid": "dbec410c-5508-4960-8332-cb8636112a3f",
+      "x": 9,
+      "y": 8,
+      "z": 10,
       "sequence": "A"
     },
     {
-      "uuid": "03cb6e7b-ac56-4600-8176-7a7bf987ecce",
-      "stellium-uuid": "792417c4-587d-40b1-99f1-f7439d7578ad",
+      "x": 10,
+      "y": -14,
+      "z": -15,
       "sequence": "A"
     },
     {
-      "uuid": "e9199ee7-c5d0-455e-9678-204642f84999",
-      "stellium-uuid": "ff2ca0bb-7b52-44a6-8e1a-a5d30994717a",
+      "x": 10,
+      "y": -6,
+      "z": 5,
       "sequence": "A"
     },
     {
-      "uuid": "250d387c-2b40-4bc3-8bc2-07a8c2b7f768",
-      "stellium-uuid": "6beeeb92-6d33-4ecd-8339-1fd646931ed1",
-      "sequence": "A"
-    },
-    {
-      "uuid": "27289edf-919f-47dd-83ad-42da48678edb",
-      "stellium-uuid": "23dc3805-41a6-49a1-8356-538932864337",
-      "sequence": "A"
-    },
-    {
-      "uuid": "76919368-b300-478a-a898-4abc87ba9ffd",
-      "stellium-uuid": "7067f632-7442-4dcb-ad82-1dc071d65219",
-      "sequence": "A"
-    },
-    {
-      "uuid": "92651ecb-95a8-4c65-a794-57914bc9c097",
-      "stellium-uuid": "b0f7c4c9-626a-4d4b-be67-e91fdb43009f",
-      "sequence": "A"
-    },
-    {
-      "uuid": "5c489f5e-4216-49ef-a13e-4489eecbe482",
-      "stellium-uuid": "ba7d53bb-fc4d-48d2-a19d-e78e9d112697",
-      "sequence": "A"
-    },
-    {
-      "uuid": "6f1a92f2-9b8a-4266-a18e-a1be99c188c4",
-      "stellium-uuid": "96b7a392-67f9-4b0b-b75a-d7f918babafc",
-      "sequence": "A"
-    },
-    {
-      "uuid": "32d576f5-6240-4e29-9b20-d1dde225147b",
-      "stellium-uuid": "96b7a392-67f9-4b0b-b75a-d7f918babafc",
+      "x": 10,
+      "y": -6,
+      "z": 5,
       "sequence": "B"
     },
     {
-      "uuid": "d38f1212-ba63-4ab0-b552-accb65d312c3",
-      "stellium-uuid": "2497bdea-63a8-4dfd-ad51-b48e6241e356",
+      "x": 10,
+      "y": 5,
+      "z": -5,
       "sequence": "A"
     },
     {
-      "uuid": "c088ab6d-56c9-48b3-bd3d-cd14f07ae131",
-      "stellium-uuid": "4a2b0efe-670c-4252-97ce-c2aa84d9e2e0",
+      "x": 11,
+      "y": 9,
+      "z": -14,
       "sequence": "A"
     },
     {
-      "uuid": "09220150-7189-49d5-89e6-51c1567092ba",
-      "stellium-uuid": "a0a0f298-08a1-4f34-8548-42e839d382b7",
+      "x": 11,
+      "y": 10,
+      "z": -3,
       "sequence": "A"
     },
     {
-      "uuid": "b3b6dbe5-a74b-49c4-addb-59e3eca449e8",
-      "stellium-uuid": "47382b9a-49b5-4fdb-9cdf-74038692e552",
+      "x": 11,
+      "y": 12,
+      "z": 6,
       "sequence": "A"
     },
     {
-      "uuid": "ad9418e6-b355-45d6-bc2a-e5bbafdf51ee",
-      "stellium-uuid": "705d3eeb-214b-42d5-9e04-e9e5050bbd70",
+      "x": 12,
+      "y": -12,
+      "z": 3,
       "sequence": "A"
     },
     {
-      "uuid": "62ede4b7-d868-4ba1-968d-d4897afc47c8",
-      "stellium-uuid": "aaf4b960-9638-4a5d-bf54-e4faa458a436",
-      "sequence": "A"
-    },
-    {
-      "uuid": "91ea3802-18c7-40f7-a06a-9937c9cd2587",
-      "stellium-uuid": "7336b165-1993-4b31-adf7-7591207f7b81",
-      "sequence": "A"
-    },
-    {
-      "uuid": "d3b939cf-19cd-42f2-a208-7b06515df6d6",
-      "stellium-uuid": "7336b165-1993-4b31-adf7-7591207f7b81",
+      "x": 12,
+      "y": -12,
+      "z": 3,
       "sequence": "B"
     },
     {
-      "uuid": "d62f85fc-8f74-4e5c-a5dd-cd7405cccf0a",
-      "stellium-uuid": "f7d8283a-a162-4dbc-9329-fa17f00aff43",
-      "sequence": "A"
-    },
-    {
-      "uuid": "7cf589a9-a861-422a-8450-dd8209ee0adb",
-      "stellium-uuid": "461ed948-c596-4c8d-9b5f-0d3137fb11da",
-      "sequence": "A"
-    },
-    {
-      "uuid": "5d174409-8721-4c89-9a53-9dfb5047b484",
-      "stellium-uuid": "3a6a1ea1-729c-4a2b-b9b9-7263a1253f0a",
-      "sequence": "A"
-    },
-    {
-      "uuid": "0d5622b6-80af-44bc-918d-1f6ba4fb76af",
-      "stellium-uuid": "5a60b6a1-c738-405f-9d9c-0f334e8059eb",
-      "sequence": "A"
-    },
-    {
-      "uuid": "c0742943-85b0-4a19-9928-9386198d13d0",
-      "stellium-uuid": "ce24d03a-0c23-4fcf-b040-fd1a651364ed",
-      "sequence": "A"
-    },
-    {
-      "uuid": "e7b1e918-829b-4bbe-8194-d9423cf8980d",
-      "stellium-uuid": "1540a3ad-347f-4286-9968-977a627a476b",
-      "sequence": "A"
-    },
-    {
-      "uuid": "fc80bbf4-f684-4b8e-bc5a-9b181cf516cc",
-      "stellium-uuid": "e8d4a3e7-f813-4b9e-aa52-560e02a258ce",
-      "sequence": "A"
-    },
-    {
-      "uuid": "3b1a26ee-7afa-4bc9-ba72-78faa3413fb0",
-      "stellium-uuid": "ad1277ca-37a1-41d4-97d3-9b7be49d91bc",
-      "sequence": "A"
-    },
-    {
-      "uuid": "86051700-118e-45b9-ac10-e027b74edab6",
-      "stellium-uuid": "5bc44e8f-c8eb-4e6e-8674-e6aa57b3770f",
-      "sequence": "A"
-    },
-    {
-      "uuid": "034339ae-82dc-458e-af81-2dba58a80390",
-      "stellium-uuid": "b919197c-eff0-4345-a408-3d40fed867af",
-      "sequence": "A"
-    },
-    {
-      "uuid": "b2e6adf3-8e0e-45ed-9a40-6076b684b86a",
-      "stellium-uuid": "b919197c-eff0-4345-a408-3d40fed867af",
-      "sequence": "B"
-    },
-    {
-      "uuid": "022f296d-2fd9-4629-bebd-6e8ca2336c22",
-      "stellium-uuid": "b80feb0a-298c-4f02-98de-7ee3339068eb",
-      "sequence": "A"
-    },
-    {
-      "uuid": "688b3411-8ef9-408e-8afe-115c07cdc1aa",
-      "stellium-uuid": "673b9fe1-d8e9-4e39-87f5-a0e035c8e7fa",
-      "sequence": "A"
-    },
-    {
-      "uuid": "1762eeed-a73f-4f13-b497-463d72d0fb0b",
-      "stellium-uuid": "8f4a43fb-38e9-4647-a9ca-e24c5e100314",
-      "sequence": "A"
-    },
-    {
-      "uuid": "65631252-b305-4370-ac51-eff2c605119c",
-      "stellium-uuid": "8f4a43fb-38e9-4647-a9ca-e24c5e100314",
-      "sequence": "B"
-    },
-    {
-      "uuid": "49e97772-ff00-450b-a76a-1d32b374b240",
-      "stellium-uuid": "ab575c6b-f0da-4f29-904b-68c92474cc04",
-      "sequence": "A"
-    },
-    {
-      "uuid": "790fd7da-2984-47f2-a7c8-d2e8ec7f8489",
-      "stellium-uuid": "294c5a55-0b6a-49c5-91b9-43dc9c5ae0cb",
-      "sequence": "A"
-    },
-    {
-      "uuid": "b6302d6e-7fef-4e13-bd36-33603e9aca65",
-      "stellium-uuid": "b5046b1e-47db-4178-a896-e6f1021e5521",
-      "sequence": "A"
-    },
-    {
-      "uuid": "76a2b136-98f8-4769-b060-7781946a2aac",
-      "stellium-uuid": "978798c5-06f9-4ea3-8320-7b121d5e22bc",
-      "sequence": "A"
-    },
-    {
-      "uuid": "5a022d42-9cbd-4a0d-9cfd-90be6e504f7e",
-      "stellium-uuid": "66215cc3-d9f2-4603-a075-56ace039c3d6",
-      "sequence": "A"
-    },
-    {
-      "uuid": "dfa8f51a-3017-4a60-b193-5218a51d087f",
-      "stellium-uuid": "79e8afd4-e172-496c-9b9e-841b248ffeba",
-      "sequence": "A"
-    },
-    {
-      "uuid": "36b71c0a-5e01-4dc3-8848-d3f8deb6c00d",
-      "stellium-uuid": "d0fbab1c-5538-4357-a152-03e30c05bc8a",
-      "sequence": "A"
-    },
-    {
-      "uuid": "b3a5c9bf-88fb-40e2-8835-419cccd54461",
-      "stellium-uuid": "b6f60731-0a29-42c9-86ed-7888c06c42bd",
-      "sequence": "A"
-    },
-    {
-      "uuid": "e4d15a73-054b-4110-9a7e-595fc3031eda",
-      "stellium-uuid": "b6f60731-0a29-42c9-86ed-7888c06c42bd",
-      "sequence": "B"
-    },
-    {
-      "uuid": "1e6b96f5-abba-4048-9332-93d54254d4df",
-      "stellium-uuid": "b6f60731-0a29-42c9-86ed-7888c06c42bd",
+      "x": 12,
+      "y": -12,
+      "z": 3,
       "sequence": "C"
+    },
+    {
+      "x": 12,
+      "y": -10,
+      "z": -6,
+      "sequence": "A"
+    },
+    {
+      "x": 12,
+      "y": -4,
+      "z": -4,
+      "sequence": "A"
+    },
+    {
+      "x": 12,
+      "y": -4,
+      "z": -4,
+      "sequence": "B"
+    },
+    {
+      "x": 12,
+      "y": -1,
+      "z": 2,
+      "sequence": "A"
+    },
+    {
+      "x": 12,
+      "y": 8,
+      "z": 7,
+      "sequence": "A"
+    },
+    {
+      "x": 12,
+      "y": 8,
+      "z": 7,
+      "sequence": "B"
+    },
+    {
+      "x": 13,
+      "y": -5,
+      "z": 4,
+      "sequence": "A"
+    },
+    {
+      "x": 13,
+      "y": -2,
+      "z": 6,
+      "sequence": "A"
+    },
+    {
+      "x": 14,
+      "y": -9,
+      "z": -2,
+      "sequence": "A"
+    },
+    {
+      "x": 14,
+      "y": -8,
+      "z": -13,
+      "sequence": "A"
+    },
+    {
+      "x": 14,
+      "y": 3,
+      "z": 14,
+      "sequence": "A"
+    },
+    {
+      "x": 15,
+      "y": -4,
+      "z": 6,
+      "sequence": "A"
+    },
+    {
+      "x": 15,
+      "y": -1,
+      "z": -8,
+      "sequence": "A"
+    },
+    {
+      "x": 15,
+      "y": 5,
+      "z": -13,
+      "sequence": "A"
     }
   ]
 }

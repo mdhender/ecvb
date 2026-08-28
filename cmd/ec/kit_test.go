@@ -34,10 +34,15 @@ func TestReadHomePlanetKit(t *testing.T) {
 		"COPN": {mass: 6831, enclosedVolume: 20000, controlled: true, inventoryEntries: 10},
 		"CSFC": {mass: 5594, enclosedVolume: 20000, controlled: true, inventoryEntries: 7},
 		"CORB": {mass: 71607, enclosedVolume: 350000, controlled: false, inventoryEntries: 6},
-		// The ship carries 20 HDRV-3 and the 3500 FUEL they burn. Bulk
+		// The ship carries 20 HDRV-3 and the 6500 FUEL they burn. Bulk
 		// resources mass 1 MU each, so a full tank is cheap to carry and the
 		// drive can stay at the range the map asks for.
-		"SHIP": {mass: 55892, enclosedVolume: 200000, controlled: true, inventoryEntries: 13},
+		//
+		// The tank is sized for the one jump the beta orders make: 8 light
+		// years to the nearest stellium, at 20 units x 40 FUEL x 8 LY = 6400,
+		// plus 80 for the move out to the stellium orbit first. The drive
+		// propels 20 x 1045 x 3 = 62700 MU, so the fuel fits with room over.
+		"SHIP": {mass: 58892, enclosedVolume: 200000, controlled: true, inventoryEntries: 13},
 	}
 	for _, entity := range kit.entities {
 		properties, ok := want[entity.kind]

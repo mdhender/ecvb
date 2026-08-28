@@ -5,12 +5,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
 	"net/mail"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/prng"
 	"github.com/mdhender/ecvb/internal/world"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -114,18 +114,11 @@ func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath s
 		return 0, fmt.Errorf("user %q is already in game %q", email, gameCode)
 	}
 
-	candidates, err := homeCandidates(conn, gameID)
-	if err != nil {
-		return 0, err
-	}
-	homes, err := existingHomes(conn, gameID)
-	if err != nil {
-		return 0, err
-	}
-	selected, found := selectHomeCandidate(candidates, homes, seedHigh, seedLow)
-	if !found {
-		return 0, fmt.Errorf("game %q has no eligible home planet", gameCode)
-	}
+	// The kit is read, the uncontrolled faction is settled, and this player's
+	// faction number is taken BEFORE a home is chosen, because the number is
+	// what the choice is addressed by. Nothing here is lost if the choice then
+	// fails: it is all one transaction, so the counter bump rolls back with
+	// everything else.
 	kit, err := readKit(kitPath)
 	if err != nil {
 		return 0, err
@@ -148,6 +141,19 @@ func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath s
 	factionNumber, err = world.NextFactionNumber(conn, gameID)
 	if err != nil {
 		return 0, err
+	}
+
+	candidates, err := homeCandidates(conn, gameID)
+	if err != nil {
+		return 0, err
+	}
+	homes, err := existingHomes(conn, gameID)
+	if err != nil {
+		return 0, err
+	}
+	selected, found := selectHomeCandidate(candidates, homes, prng.New(uint64(seedHigh), uint64(seedLow)), factionNumber)
+	if !found {
+		return 0, fmt.Errorf("game %q has no eligible home planet", gameCode)
 	}
 	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, number, user_id) VALUES (?, ?, ?);", &sqlitex.ExecOptions{
 		Args: []any{gameID, factionNumber, userID},
@@ -233,10 +239,27 @@ func compareHomeCandidates(a, b homeCandidate) int {
 	return a.z - b.z
 }
 
-func selectHomeCandidate(candidates, homes []homeCandidate, seedHigh, seedLow int64) (homeCandidate, bool) {
+// selectHomeCandidate picks the planet a new faction starts on.
+//
+// The draw is addressed rather than sequenced: internal/prng hashes the game's
+// seeds together with the faction's own number, so which planet a faction is
+// given depends on who they are and not on when they joined. It used to seed a
+// bare PCG from the raw game seeds with no domain tag at all -- which meant
+// every faction shuffled the identical permutation, and the only thing telling
+// them apart was that the earlier ones had already taken the head of the list.
+// It also meant the draw shared a stream with anything else that seeded a PCG
+// the same way.
+//
+// The faction is named by the number the game gave it, never by its row id: a
+// row id comes from a sequence shared with every other game in the database.
+//
+// The sort before the shuffle is not decoration. SQLite promises no row order,
+// so it is what makes the permutation a function of the candidate SET rather
+// than of the query plan.
+func selectHomeCandidate(candidates, homes []homeCandidate, seeds prng.Seeds, factionNumber int64) (homeCandidate, bool) {
 	slices.SortFunc(candidates, compareHomeCandidates)
-	rng := rand.New(rand.NewPCG(uint64(seedHigh), uint64(seedLow)))
-	rng.Shuffle(len(candidates), func(i, j int) {
+	roller := seeds.Roller(prng.TagFaction, prng.Key(factionNumber))
+	roller.Shuffle(len(candidates), func(i, j int) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
 	for _, candidate := range candidates {

@@ -32,14 +32,17 @@ describe the intended shape of code that has not been written.
 | Command | Responsibility |
 | --- | --- |
 | `cmd/db` | Only place allowed to create a database file or apply migrations (`create`, `migrate up`, `seed`). |
-| `cmd/ecgen` | Generates map seed JSON: `stellia` → `systems` → `planets` → `deposits`, each reading the previous file from the target directory. Deterministic from `--stellia-seed`. |
+| `cmd/ecgen` | Generates map seed JSON: `stellia` → `systems` → `planets` → `deposits`, each reading the previous file from the target directory. Deterministic from `--stellia-seed`, which only the first stage reads: it expands to the seed pair every file carries, and each later stage rebuilds the same `prng` root from the file it reads. |
 | `cmd/ec` | Gamemaster mutations: `game create`, `load game`, `add player`, `orders check|submit`, `turn resolve|open`, `db verify`. |
 | `cmd/ecrpt` | Read-only reporting: `show orders|stellium|system|turn`, opens the database `OpenReadOnly`. `show --format json` renders any report as JSON. |
 
-All four take `--db-path DIR` (a *directory*; the file inside it is always
-`database.Filename` = `ecvb.db`). `cmd/ec` and `cmd/ecgen` parse flags with
+Every one of them takes a *directory* rather than a file; the database inside it
+is always `database.Filename` = `ecvb.db`. `cmd/ec` and `cmd/ecrpt` take it as
+`--db-path DIR`; **`cmd/db` and `cmd/ecgen` take it as a positional argument**
+(`db create DIR`, `ecgen stellia [--stellia-seed SEED] DIR`) and have no
+`--db-path` flag. `cmd/ec` and `cmd/ecgen` parse flags with
 `ff.WithEnvVarPrefix("EC")`, so `--db-path` also reads `EC_DB_PATH`, `--game-seed`
-reads `EC_GAME_SEED`, and so on.
+reads `EC_GAME_SEED`, `--stellia-seed` reads `EC_STELLIA_SEED`, and so on.
 
 ## Database access invariants
 
@@ -104,6 +107,41 @@ to the game, never a row id, because a row id is drawn from one sequence shared
 by every game in the database. `DrawRing` now addresses its draw by
 `Entity.Number` and `Entity.FactionNumber` and holds that rule without
 exception.
+
+### Every draw is addressed, including the generators
+
+**Nothing outside `internal/prng` imports `math/rand`.** The map generators and
+the home-planet draw were written before `prng` existed and were the last
+holdouts; they now address every draw the same way `DrawRing` does.
+
+`internal/mapkey` is where a map object's address lives — `Stellium(x,y,z)`,
+`System(x,y,z,seq)`, `Planet(…,orbit)`, `Deposit(…,number)`, and the A=1 rule
+that turns a sequence letter into a `Key`. It depends on nothing but `prng`,
+which is what lets `cmd/ecgen` (which never opens a database) and
+`internal/world` (which does nothing else) share one copy of a frozen surface.
+**Every address leads with its tag, and that is load-bearing**: an axis may be
+zero — (0,5,3) is a real place — and `prng` panics on a path whose first element
+is zero, so a coordinate must never lead.
+
+The generators root at `Seeds.Derive(stageTag, generatorID, version)`, the
+convention `prng_test.go` pins. `version` is the knob for changing what a stage
+*decides* without touching the frozen tag registry; a refactor never bumps it,
+because the whole point of addressing a draw is that moving the lines cannot
+move the map.
+
+Only two draws are left in generation, and both were always game decisions:
+which 100 lattice points become stellia, and what a deposit holds. The stellia
+draw is **a key per lattice point, sorted** — not a shuffle. A shuffle is one
+stream, so any later draw taken from it would move every stellium; a key per
+point cannot be broken that way. The four UUIDs that used to be drawn are gone:
+a seed record is keyed by its own address, so what names a thing in the file and
+what names it in a draw are one fact. `cmd/ec/load.go`'s `checkOneMap` replaces
+the integrity check the UUIDs were silently providing — coordinates are shared
+vocabulary, so only the seed block can tell you the four files came from one map.
+
+**`games/eagles` and `games/fuzzers` have no map of their own**: both
+`replay.sh` files `cp` the four seed files in from `games/claude`. Regenerating
+claude's map regenerates theirs, and every coordinate their order files name.
 
 ### Orders that parse and do not yet act
 

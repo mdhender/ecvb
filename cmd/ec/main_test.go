@@ -357,18 +357,138 @@ func TestLoadGameRejectsMissingFilesUnknownGameAndLoadedGame(t *testing.T) {
 	})
 }
 
+// testSeedBlock is the seed block every fixture below carries. All four files
+// must agree on it or loadGame refuses the set.
+const testSeedBlock = `"seed":{"high":"19","lo":"12"},`
+
 func writeTestGameSeeds(t *testing.T, directory string) {
 	t.Helper()
-	files := map[string]string{
-		"stellia-seed.json":  `{"stellia":[{"uuid":"st-1","x":1,"y":2,"z":3}]}`,
-		"systems-seed.json":  `{"systems":[{"uuid":"sy-1","stellium-uuid":"st-1","sequence":"A"}]}`,
-		"planets-seed.json":  `{"planets":[{"uuid":"pl-1","system-uuid":"sy-1","orbit":1,"type":"asteroid","habitability":0}]}`,
-		"deposits-seed.json": `{"deposits":[{"planet-uuid":"pl-1","sequence":1,"resource":"metals","quantity":100,"quality":5}]}`,
-	}
+	writeGameSeeds(t, directory, map[string]string{
+		"stellia-seed.json":  `{` + testSeedBlock + `"stellia":[{"x":1,"y":2,"z":3}]}`,
+		"systems-seed.json":  `{` + testSeedBlock + `"systems":[{"x":1,"y":2,"z":3,"sequence":"A"}]}`,
+		"planets-seed.json":  `{` + testSeedBlock + `"planets":[{"x":1,"y":2,"z":3,"sequence":"A","orbit":1,"type":"asteroid","habitability":0}]}`,
+		"deposits-seed.json": `{` + testSeedBlock + `"deposits":[{"x":1,"y":2,"z":3,"sequence":"A","orbit":1,"deposit-no":1,"resource":"metals","quantity":100,"quality":5}]}`,
+	})
+}
+
+func writeGameSeeds(t *testing.T, directory string, files map[string]string) {
+	t.Helper()
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// The four files must come from one map, and every record must name a parent
+// that is there. Neither had a test: the UUIDs used to make the first true for
+// free, and nothing ever exercised the second.
+func TestLoadGameRejectsASeedSetThatIsNotOneMap(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{
+			name: "a file from another map",
+			files: map[string]string{
+				"stellia-seed.json":  `{"seed":{"high":"19","lo":"12"},"stellia":[{"x":1,"y":2,"z":3}]}`,
+				"systems-seed.json":  `{"seed":{"high":"77","lo":"77"},"systems":[{"x":1,"y":2,"z":3,"sequence":"A"}]}`,
+				"planets-seed.json":  `{` + testSeedBlock + `"planets":[]}`,
+				"deposits-seed.json": `{` + testSeedBlock + `"deposits":[]}`,
+			},
+			want: "must come from one map",
+		},
+		{
+			name: "no seed block at all",
+			files: map[string]string{
+				"stellia-seed.json":  `{"stellia":[{"x":1,"y":2,"z":3}]}`,
+				"systems-seed.json":  `{"systems":[]}`,
+				"planets-seed.json":  `{"planets":[]}`,
+				"deposits-seed.json": `{"deposits":[]}`,
+			},
+			want: "has no seed block",
+		},
+		{
+			name: "a system with no stellium",
+			files: map[string]string{
+				"stellia-seed.json":  `{` + testSeedBlock + `"stellia":[{"x":1,"y":2,"z":3}]}`,
+				"systems-seed.json":  `{` + testSeedBlock + `"systems":[{"x":9,"y":9,"z":9,"sequence":"A"}]}`,
+				"planets-seed.json":  `{` + testSeedBlock + `"planets":[]}`,
+				"deposits-seed.json": `{` + testSeedBlock + `"deposits":[]}`,
+			},
+			want: "names no stellium at (9,9,9)",
+		},
+		{
+			name: "a deposit with no planet",
+			files: map[string]string{
+				"stellia-seed.json":  `{` + testSeedBlock + `"stellia":[{"x":1,"y":2,"z":3}]}`,
+				"systems-seed.json":  `{` + testSeedBlock + `"systems":[{"x":1,"y":2,"z":3,"sequence":"A"}]}`,
+				"planets-seed.json":  `{` + testSeedBlock + `"planets":[]}`,
+				"deposits-seed.json": `{` + testSeedBlock + `"deposits":[{"x":1,"y":2,"z":3,"sequence":"A","orbit":1,"deposit-no":1,"resource":"metals","quantity":100,"quality":5}]}`,
+			},
+			want: "names no planet in orbit 1 of system A at (1,2,3)",
+		},
+		{
+			name: "a repeated stellium",
+			files: map[string]string{
+				"stellia-seed.json":  `{` + testSeedBlock + `"stellia":[{"x":1,"y":2,"z":3},{"x":1,"y":2,"z":3}]}`,
+				"systems-seed.json":  `{` + testSeedBlock + `"systems":[]}`,
+				"planets-seed.json":  `{` + testSeedBlock + `"planets":[]}`,
+				"deposits-seed.json": `{` + testSeedBlock + `"deposits":[]}`,
+			},
+			want: "repeats the stellium at (1,2,3)",
+		},
+		{
+			name: "a system sequence that is not a letter",
+			files: map[string]string{
+				"stellia-seed.json":  `{` + testSeedBlock + `"stellia":[{"x":1,"y":2,"z":3}]}`,
+				"systems-seed.json":  `{` + testSeedBlock + `"systems":[{"x":1,"y":2,"z":3,"sequence":"Z"}]}`,
+				"planets-seed.json":  `{` + testSeedBlock + `"planets":[]}`,
+				"deposits-seed.json": `{` + testSeedBlock + `"deposits":[]}`,
+			},
+			want: "not a letter A through E",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			directory := filepath.Join(t.TempDir(), "database")
+			createTestDatabase(t, directory, database.ApplicationID, database.SchemaVersion)
+			writeGameSeeds(t, directory, test.files)
+
+			conn, err := sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadWrite)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := sqlitex.ExecuteTransient(conn, "INSERT INTO game (code) VALUES ('SEEDSET');", nil); err != nil {
+				t.Fatal(err)
+			}
+			if err := conn.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := loadGame(context.Background(), directory, "SEEDSET"); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("loadGame error = %v; want it to mention %q", err, test.want)
+			}
+
+			// A refused load stores nothing: the whole thing is one transaction.
+			conn, err = sqlite.OpenConn(filepath.Join(directory, database.Filename), sqlite.OpenReadOnly)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			for _, table := range []string{"stellium", "system", "planet", "deposit"} {
+				var got int
+				if err := sqlitex.ExecuteTransient(conn, "SELECT COUNT(*) FROM "+table+";", &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
+					got = stmt.ColumnInt(0)
+					return nil
+				}}); err != nil {
+					t.Fatal(err)
+				}
+				if got != 0 {
+					t.Errorf("a refused load left %d rows in %s", got, table)
+				}
+			}
+		})
 	}
 }
 

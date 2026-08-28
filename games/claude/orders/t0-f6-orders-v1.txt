@@ -4,4 +4,4 @@ id faction 6
 # A jump begins from the stellium orbit, so the move goes there first;
 # every MOVE resolves before any JUMP, so both fit in one turn.
 ship 310738 move to orbit 11
-ship 310738 jump to (1,-14,2)
+ship 310738 jump to (-15,5,12)

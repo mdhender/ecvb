@@ -5,6 +5,7 @@ package world
 import (
 	"fmt"
 
+	"github.com/mdhender/ecvb/internal/mapkey"
 	"github.com/mdhender/ecvb/internal/prng"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -60,6 +61,10 @@ func (w *World) DrawRing(at Location, turn int, ship *Entity) (int, error) {
 // planetAddress is how a planet is named in a key path: its system's sequence
 // letter as a number, A being 1, and its orbit. Neither depends on a row id, so
 // neither depends on the order the map was written in.
+//
+// The letter-to-number rule is [mapkey.Sequence]'s, and is shared with the map
+// generators rather than written twice: it is part of an address, so two copies
+// of it could disagree about where a draw lives.
 func (w *World) planetAddress(planetID int64) (sequence, orbit int, err error) {
 	found := false
 	if err := sqlitex.ExecuteTransient(w.conn, `
@@ -68,11 +73,11 @@ func (w *World) planetAddress(planetID int64) (sequence, orbit int, err error) {
 		WHERE planet.id = ?;`, &sqlitex.ExecOptions{
 		Args: []any{planetID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			letter := stmt.ColumnText(0)
-			if len(letter) != 1 || letter[0] < 'A' || letter[0] > 'E' {
-				return fmt.Errorf("system sequence %q is not a letter A through E", letter)
+			key, err := mapkey.Sequence(stmt.ColumnText(0))
+			if err != nil {
+				return err
 			}
-			sequence, orbit, found = int(letter[0]-'A')+1, stmt.ColumnInt(1), true
+			sequence, orbit, found = int(key), stmt.ColumnInt(1), true
 			return nil
 		},
 	}); err != nil {
