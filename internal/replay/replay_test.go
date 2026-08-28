@@ -40,8 +40,13 @@ import (
 var update = flag.Bool("update", false, "rewrite the golden files instead of comparing against them")
 
 const (
-	gameCode  = "GOLD-01"
-	lastTurn  = 2
+	gameCode = "GOLD-01"
+	// lastTurn is one turn past the last turn that gives an order, so the
+	// scripted game runs long enough for its crossings to land. Both of them
+	// finish in a turn nobody writes an order for: a ship still crossing can be
+	// given none, and the arrival step is a sweep. A turn with no order file is
+	// skipped by submitOrders and resolved like any other.
+	lastTurn  = 3
 	goldenDir = "testdata/golden"
 )
 
