@@ -2,6 +2,11 @@
 
 ## Context
 
+**Status: closed on 2026-08-27.** All three parts are done, in the three commits
+this plan called for: ring draws addressed through `internal/prng`, the scripted
+game lengthened by a turn, and ship movement moved to the last stage. The
+burndown's High item is closed against it. What follows is the record.
+
 Round 2 of EAGLE-01 found that a one-turn crossing costs a ship nothing: the
 engine lands a jump on `departure + ceil(d/t) - 1` and arrival is phase 29 of
 39, so the shortest crossing is written and consumed inside one turn. That is
