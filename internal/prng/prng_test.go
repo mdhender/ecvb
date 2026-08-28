@@ -103,6 +103,11 @@ func goldenInputs() golden {
 		{prng.TagDeposit, 3, -7, 12, 1, 5, 1}, // planet's deposit ordinal 1
 		{prng.TagDeposit, 3, -7, 12, 1, 5, 2},
 		{prng.TagFaction, 1},
+		// The ring a ship settles into: planet, turn, faction, entity. The two
+		// below share a planet, a turn and a faction and differ only in the
+		// ship, which is the collision the entity id is there to prevent.
+		{prng.TagRing, 3, -7, 12, 1, 5, 4, 1, 100},
+		{prng.TagRing, 3, -7, 12, 1, 5, 4, 1, 101},
 	}
 	derivePaths := [][]prng.Key{
 		{prng.TagCluster},

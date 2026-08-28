@@ -126,7 +126,18 @@ func (w *World) Builds(builderID int64) []*Build {
 // it has a location and a mass, and probes and sensors read it like anything
 // else. What it does not have is anything in it -- a build delivers that over
 // the turns that follow.
-func (w *World) CreateEntity(factionID int64, kind string, techLevel int, at Location, build *Build) (*Entity, error) {
+//
+// A ship built at a planet settles into a ring of its own, drawn the way an
+// arriving ship draws one. The draw is addressed by the entity's id and the id
+// does not exist until the row does, so the ring is set after the insert rather
+// than handed in: the row goes down in the lowest ring a ship may hold and the
+// draw moves it. One built from an entity in the stellium orbit is built there
+// and has no ring at all.
+func (w *World) CreateEntity(factionID int64, kind string, techLevel, turn int, at Location, build *Build) (*Entity, error) {
+	drawsRing := kind == "SHIP" && at.PlanetID != 0
+	if drawsRing {
+		at.Ring = MinShipRing
+	}
 	if err := sqlitex.ExecuteTransient(w.conn, `
 		INSERT INTO entity (unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
 			faction_id, enclosed_volume, mass, trade_station)
@@ -163,6 +174,16 @@ func (w *World) CreateEntity(factionID int64, kind string, techLevel int, at Loc
 		}
 	}
 	w.entities[id] = entity
+	if drawsRing {
+		ring, err := w.DrawRing(at, turn, factionID, id)
+		if err != nil {
+			return nil, err
+		}
+		at.Ring = ring
+		if err := w.Move(entity, at); err != nil {
+			return nil, err
+		}
+	}
 	return entity, nil
 }
 

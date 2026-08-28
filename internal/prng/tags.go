@@ -17,6 +17,14 @@ package prng
 // renumbered. TagPlayer and TagFaction draws use their game-assigned numbers,
 // which must likewise be stable — never database row ids.
 //
+// An entity is the case that rule does not cover. A ship has no coordinates of
+// its own — it has a location, and the location moves — so its id is the only
+// stable handle it has. That id is assigned by the game, printed in every
+// report, written by the player as `ship 18`, and never reused or renumbered,
+// so it addresses draws about that entity. The paragraph above is about
+// addressing a *place* by a row id when the place has coordinates; it is not a
+// ban on the numbers the game gives things and shows the player.
+//
 // FROZEN SURFACE — APPEND ONLY. The block starts at 1 (0 is invalid, so a
 // forgotten tag is an obvious bug rather than a silent alias). Never insert or
 // reorder a constant: iota would renumber every tag after it and silently
@@ -31,4 +39,10 @@ const (
 	TagDeposit             // 5: per-deposit draws, addressed by (x, y, z, seq, orbit, deposit_no)
 	TagPlayer              // 6: per-player draws, addressed by player number
 	TagFaction             // 7: per-faction draws, addressed by faction number
+	// 8: the ring a ship settles into at a planet, addressed by
+	// (x, y, z, seq, orbit, turn, faction number, entity id). The turn is in
+	// the address because a ship ordered to the planet it is already at draws a
+	// fresh ring; the faction and entity are there because two ships may settle
+	// at one planet in one turn.
+	TagRing
 )

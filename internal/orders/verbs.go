@@ -563,7 +563,11 @@ func (o *moveBound) Apply(t *Turn) (Outcome, error) {
 	// ordered to the stellium orbit has no ring at all.
 	final := world.Location{StelliumID: o.stelliumID, SystemID: o.systemID, PlanetID: o.planetID}
 	if o.systemID != 0 {
-		final.Ring = t.World.Game().Seed.RingFor(t.Number, t.FactionID, t.Sequence)
+		ring, err := t.World.DrawRing(final, t.Number, t.FactionID, o.ship.ID)
+		if err != nil {
+			return Outcome{}, err
+		}
+		final.Ring = ring
 	}
 	if err := t.World.Move(o.ship, final); err != nil {
 		return Outcome{}, err
@@ -1754,12 +1758,9 @@ func (o *createBound) Apply(t *Turn) (Outcome, error) {
 	site := at
 	switch o.kind {
 	case "SHIP":
-		// A ship built at a planet settles into a ring of its own, drawn the
-		// way an arriving ship draws one. One built from an entity in the
-		// stellium orbit is built there and has no ring at all.
-		if at.SystemID != 0 {
-			site.Ring = t.World.Game().Seed.RingFor(t.Number, t.FactionID, t.Sequence)
-		}
+		// A ship built at a planet settles into a ring of its own, which
+		// CreateEntity draws: the draw is addressed by the new entity's id and
+		// nothing here knows it yet.
 	case "CORB":
 		site.Ring = 1
 	default:
@@ -1771,7 +1772,7 @@ func (o *createBound) Apply(t *Turn) (Outcome, error) {
 	}
 	// The new entity takes the technology level of the entity that created it,
 	// which settles the column with nothing to look up and nothing to write.
-	created, err := t.World.CreateEntity(o.entity.FactionID, o.kind, o.entity.TechLevel, site, build)
+	created, err := t.World.CreateEntity(o.entity.FactionID, o.kind, o.entity.TechLevel, t.Number, site, build)
 	if err != nil {
 		return Outcome{}, err
 	}

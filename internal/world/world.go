@@ -20,6 +20,7 @@ import (
 	"github.com/mdhender/ecvb/internal/fuel"
 	"github.com/mdhender/ecvb/internal/jumpdrive"
 	"github.com/mdhender/ecvb/internal/lifesupport"
+	"github.com/mdhender/ecvb/internal/prng"
 	"github.com/mdhender/ecvb/internal/sensors"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -103,7 +104,11 @@ type Game struct {
 	Code  string
 	Turn  int
 	State string
-	Seed  Seed
+	// Seed is the root of everything the rules decide at random. A draw is
+	// addressed rather than sequenced -- see DrawRing -- so the same game
+	// resolved twice reaches the same answers whatever order it does the work
+	// in.
+	Seed prng.Seeds
 	// Uncontrolled is the faction that holds every entity with nobody aboard.
 	// It is not a player: an entity of its is a derelict, which is why a
 	// faction may hand things to one without the two being allies.
@@ -181,7 +186,7 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 			Args: []any{gameCode},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				loaded.game.ID, loaded.game.Turn, loaded.game.State = stmt.ColumnInt64(0), stmt.ColumnInt(1), stmt.ColumnText(2)
-				loaded.game.Seed = Seed{High: stmt.ColumnInt64(3), Low: stmt.ColumnInt64(4)}
+				loaded.game.Seed = prng.New(uint64(stmt.ColumnInt64(3)), uint64(stmt.ColumnInt64(4)))
 				found = true
 				return nil
 			},
