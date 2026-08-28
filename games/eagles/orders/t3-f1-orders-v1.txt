@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 3
 id faction 1
 
-ship 4 move to system A orbit 6
+ship 4 jump to (-6,13,10)

@@ -44,21 +44,17 @@ func TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes(t *testing.T) {
 		t.Fatalf("result = %+v; want 3 orders, 2 succeeded, 1 failed", result)
 	}
 
-	var stelliumID int64
-	var systemIsNull, planetIsNull, ringIsNull bool
-	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT stellium_id, system_id IS NULL, planet_id IS NULL, planet_ring IS NULL
-		FROM entity WHERE id = 40;`, &sqlitex.ExecOptions{ResultFunc: func(stmt *sqlite.Stmt) error {
-		stelliumID = stmt.ColumnInt64(0)
-		systemIsNull = stmt.ColumnInt(1) != 0
-		planetIsNull = stmt.ColumnInt(2) != 0
-		ringIsNull = stmt.ColumnInt(3) != 0
-		return nil
-	}}); err != nil {
-		t.Fatal(err)
+	// The shortest crossing still costs a turn: the jump departs in the last
+	// stage of this turn and lands in the last stage of the next, so the ship
+	// is nowhere at all when this one is over.
+	if where := locationOf(t, conn, 40); where != "nowhere" {
+		t.Fatalf("ship final location = %s; want it crossing to stellium 11", where)
 	}
-	if stelliumID != 11 || !systemIsNull || !planetIsNull || !ringIsNull {
-		t.Fatalf("ship final location = (%d, system null %t, planet null %t, ring null %t)", stelliumID, systemIsNull, planetIsNull, ringIsNull)
+	if to := crossingTo(t, conn, 40); to != 11 {
+		t.Fatalf("ship is crossing to stellium %d; want 11", to)
+	}
+	if due := arrivalTurn(t, conn, 40); due != 4 {
+		t.Fatalf("ship is due on turn %d; want 4", due)
 	}
 
 	// The ship began the turn at planet 30 and the move took it to the stellium
@@ -370,8 +366,11 @@ func TestResolveReadsPassiveSensorsBeforeAnythingMoves(t *testing.T) {
 	if systems != 2 {
 		t.Errorf("systems = %d; want the 2 systems of stellium 10", systems)
 	}
-	if endedAt != 11 {
-		t.Errorf("ship ended at stellium %d; want it to have jumped to 11", endedAt)
+	if endedAt != 0 {
+		t.Errorf("ship ended at stellium %d; want it nowhere, crossing away", endedAt)
+	}
+	if to := crossingTo(t, conn, 40); to != 11 {
+		t.Errorf("ship is crossing to stellium %d; want it to have jumped for 11", to)
 	}
 
 	// The contacts are the ships and orbital colonies of the starting system.
@@ -861,7 +860,8 @@ func TestResolveCarriesALongCrossingAcrossSeveralTurns(t *testing.T) {
 	conn := openEngineTestDatabase(t)
 	// Stellium 12 at (6,6,7) is exactly 11 light years from the origin. Ship
 	// 40's drive is an HDRV-4, so the crossing is ceil(11/4) = 3 turns: it
-	// departs on turn 3 and is due at the end of turn 5.
+	// departs in the last stage of turn 3 and is due in the last stage of turn
+	// 6, which costs the ship the three turns the crossing takes.
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES (12, 1, 6, 6, 7);
 		INSERT INTO game_order (
@@ -900,21 +900,21 @@ func TestResolveCarriesALongCrossingAcrossSeveralTurns(t *testing.T) {
 		t.Fatalf("jump recorded final stellium %d and %d FUEL; want 12 and 440", finalStellium, fuelSpent)
 	}
 
-	// Two turns of crossing, in which the ship is nowhere at all.
-	for turn := 3; turn <= 4; turn++ {
+	// Three turns of crossing, in which the ship is nowhere at all.
+	for turn := 3; turn <= 5; turn++ {
 		if where := locationOf(t, conn, 40); where != "nowhere" {
 			t.Fatalf("after turn %d the ship is at %s; want it still crossing", turn, where)
 		}
-		if due := arrivalTurn(t, conn, 40); due != 5 {
-			t.Fatalf("after turn %d the ship is due on turn %d; want 5", turn, due)
+		if due := arrivalTurn(t, conn, 40); due != 6 {
+			t.Fatalf("after turn %d the ship is due on turn %d; want 6", turn, due)
 		}
 		openAndResolve(t, conn, turn)
 	}
 
-	// The arrival step of turn 5 lands it in the destination's stellium orbit
+	// The arrival step of turn 6 lands it in the destination's stellium orbit
 	// and the crossing is over.
 	if where := locationOf(t, conn, 40); where != "12/-/-" {
-		t.Fatalf("after turn 5 the ship is at %s; want the stellium orbit of 12", where)
+		t.Fatalf("after turn 6 the ship is at %s; want the stellium orbit of 12", where)
 	}
 	if crossings := countRows(t, conn, "in_transit"); crossings != 0 {
 		t.Fatalf("in_transit holds %d rows after the ship landed; want none", crossings)
@@ -953,7 +953,7 @@ func TestResolveRefusesOrdersToAShipInTransit(t *testing.T) {
 		}}); err != nil {
 		t.Fatal(err)
 	}
-	const want = "ship 40 is in transit; it arrives on turn 5 and can be given orders from turn 6"
+	const want = "ship 40 is in transit; it arrives on turn 6 and can be given orders from turn 7"
 	if status != "failed" || message != want {
 		t.Fatalf("outcome = %q, %q; want failed with %q", status, message, want)
 	}
@@ -979,6 +979,22 @@ func locationOf(t *testing.T, conn *sqlite.Conn, entityID int64) string {
 		t.Fatal(err)
 	}
 	return where
+}
+
+// crossingTo is the stellium a ship is bound for, or 0 when it is not crossing.
+func crossingTo(t *testing.T, conn *sqlite.Conn, entityID int64) int64 {
+	t.Helper()
+	var destination int64
+	if err := sqlitex.ExecuteTransient(conn,
+		"SELECT destination_stellium_id FROM in_transit WHERE entity_id = ?;", &sqlitex.ExecOptions{
+			Args: []any{entityID},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				destination = stmt.ColumnInt64(0)
+				return nil
+			}}); err != nil {
+		t.Fatal(err)
+	}
+	return destination
 }
 
 // arrivalTurn is the turn a crossing is due, or 0 when the ship is not on one.

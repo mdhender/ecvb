@@ -256,7 +256,7 @@ ship off the board, and this row is what continues after it.
 
 While the row stands the ship's location columns are all null, so it cannot be
 probed, does not appear on a sensor sweep, and can be given no order. The
-arrival step of ship movement (stage 15c) lands every ship due and deletes its
+arrival step of ship movement (stage 22c) lands every ship due and deletes its
 row. Nothing purges this table: a crossing is live state, not turn history.
 
 ### `under_construction` and `construction_item`

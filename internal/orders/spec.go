@@ -78,7 +78,7 @@ var (
 	PhaseSell = &Phase{Name: "sell"}
 	PhaseBuy  = &Phase{Name: "buy"}
 	// Stage 12 and stage 13 both read where things stood when the turn began,
-	// because movement is at stage 15.
+	// because nothing moves until the last stage of the turn.
 	PhaseSurvey = &Phase{Name: "survey"}
 	PhaseProbe  = &Phase{Name: "probe"}
 	PhaseSensor = &Phase{Name: "sensor", Sweep: (*world.World).RecordSensors}
@@ -122,11 +122,23 @@ var (
 // docs/turn-sequence.md: a stage's lettered steps run in their letter order and
 // a step is exactly a Phase.
 //
-// Probes and passive sensors both read where things stood when the turn began,
-// so both come before anything moves; a ship that jumps this turn reports its
-// new stellium next turn. Departures come before arrivals, so this turn's jumps
-// are settled before this turn's landings and a ship cannot be caught by a jump
-// order written the turn it arrives.
+// Ship movement is last, which is the whole of how a crossing works. A ship
+// resolves every other order of the turn where it began, leaves at the end of
+// it, and lands at the very end of the turn it is due -- when there is nothing
+// left to process, so nothing has to ask whether it has landed yet. A crossing
+// of t turns therefore costs the ship exactly t turns of orders, and "can this
+// ship be given an order?" stays one answer for a whole turn, which is what
+// keeps it a question Bind can settle.
+//
+// Two things follow from the stage being last rather than fifteenth. Rebellion
+// and rebel increases settle before anything moves, so a rebellion can stop a
+// ship leaving; and probes and sensors read where things stood when the turn
+// began because everything reads before anything moves, rather than because
+// they happen to sit earlier in the list.
+//
+// Departures come before arrivals, so this turn's jumps are settled before this
+// turn's landings and a ship cannot be caught by a jump order written the turn
+// it arrives.
 //
 // The six stages that are pure sweeps -- production at 1, 2, and 3, rebellion
 // at 18, rebel increases at 19, and population growth at 21 -- are not here.
@@ -141,10 +153,10 @@ var phases = []*Phase{
 	PhaseTransfer, PhaseUnstow, PhaseAssemble,
 	PhaseSell, PhaseBuy, PhaseSurvey, PhaseProbe, PhaseSensor,
 	PhaseAssess, PhaseDetect, PhaseObtain, PhaseConvert, PhaseIncite, PhaseNeutralize,
-	PhaseMove, PhaseJump, PhaseArrival,
 	PhaseDraft, PhaseDisband, PhasePay, PhaseRations,
 	PhaseRelease, PhaseGrant, PhaseRefuse, PhaseNaming, PhaseControl,
 	PhaseBroadcast,
+	PhaseMove, PhaseJump, PhaseArrival,
 }
 
 func init() {

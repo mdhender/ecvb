@@ -677,10 +677,12 @@ func (o *jumpBound) Apply(t *Turn) (Outcome, error) {
 	if message != "" {
 		return failed(start, message), nil
 	}
-	// The crossing finishes on the last of its turns, so a one-turn crossing is
-	// due in the turn it departed and the arrival step lands it before the turn
-	// is out. That is what every jump did before a crossing could span turns.
-	if err := t.World.Depart(o.ship, o.destinationID, t.Number+o.turns-1); err != nil {
+	// A crossing costs the ship the turns it takes. It departs in the last
+	// stage of this turn and lands in the last stage of turn + turns, so it is
+	// gone for every turn in between and for the whole of the turn it arrives
+	// in -- which is why the shortest crossing still costs one turn of orders
+	// rather than none.
+	if err := t.World.Depart(o.ship, o.destinationID, t.Number+o.turns); err != nil {
 		return Outcome{}, err
 	}
 	return succeeded(start, world.Location{StelliumID: o.destinationID}, o.cost), nil

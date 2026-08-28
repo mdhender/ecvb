@@ -386,7 +386,9 @@ Sends a ship from the stellium orbit to another stellium.
 
 The coordinates must identify a stellium in the game. A jump begins from the
 stellium orbit: a ship at a planet must `move to orbit 11` first, and may do
-both in one turn because every `MOVE` resolves before any `JUMP`.
+both in one turn because every `MOVE` resolves before any `JUMP`. Both are in
+the last stage of the turn, so a ship carries out everything else it was told to
+do before it goes anywhere.
 
 Distance does not limit a jump. Any ship may be sent to any stellium in the
 game. The ship's mass must be within its drive's capacity.
@@ -396,12 +398,20 @@ bill is drawn on departure**, however many turns the crossing takes, so a ship
 that cannot pay never leaves.
 
 A crossing of *d* light years by a drive at technology level *t* takes *d* / *t*
-turns, rounded up, and never fewer than one.
+turns, rounded up, and never fewer than one — **and it costs the ship every one
+of them.** A ship that jumps on turn *N* is due on turn *N* + the turns the
+crossing takes, and it is gone for every turn in between. The shortest crossing
+there is costs a turn.
 
 A ship in transit is nowhere: at no stellium, no system, and no planet. It
 cannot be probed, does not appear on a sensor sweep, and can be given no order.
 A crossing cannot be recalled, redirected, or cancelled. The turn report's
 IN TRANSIT section gives its destination and the turn it is due.
+
+**The turn it is due is not a turn it can be given orders in.** A ship lands in
+the last phase of that turn, after every order has resolved, so it is still
+nowhere when the turn's file is read. The report for that turn shows it at its
+destination and it takes its next order the turn after.
 
 A ship jumps once a turn. A second `JUMP` for the same ship in one file is
 refused, and the whole file with it. The order is spent whatever it goes on to
@@ -692,10 +702,10 @@ The phases that carry a built order, in the order they happen:
 |15   |assemble  |every `ASSEMBLE`, then a build's assembly              |
 |19   |probe     |every `PROBE`                                          |
 |20   |sensor    |every assembled `SNSR` reads the sky; no order is given|
-|27   |move      |every `MOVE`                                           |
-|28   |jump      |every `JUMP` departs                                   |
-|29   |arrival   |every crossing that finished lands; no order is given  |
-|37   |naming    |every `NAME`                                           |
+|34   |naming    |every `NAME`                                           |
+|37   |move      |every `MOVE`                                           |
+|38   |jump      |every `JUMP` departs                                   |
+|39   |arrival   |every crossing that finished lands; no order is given  |
 
 The numbers are positions in the turn's full list of 39 phases. Those not listed
 carry no built order.
@@ -704,8 +714,14 @@ A phase's own work runs after its orders, so explicitly ordered work outranks a
 standing commitment: a `TRANSFER` order is served before a build's claim, and an
 `ASSEMBLE` order before a build's own assembly.
 
-Probes and passive sensors both read where things stood at the start of the
-turn, and both settle before anything moves. Departures settle before arrivals.
+**Nothing moves until the end of the turn.** A ship carries out every other
+order it was given where it began the turn, and only then moves, departs, or
+lands. Two things follow. Probes and passive sensors read where things stood at
+the start of the turn because everything reads before anything moves. And a
+ship that lands this turn lands after the last order of it has resolved, so it
+can be given no order until the next turn.
+
+Departures settle before arrivals.
 
 ## Appendix A - Tables
 

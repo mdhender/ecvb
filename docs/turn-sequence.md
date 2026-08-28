@@ -130,7 +130,7 @@ no transports: delivery is at stage 9 and assembly at stage 10.
 
 Claiming is here because creation's ordering has always been settled here, and
 it keeps what the old rule was protecting: creation is upstream of transfers
-(9), the market (11), and movement (15), so a build cannot claim units that
+(9), the market (11), and movement (22), so a build cannot claim units that
 arrived this turn, and a ship cannot move somewhere and plant a colony there in
 the same turn.
 
@@ -307,7 +307,7 @@ in whole `GOLD`, needs no transports, and is bought once rather than by
 quantity.
 
 Trade station permissions are *not* granted here. `grant trade` and
-`refuse trade` are administrative orders and resolve at stage 20, so a
+`refuse trade` are administrative orders and resolve at stage 19, so a
 permission granted this turn is first usable by the market next turn.
 
 Inventory is updated at the end of the phase.
@@ -320,7 +320,8 @@ This prevents factions from selling and buying the same batch of items in a sing
 `survey`
 
 An entity reads the planet it is at. Like probes, a survey reads where the
-entity stood when the turn began, because movement is at stage 15.
+entity stood when the turn began, because nothing moves until the last stage
+of the turn.
 
 ### 13. Probe and sensor reports are compiled
 
@@ -346,7 +347,7 @@ not matter; the engine runs probe first.
 Spies are committed by the order and the outcomes are contested, so this stage
 has the same shape as combat: the orders say who spent how many spies on what,
 and a sweep settles them against each other. Three of the six act on `REBL`,
-which stages 18 and 19 then resolve.
+which stages 17 and 18 then resolve.
 
 `neutralize` is the order that used to open with `attack`. It is not combat --
 it spends spies against another faction's spies rather than committing a
@@ -358,7 +359,99 @@ step. They were both `report` until the merge, which asked one `Spec` to carry
 two phases; they are two verbs now, and neither reads as the default with the
 other as a special case.
 
-### 15. Ship movement occurs
+### 15. Draft and disband orders are processed
+
+**Orders.**
+
+  a. `draft`
+  b. `disband`
+
+Population is drafted into a cadre or released from one. Both are here rather
+than earlier because a draft changes who is available to be paid at stage 16
+and who counts at stages 17 and 20.
+
+Population counts are updated at the end of the phase.
+
+### 16. Pay and ration orders are entered
+
+**Orders.**
+
+  a. `pay`
+  b. `rations`
+
+The rates set here are the input to rebellion at stage 17 and to population
+growth at stage 20, which is why they are the last thing a player says about
+population before the game answers.
+
+### 17. Rebellion occurs
+
+**A sweep. No orders.**
+
+What this turn's rebels do, given the pay and ration rates just entered.
+
+This is settled before anything moves, which is the reason ship movement is the
+last stage rather than the jump alone: a rebellion gets its say about a ship
+before the ship can leave.
+
+### 18. Rebel increases take place
+
+**A sweep. No orders.**
+
+`REBL` is recalculated. It runs 0 through 99, so an entity is never wholly in
+rebellion (`docs/units.md`).
+
+### 19. Naming, control, and permission orders are processed
+
+**Orders.**
+
+  a. `release`
+  b. `grant`
+  c. `refuse`
+  d. `name`
+  e. `control`
+
+Everything administrative, and the only stage where `we` -- the faction itself
+-- is the subject of most of the orders.
+
+`control` is a physical act and is given to an entity present at the place; it
+fails against anything already controlled. It is *upstream* of movement (22),
+so a ship takes control of what it found when the turn began rather than of
+what it reaches this turn: a ship that arrives claims next turn. That follows
+from movement being last and is worth stating, because the order of these two
+stages used to say the opposite. `release` is administrative, takes `we` as its subject, and needs
+no entity at the place at all -- a faction may release a planet whose garrison
+is gone.
+
+`grant` and `refuse` carry both the trade-station permission and the colonize
+permission. Both resolve here rather than at stage 11 for the same reason
+`release` does: no ship or colony carries them out. A permission granted this
+turn is in force from the next.
+
+Naming something you own is an order to the thing itself; naming a place, a
+faction, or another faction's ship is a faction order.
+
+Two things follow from the order of the steps rather than from any rule: a
+faction may `release` an entity at step a and take it back with `control` at
+step e in the same turn, and it cannot change permissions on something it only
+gained control of at step e.
+
+### 20. Population increases are calculated
+
+**A sweep. No orders.**
+
+Growth, given the rations set at stage 16 and the food on hand.
+
+### 21. News service reports are compiled
+
+**Orders and a sweep.**
+
+`broadcast`
+
+A broadcast is a message released at a place, so it is an order; compiling the
+turn's news is a sweep. The stage is last because it reports on everything the
+other twenty-one did.
+
+### 22. Ship movement occurs
 
   a. Move orders executed -- `move`
   b. Jump orders executed -- departures
@@ -366,6 +459,14 @@ other as a special case.
 
 Steps a and b are orders. Step c is a sweep: nobody writes an arrival, so there
 is nothing in it to order.
+
+**This is the last stage of the turn, and that is a rule rather than a
+convenience.** A ship resolves every other order of the turn where it began, it
+leaves at the end of the turn, and it lands at the very end of the turn it is
+due -- when there is nothing left to process, so nothing has to ask whether it
+has landed yet. The 1978 sequence moved ships at stage 15 and a later edition
+moved the stage to the end; this is that edition's answer, and everything below
+follows from it.
 
 They are three phases and not one because each has to finish before the next
 begins. Every move finishes before any jump: a ship moves inside its stellium,
@@ -376,7 +477,11 @@ the same turn before it can go.
 
 A jump of _d_ light years by a drive at technology level _t_ takes
 \(\lceil d / t \rceil\) turns to complete, never fewer than one, and **the
-crossing is not the order**. Step b is the whole of the order: it draws the
+crossing costs the ship every one of them**: it departs in step b of turn _N_
+and lands in step c of turn _N_ + \(\lceil d / t \rceil\), so it is gone for
+the whole of every turn in between and for the whole of the turn it arrives in.
+The shortest crossing there is still costs a turn of orders. **The crossing is
+not the order**, either. Step b is the whole of the order: it draws the
 whole fuel bill, takes the ship off the board, and succeeds. What it leaves
 behind is an `in_transit` row saying which ship is bound for which stellium and
 on which turn it is due. Step c reads those rows and lands every ship due this
@@ -394,100 +499,15 @@ for one ship, or two jumps, are refused along with the file that wrote them.
 The order is spent whatever it goes on to do, so a move that failed for want of
 fuel has still been the ship's move for that turn.
 
-A crossing of one turn is the degenerate case rather than a special one: the row
-is written in step b and consumed in step c of the same turn, which is exactly
-the single-turn jump that was built before crossings could span turns. One path
-serves both, which is why nothing about a short jump changed.
+A ship in transit can be given no order for any turn of its crossing, the turn
+it lands included: it is nowhere when that turn's orders bind, and it is still
+nowhere at every stage that could name it, because the stage that lands it is
+the last one. That is why "is this ship reachable?" has one answer for a whole
+turn and can be settled when the file is read rather than as the turn runs.
 
 Everything that reads the world -- combat, surveys, probes, sensors, espionage
 -- has already happened, so a turn's movement is what the *next* turn's reports
 describe.
-
-### 16. Draft and disband orders are processed
-
-**Orders.**
-
-  a. `draft`
-  b. `disband`
-
-Population is drafted into a cadre or released from one. Both are here rather
-than earlier because a draft changes who is available to be paid at stage 17
-and who counts at stages 18 and 21.
-
-Population counts are updated at the end of the phase.
-
-### 17. Pay and ration orders are entered
-
-**Orders.**
-
-  a. `pay`
-  b. `rations`
-
-The rates set here are the input to rebellion at stage 18 and to population
-growth at stage 21, which is why they are the last thing a player says about
-population before the game answers.
-
-### 18. Rebellion occurs
-
-**A sweep. No orders.**
-
-What this turn's rebels do, given the pay and ration rates just entered.
-
-### 19. Rebel increases take place
-
-**A sweep. No orders.**
-
-`REBL` is recalculated. It runs 0 through 99, so an entity is never wholly in
-rebellion (`docs/units.md`).
-
-### 20. Naming, control, and permission orders are processed
-
-**Orders.**
-
-  a. `release`
-  b. `grant`
-  c. `refuse`
-  d. `name`
-  e. `control`
-
-Everything administrative, and the only stage where `we` -- the faction itself
--- is the subject of most of the orders.
-
-`control` is a physical act and is given to an entity present at the place; it
-fails against anything already controlled. It is downstream of movement (15),
-so a ship that arrives this turn can take control of what it finds
-uncontrolled. `release` is administrative, takes `we` as its subject, and needs
-no entity at the place at all -- a faction may release a planet whose garrison
-is gone.
-
-`grant` and `refuse` carry both the trade-station permission and the colonize
-permission. Both resolve here rather than at stage 11 for the same reason
-`release` does: no ship or colony carries them out. A permission granted this
-turn is in force from the next.
-
-Naming something you own is an order to the thing itself; naming a place, a
-faction, or another faction's ship is a faction order.
-
-Two things follow from the order of the steps rather than from any rule: a
-faction may `release` an entity at step a and take it back with `control` at
-step e in the same turn, and it cannot change permissions on something it only
-gained control of at step e.
-
-### 21. Population increases are calculated
-
-**A sweep. No orders.**
-
-Growth, given the rations set at stage 17 and the food on hand.
-
-### 22. News service reports are compiled
-
-**Orders and a sweep.**
-
-`broadcast`
-
-A broadcast is a message released at a place, so it is an order; compiling the
-turn's news is a sweep. The stage is last because it reports on everything the
-other twenty-one did.
 
 ## What the merge settled
 
@@ -501,7 +521,7 @@ sequence is what turned that into four questions, and all four are now answered.
   stages. The espionage one was renamed because it is not combat: it spends
   spies rather than committing a percentage of an entity, and the spy orders
   already read as six verbs rather than as one `spy` verb with six objects.
-- **`grant` and `refuse` resolve only at stage 20.** Trade permissions looked
+- **`grant` and `refuse` resolve only at stage 19.** Trade permissions looked
   like market activity (11) and colonize permissions like control (20). Both
   are at 20, which keeps one phase per verb and gives permissions a consistent
   rule: granted this turn, in force next turn.
@@ -595,7 +615,7 @@ The engine's `phases` table is flat: it has one entry per *step*, not one per
 stage, so the twenty-two stages below come to forty-five phases. Twelve of those
 phases are built -- `create`, `unassemble`, `stow`, `transfer`, `unstow`,
 `assemble`, `probe`, `sensor`, `move`, `jump`, `arrival`, `name` -- and stages
-6, 9, 10, 13, and 15 are built entire, sweeps and all. Stage 5 has the ship and
+6, 9, 10, 13, and 22 are built entire, sweeps and all. Stage 5 has the ship and
 colony forms of `create` and its claim sweep; the three group forms are a
 different order with a different completion model and are not built.
 
@@ -604,7 +624,7 @@ A stage that is orders and a sweep gets no extra entry for the sweep:
 delivery sweep at 9, and the assembly sweep at 10 ride on the `create`,
 `transfer`, and `assemble` phases the way combat's and the market's do. Only a
 sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
-13, `arrival` in 15. Forty-five stands.
+13, `arrival` in 22. Forty-five stands.
 
 | Stage | Phases, in order | Shape | Built |
 | --- | --- | --- | --- |
@@ -622,14 +642,14 @@ sweep that is a lettered *step* of its own is a phase of its own -- `sensor` in
 | 12. Surveys | `survey` | orders | parses |
 | 13. Probe and sensor reports | `probe`, `sensor` | orders, sweep | **yes** |
 | 14. Espionage | `assess`, `detect`, `obtain`, `convert`, `incite`, `neutralize` | orders + sweep | parses; the sweep is not written |
-| 15. Ship movement | `move`, `jump`, `arrival` | orders, orders, sweep | **yes** |
-| 16. Draft and disband | `draft`, `disband` | orders | parses |
-| 17. Pay and rations | `pay`, `rations` | orders | parses |
-| 18. Rebellion | `rebellion` | sweep | no |
-| 19. Rebel increases | `rebels` | sweep | no |
-| 20. Naming, control, permissions | `release`, `grant`, `refuse`, `name`, `control` | orders | `name` built but for its two faction forms; the rest parse |
-| 21. Population increases | `population` | sweep | no |
-| 22. News service | `news` | orders + sweep | parses; the sweep is not written |
+| 15. Draft and disband | `draft`, `disband` | orders | parses |
+| 16. Pay and rations | `pay`, `rations` | orders | parses |
+| 17. Rebellion | `rebellion` | sweep | no |
+| 18. Rebel increases | `rebels` | sweep | no |
+| 19. Naming, control, permissions | `release`, `grant`, `refuse`, `name`, `control` | orders | `name` built but for its two faction forms; the rest parse |
+| 20. Population increases | `population` | sweep | no |
+| 21. News service | `news` | orders + sweep | parses; the sweep is not written |
+| 22. Ship movement | `move`, `jump`, `arrival` | orders, orders, sweep | **yes** |
 
 The phase names are the names a player sees in `ec orders help`, not
 identifiers that exist yet. Thirty-nine of them now do: `spec.go` carries every

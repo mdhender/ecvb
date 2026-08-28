@@ -13,9 +13,14 @@ unwritten.
 Items marked **done** are closed. The lawyers are pointed at this file so a
 round does not re-argue what is already written down here.
 
-## High: a one-turn crossing costs the ship nothing
+## High: a one-turn crossing costs the ship nothing -- **done**
 
-Found by faction 3, round 2.
+Found by faction 3, round 2. Closed by moving ship movement to the last stage
+of the turn: see `docs/plan/movement-last.md`. A crossing now lands on
+`departure + ceil(d/t)` and the ship is gone for every turn of it, so the
+shortest crossing costs a turn of orders rather than nothing. The rings that
+used to move with it are addressed through `internal/prng` and no longer
+depend on where an order sits in the phase table.
 
 ### Issue
 
@@ -45,13 +50,14 @@ cost.
 
 ### Acceptance criteria
 
-- The manual says which turn a crossing arrives on, in turn numbers, not only
-  how many turns it takes.
-- Whichever answer is chosen, `ceil(d/t)` and the IN TRANSIT `ARRIVES` column
-  agree with it, and a jump within a drive's range either costs a turn or is
-  documented as costing none.
-- A test covers a crossing of exactly one turn and asserts where the ship is at
-  the end of the turn it departed.
+- **done.** The manual says a ship jumping on turn *N* is due on turn *N* plus
+  the turns the crossing takes, and that the turn it is due is not a turn it
+  can be given orders in.
+- **done.** `ceil(d/t)` and the IN TRANSIT `ARRIVES` column agree, and every
+  jump costs the ship the turns the crossing takes.
+- **done.** `TestResolveExecutesMovesBeforeJumpsAndRecordsOutcomes` asserts a
+  one-turn crossing leaves the ship nowhere at the end of the turn it departed,
+  and the replay plays both its crossings to the turn they land in.
 
 ## Medium: UNDER CONSTRUCTION calls a ceiling "WORKERS"
 

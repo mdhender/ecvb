@@ -424,12 +424,12 @@ ship 40 jump to (2,4,6)
 }
 
 // A ship makes one crossing at a time. The first jump takes it off the board
-// for the rest of the turn -- arrivals resolve after every order -- so the
-// second is given to a ship that is not there to receive it. That is a Bind
-// failure, so the whole file is refused and nothing is stored.
+// for the rest of the turn and for every turn until it lands, so the second is
+// given to a ship that is not there to receive it. That is a Bind failure, so
+// the whole file is refused and nothing is stored.
 //
-// This is the rule that stopped a ship chaining jumps to cross the map in a
-// single turn: the shortest crossing there is still takes the turn it began in.
+// This is the rule that stops a ship chaining jumps to cross the map in a
+// single turn: the shortest crossing there is costs it a turn of orders.
 func TestSubmitRefusesASecondJumpWhileTheShipIsCrossing(t *testing.T) {
 	conn := openOrderTestDatabase(t)
 	input := `game "TEST" turn 3
@@ -443,7 +443,7 @@ ship 40 jump to (2,4,6)
 	if err == nil {
 		t.Fatalf("Submit accepted two jumps for one ship in one turn")
 	}
-	const want = "line 6: ship 40 is in transit; it arrives on turn 3 and can be given orders from turn 4"
+	const want = "line 6: ship 40 is in transit; it arrives on turn 4 and can be given orders from turn 5"
 	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("Submit error = %v; want it to contain %q", err, want)
 	}
@@ -474,7 +474,7 @@ func TestSubmitRefusesASecondMoveOrJumpForOneShip(t *testing.T) {
 			// is the same refusal arrived at from the other side and says so.
 			name:  "two jumps",
 			lines: "ship 40 move to orbit 11\nship 40 jump to (1,2,3)\nship 40 jump to (2,4,6)\n",
-			want:  "line 6: ship 40 is in transit; it arrives on turn 3",
+			want:  "line 6: ship 40 is in transit; it arrives on turn 4",
 		},
 		{
 			// A jump that failed leaves the ship where it was, so nothing else
