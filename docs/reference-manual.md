@@ -567,11 +567,18 @@ resolves after every transfer. Population moves the same way. A cadre cannot be
 transferred; transfer the population instead.
 
 The sending entity's transports carry the load and it pays their fuel. One
-`TRAN` at technology level *t* carries 20*t*² MU **and** 60*t*² VU in a turn,
-there and back for one charge; both limits hold. One unassigned `SKW` unit crews
-ten of them. The fuel is reckoned over every transport the entity used in the
-turn at once, so a second transfer sharing the round trip pays only what it
-adds.
+`TRAN` at technology level *t* has two separate capacities for the turn:
+**20*t*² MU of mass and 60*t*² VU of volume.** A load must fit under both.
+Exceeding either one stops it, whatever room is left under the other.
+
+A `TRAN-1` carries 20 MU and 60 VU. It takes a load of 10 MU and 60 VU, which
+fills the volume exactly and uses half the mass. It does not take a load of 21
+MU and 8 VU, which is one MU over on mass with 52 VU to spare.
+
+Capacities add across the hulls a transfer uses. A transport goes there and
+comes back for one charge, and one unassigned `SKW` unit crews ten of them. The
+fuel is reckoned over every transport the entity used in the turn at once, so a
+second transfer sharing the round trip pays only what it adds.
 
 A transfer that asks for more than is in cargo, or for more than the transports
 carry, moves what it can and reports how much that was. A transfer that cannot
