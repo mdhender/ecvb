@@ -12,22 +12,36 @@ engine did with it.
 
 ## Rules
 
-1. A faction scores when the engine produces a result the documentation does
-   not support: the engine and a document disagree, or two documents disagree.
-2. A faction scores when the documentation does not say what should happen at
-   all. **Missing documentation is a scoring result** -- it is most of them.
-3. Every order a faction files must parse, bind, and resolve. A refused docket
+1. **The only document is
+   [`docs/reference-manual.md`](../../docs/reference-manual.md).** A lawyer
+   argues from it and from nothing else. Every other file in `docs/` is out of
+   bounds, and so is the source: a rule a lawyer knows only from reading the
+   engine is a rule the manual does not state, which is rule 2.
+2. A faction scores when the engine produces a result the manual does not
+   support: the manual and the engine disagree, or the manual contradicts
+   itself.
+3. A faction scores when the manual does not say what should happen at all.
+   **Missing documentation is a scoring result** -- it is most of them.
+4. Every order a faction files must parse, bind, and resolve. A refused docket
    has argued nothing; `replay.sh` reports it as a mistake in the docket, not
    as a finding.
-4. A finding already written down in
+5. A finding already written down in
    [`docs/plan/engine-burndown.md`](../../docs/plan/engine-burndown.md) is not
    a finding.
 
-The gamemaster judges, and judges from `docs/`. "The engine does something
-surprising" is not a score on its own -- the question is always whether a
-player reading the documentation would have predicted it.
+The gamemaster judges, and judges from the reference manual. "The engine does
+something surprising" is not a score on its own -- the question is always
+whether a player reading the manual would have predicted it.
 
-Rule 3 is the whole difference between this game and the fuzzers'. A fuzzer
+Rule 1 is what keeps the manual honest. `docs/` holds a great deal the manual
+does not: `docs/model.md` describes the schema, `docs/units.md` the unit
+glossary, `docs/turn-sequence.md` the forty-five phases. A lawyer allowed to
+read those would find the game well documented and the manual would never
+grow. Restricted to the manual, a lawyer finds every rule the game plays by and
+does not publish, and each one is a finding until the manual states it. The
+manual is what a player gets; this game is what tests that it is enough.
+
+Rule 4 is the whole difference between this game and the fuzzers'. A fuzzer
 wins by writing something the parser cannot read; a rule lawyer has to write
 something it reads perfectly and then argue about the consequence. That means
 the dockets need real entities in real states, so EAGLE-01 is a proper game on
@@ -67,6 +81,10 @@ The map and the kit are `games/claude`'s, copied in rather than committed
 twice.
 
 ## Results
+
+Round 1 was played before rule 1, and judged against the whole of `docs/`.
+Two of its five findings are about documents a lawyer may no longer read, and
+they stand as recorded; from round 2 the manual is the only document.
 
 | Round | Turns | Findings |
 | --- | --- | --- |
