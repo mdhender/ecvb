@@ -191,20 +191,20 @@ func TestRunResolveAndOpenTurn(t *testing.T) {
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO users (id, email, role) VALUES (1, 'player@example.com', 'non-administrator');
 		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 0);
-		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
+		INSERT INTO faction (id, game_id, number, user_id) VALUES (1, 1, 1, 1);
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES (10, 1, 0, 0, 0), (11, 1, 1, 2, 3);
 		INSERT INTO system (id, stellium_id, sequence) VALUES (20, 10, 'A');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES (30, 20, 4, 'rocky', 10);
 		-- The ship sits in the stellium orbit, because a jump begins there.
 		INSERT INTO entity (
-			id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume
-		) VALUES (40, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 100);
+			id, game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume
+		) VALUES (40, 1, 100040, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 100);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(40, 'component', 'HDRV', 4, 1), (40, 'cargo', 'FUEL', 0, 500);
 		UPDATE entity SET mass = 4000 WHERE id = 40;
 		INSERT INTO game_order (
-			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params
-		) VALUES (1, 0, 1, 1, 3, 'jump', 40, '(1,2,3)', '{"x":1,"y":2,"z":3}');
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_number, input, params
+		) VALUES (1, 0, 1, 1, 3, 'jump', 100040, '(1,2,3)', '{"x":1,"y":2,"z":3}');
 	`, nil); err != nil {
 		t.Fatal(err)
 	}

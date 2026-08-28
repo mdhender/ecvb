@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 10
 id faction 5
-colony 5 attack ship 1 %
-colony 5 attack ship 1 %%%%
-colony 5 attack ship 1 75
-colony 5 attack ship 1 75 %
-colony 5 attack ship 1 -5%
-colony 5 attack ship 1 0%
-colony 5 attack ship 1 101%
-colony 5 attack ship 1 999999999999999999999%
-colony 5 attack ship 1 7.5%
-colony 5 attack ship 1 %75
-colony 5 rations 75
-colony 5 rations %
-colony 5 pay USK 15 %
-colony 5 sell tech-level TL- 1 GOLD
-colony 5 assemble 1,000o SNSR-1, 500 STRC-2
-colony 50 pay USK 15%, SKW 20%
-colony 5 pay US 15%, SKW 20%
+colony 265054 attack ship 985070 %
+colony 265054 attack ship 985070 %%%%
+colony 265054 attack ship 985070 75
+colony 265054 attack ship 985070 75 %
+colony 265054 attack ship 985070 -5%
+colony 265054 attack ship 985070 0%
+colony 265054 attack ship 985070 101%
+colony 265054 attack ship 985070 999999999999999999999%
+colony 265054 attack ship 985070 7.5%
+colony 265054 attack ship 985070 %75
+colony 265054 rations 75
+colony 265054 rations %
+colony 265054 pay USK 15 %
+colony 265054 sell tech-level TL- 1 GOLD
+colony 265054 assemble 1,000o SNSR-1, 500 STRC-2
+colony 854536 pay USK 15%, SKW 20%
+colony 265054 pay US 15%, SKW 20%
 clony 5 assemble 1,000 SNSR-1, 500 STRC-2
-colony 5 pay USK 15%
+colony 265054 pay USK 15%
 we neme (1,2,3) system A orbit 8 "x"
 we name (1,2,3) system A or%it 8 "x"
-colony 5 buy7 tech-level TL-4 800,000 GOLD
+colony 265054 buy7 tech-level TL-4 800,000 GOLD

@@ -49,15 +49,18 @@ type storedOrder struct {
 
 type outcome struct {
 	orderType string
-	factionID int64
-	sequence  int
-	line      int
-	actorID   int64
-	input     string
-	status    string
-	message   string
-	start     world.Location
-	final     world.Location
+	// factionID is the row id the order rows are keyed on; factionNumber is the
+	// faction as the player knows it, and is what the log records.
+	factionID     int64
+	factionNumber int64
+	sequence      int
+	line          int
+	actorNumber   int64
+	input         string
+	status        string
+	message       string
+	start         world.Location
+	final         world.Location
 	// movement says whether where the order began and ended is recorded.
 	movement bool
 	// fuelSpent is the FUEL the drive burned. An order that failed burned
@@ -88,7 +91,7 @@ func Resolve(ctx context.Context, logger *slog.Logger, conn *sqlite.Conn, gameCo
 			slog.String("game", gameCode),
 			slog.Int("turn", turn),
 			slog.String("order_type", item.orderType),
-			slog.Int64("faction_id", item.factionID),
+			slog.Int64("faction_id", item.factionNumber),
 			slog.Int("sequence", item.sequence),
 			slog.Int("source_line", item.line),
 			actorAttr(item),
@@ -188,20 +191,22 @@ func resolve(ctx context.Context, conn *sqlite.Conn, gameCode string, turn int) 
 // stopping the turn.
 func execute(conn *sqlite.Conn, loaded *world.World, turn int, order storedOrder) (outcome, error) {
 	// An order that acts on no entity -- naming a stellium, say -- has no
-	// actor to find.
-	actorID := order.params.Actor()
+	// actor to find. The stored actor is the entity's number, which is what the
+	// player wrote, so it is looked up the same way the order was bound.
+	actorNumber := order.params.Actor()
 	var at world.Location
-	if actorID != 0 {
-		actor := loaded.Entity(actorID)
+	if actorNumber != 0 {
+		actor := loaded.EntityByNumber(actorNumber)
 		if actor == nil {
 			return outcome{}, fmt.Errorf("%s order faction %d sequence %d references missing entity %d",
-				order.verb, order.factionID, order.sequence, actorID)
+				order.verb, order.factionID, order.sequence, actorNumber)
 		}
 		at = actor.Location
 	}
 	item := outcome{
-		orderType: order.verb, factionID: order.factionID, sequence: order.sequence,
-		line: order.line, actorID: actorID, input: order.input, movement: order.movement,
+		orderType: order.verb, factionID: order.factionID,
+		factionNumber: loaded.FactionNumber(order.factionID), sequence: order.sequence,
+		line: order.line, actorNumber: actorNumber, input: order.input, movement: order.movement,
 		status: orders.StatusSucceeded,
 	}
 	bounds, err := order.params.Bind(&orders.Binder{World: loaded, FactionID: order.factionID})
@@ -299,7 +304,7 @@ func loadOrders(conn *sqlite.Conn, gameID int64, turn int) (map[*orders.Phase][]
 	byPhase := make(map[*orders.Phase][]storedOrder)
 	count := 0
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT faction_id, sequence, source_line, verb, actor_entity_id, input, params, status
+		SELECT faction_id, sequence, source_line, verb, actor_entity_number, input, params, status
 		FROM game_order WHERE game_id = ? AND turn = ?
 		ORDER BY faction_id, sequence;`, &sqlitex.ExecOptions{
 		Args: []any{gameID, turn},
@@ -420,12 +425,12 @@ func nullableMessage(message string) any {
 // entity says nothing.
 func actorAttr(item outcome) slog.Attr {
 	switch {
-	case item.actorID == 0:
+	case item.actorNumber == 0:
 		return slog.Attr{}
 	case item.orderType == "move" || item.orderType == "jump":
-		return slog.Int64("ship_id", item.actorID)
+		return slog.Int64("ship_id", item.actorNumber)
 	default:
-		return slog.Int64("entity_id", item.actorID)
+		return slog.Int64("entity_id", item.actorNumber)
 	}
 }
 

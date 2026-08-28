@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 6
 id faction 8
-colony 5 create orbital colony using 60 STRC-8 with 5 CWKR
-colony 5 create ship
-colony 5 create ship using 60 STRC-8
-colony 5 create "ship" end
-colony 5 create create create end
-colony 5 create ship end end end
+colony 265054 create orbital colony using 60 STRC-8 with 5 CWKR
+colony 265054 create ship
+colony 265054 create ship using 60 STRC-8
+colony 265054 create "ship" end
+colony 265054 create create create end
+colony 265054 create ship end end end
 end
 using 60 STRC-8
 with 5 CWKR
-colony 5 create ship using 60 STRC-8 with 5 CWKR end end
-colony 5 create ship using end
-colony 5 create end
-colony 5 create ship using 60 STRC-8 transfering with 5 CWKR end
-colony 5 create farm-group with 5 FARM-1 end
-ship 2 move to orait 6
-colony 5 pay USK 
-ship 2 probe system A orit 1 2 3
+colony 265054 create ship using 60 STRC-8 with 5 CWKR end end
+colony 265054 create ship using end
+colony 265054 create end
+colony 265054 create ship using 60 STRC-8 transfering with 5 CWKR end
+colony 265054 create farm-group with 5 FARM-1 end
+ship 503683 move to orait 6
+colony 265054 pay USK 
+ship 503683 probe system A orit 1 2 3
 ship O2 probe system A orbit 1 2 3
-ship 2 jgmp to (1,2,3)
-ship 2 probe system AIorbit 1 2 3
+ship 503683 jgmp to (1,2,3)
+ship 503683 probe system AIorbit 1 2 3
 we name 1,2,3) system A orbit 8 "x"
-colony 5 assemble 1,000 SN SR-1, 500 STRC-2
+colony 265054 assemble 1,000 SN SR-1, 500 STRC-2

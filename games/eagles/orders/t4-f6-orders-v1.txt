@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 4
 id faction 6
 
-colony 17 assemble 2 CNGD
+colony 320853 assemble 2 CNGD

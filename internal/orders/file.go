@@ -31,10 +31,12 @@ const (
 	idHeaderForm   = `id player "EMAIL", or id faction NUMBER`
 )
 
-// Identity identifies the faction submitting an order file.
+// Identity identifies the faction submitting an order file. A file that names
+// a faction names it by the number the game knows it as -- the number every
+// report prints -- and never by a row id.
 type Identity struct {
-	PlayerEmail string
-	FactionID   int64
+	PlayerEmail   string
+	FactionNumber int64
 }
 
 // Order is one parsed order line: where it came from, what it is, and what it
@@ -200,14 +202,14 @@ func identityLine(p *Parser, submission *Submission) error {
 		submission.Identity.PlayerEmail = email
 		return nil
 	}
-	id, err := p.entityID("faction")
+	id, err := p.factionID()
 	if err != nil {
 		return err
 	}
 	if err := p.end(); err != nil {
 		return err
 	}
-	submission.Identity.FactionID = id
+	submission.Identity.FactionNumber = id
 	return nil
 }
 

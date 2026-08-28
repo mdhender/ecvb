@@ -377,7 +377,7 @@ func finished(build *world.Build) bool {
 // entity that now exists, so the player can give it orders once it is done.
 func buildProgress(entity *world.Entity) string {
 	return fmt.Sprintf("%s %d is under construction at %s",
-		noun(entity), entity.ID, describeLocation(entity.Location))
+		noun(entity), entity.Number, describeLocation(entity.Location))
 }
 
 // describeLocation names where an entity stands, for a message about it.

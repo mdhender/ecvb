@@ -1,6 +1,6 @@
 game "FUZZ-01" turn 5
 id faction 10
-id faction 1
+id faction 2
 game
 id
 game turn 0
@@ -14,11 +14,11 @@ id player "not an address"
 id faction
 id faction 0
 id faction -1
-colony 5 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKR 
-colony 5 buy te8h-level TL-4 800,000 GOLD
+colony 265054 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKR 
+colony 265054 buy te8h-level TL-4 800,000 GOLD
 colony5 buy tech-level TL-4 800,000 GOLD
-ship 2 broadcast s9stem B orbit 8 "hello"
-ship 2 broadcast system B orbit 8 "hello"
-ship 2 probe sysem A orbit 1 2 3
+ship 503683 broadcast s9stem B orbit 8 "hello"
+ship 503683 broadcast system B orbit 8 "hello"
+ship 503683 probe sysem A orbit 1 2 3
 colo#ny 5 assemble 1,000 SNSR-1, 500 STRC-2
 shi

@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 1
 id faction 8
-colony 5 create factory-group with 5 FACT-1 making
-colony 5 create open-air colony as trade-station end
-colony 5 create orbital colony using 60 STRC-8 with 5 CWKR
-colony 5 create ship
-colony 5 create ship using 60 STRC-8
-colony 5 create "ship" end
-colony 5 create create create end
-colony 5 create ship end end end
+colony 265054 create factory-group with 5 FACT-1 making
+colony 265054 create open-air colony as trade-station end
+colony 265054 create orbital colony using 60 STRC-8 with 5 CWKR
+colony 265054 create ship
+colony 265054 create ship using 60 STRC-8
+colony 265054 create "ship" end
+colony 265054 create create create end
+colony 265054 create ship end end end
 end
 using 60 STRC-8
 with 5 CWKR
-colony 5 create ship using 60 STRC-8 with 5 CWKR end end
-colony 5 create ship using end
-colony 5 create end
-ship 2 broadcastsystem B orbit 8 "hello"
-colony 5 create ship using 60 STRC-8 transfering 25 FO%OD with 5 CWKR end
-colony 5
-ship 2 probe system A or3it 1 2 3
+colony 265054 create ship using 60 STRC-8 with 5 CWKR end end
+colony 265054 create ship using end
+colony 265054 create end
+ship 503683 broadcastsystem B orbit 8 "hello"
+colony 265054 create ship using 60 STRC-8 transfering 25 FO%OD with 5 CWKR end
+colony 265054
+ship 503683 probe system A or3it 1 2 3
 col0ny 5 pay USK 15%, SKW 20%
-ship 2 broadcast system B orbpit 8 "hello"
-ship 2 broadcast system B orbi9t 8 "hello"
-colony 5 create ship using 
+ship 503683 broadcast system B orbpit 8 "hello"
+ship 503683 broadcast system B orbi9t 8 "hello"
+colony 265054 create ship using 

@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 6
 id faction 3
 
-ship 8 jump to (-13,-3,8)
+ship 802784 jump to (-13,-3,8)

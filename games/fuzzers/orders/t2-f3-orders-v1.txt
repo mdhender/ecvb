@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 2
 id faction 3
-colony 5 assemble 1, SNSR-1
-colony 5 assemble ,1 SNSR-1
-colony 5 assemble 1,2 SNSR-1
-colony 5 assemble 1,0000 SNSR-1
-colony 5 assemble 0 SNSR-1
-colony 5 assemble 00 SNSR-1
-colony 5 assemble 012 SNSR-1
-colony 5 assemble -1 SNSR-1
-colony 5 assemble +1 SNSR-1
-colony 5 assemble 1e3 SNSR-1
-colony 5 assemble 1.0 SNSR-1
-colony 5 assemble 999999999999999999999999 SNSR-1
-colony 5 assemble 9223372036854775808 SNSR-1
-colony 5 assemble 1,000,000,000,000,000,000,000 SNSR-1
-ship 2 broadcast system B orbfit 8 "hello"
+colony 265054 assemble 1, SNSR-1
+colony 265054 assemble ,1 SNSR-1
+colony 265054 assemble 1,2 SNSR-1
+colony 265054 assemble 1,0000 SNSR-1
+colony 265054 assemble 0 SNSR-1
+colony 265054 assemble 00 SNSR-1
+colony 265054 assemble 012 SNSR-1
+colony 265054 assemble -1 SNSR-1
+colony 265054 assemble +1 SNSR-1
+colony 265054 assemble 1e3 SNSR-1
+colony 265054 assemble 1.0 SNSR-1
+colony 265054 assemble 999999999999999999999999 SNSR-1
+colony 265054 assemble 9223372036854775808 SNSR-1
+colony 265054 assemble 1,000,000,000,000,000,000,000 SNSR-1
+ship 503683 broadcast system B orbfit 8 "hello"
 colony 5Mpay USK 15%, SKW 20%
-colony 5 assemble 1,00
-colony 5 assemble 1,000 SSR-1, 500 STRC-2
+colony 265054 assemble 1,00
+colony 265054 assemble 1,000 SSR-1, 500 STRC-2
 we name (1,2,3) system n orbit 8 "x"
 co
-ship 2 jump t (1,2,3)
-colony 5 create ship using 60 STRC-8 transfering25 FOOD with 5 CWKR end
+ship 503683 jump t (1,2,3)
+colony 265054 create ship using 60 STRC-8 transfering25 FOOD with 5 CWKR end

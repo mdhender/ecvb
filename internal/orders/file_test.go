@@ -13,28 +13,28 @@ func TestParseShipOrders(t *testing.T) {
 		"game \"BETA-001\" turn 0\n" +
 		"id faction 1\n" +
 		"\n" +
-		"SHIP 2 MOVE to orbit 6\n" +
-		"ship 2 jump to (6, -9, 8)\n" +
-		"ship 2 move to system b orbit 4\n"))
+		"SHIP 100002 MOVE to orbit 6\n" +
+		"ship 100002 jump to (6, -9, 8)\n" +
+		"ship 100002 move to system b orbit 4\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if submission.GameCode != "BETA-001" || submission.Turn != 0 || submission.Identity.FactionID != 1 {
+	if submission.GameCode != "BETA-001" || submission.Turn != 0 || submission.Identity.FactionNumber != 1 {
 		t.Fatalf("header = %+v", submission)
 	}
 	if len(submission.Orders) != 3 {
 		t.Fatalf("orders = %d; want 3", len(submission.Orders))
 	}
 	if got := submission.Orders[0]; got.Line != 4 || got.Verb != "move" ||
-		got.Params != (MoveParams{ShipID: 2, Orbit: 6}) {
+		got.Params != (MoveParams{ShipID: 100002, Orbit: 6}) {
 		t.Fatalf("first order = %+v", got)
 	}
 	if got := submission.Orders[1]; got.Line != 5 || got.Verb != "jump" ||
-		got.Params != (JumpParams{ShipID: 2, X: 6, Y: -9, Z: 8}) {
+		got.Params != (JumpParams{ShipID: 100002, X: 6, Y: -9, Z: 8}) {
 		t.Fatalf("second order = %+v", got)
 	}
 	if got := submission.Orders[2]; got.Line != 6 ||
-		got.Params != (MoveParams{ShipID: 2, System: "B", Orbit: 4}) {
+		got.Params != (MoveParams{ShipID: 100002, System: "B", Orbit: 4}) {
 		t.Fatalf("third order = %+v", got)
 	}
 }
@@ -43,7 +43,7 @@ func TestParseReportsAllSyntaxErrors(t *testing.T) {
 	_, err := Parse(strings.NewReader("" +
 		"game BETA-001 turn zero\n" +
 		"id somebody 1\n" +
-		"ship 2 jump to (1,2)\n" +
+		"ship 100002 jump to (1,2)\n" +
 		"ship 0 move to orbit 4\n"))
 	if err == nil {
 		t.Fatal("Parse succeeded; want errors")
@@ -52,8 +52,8 @@ func TestParseReportsAllSyntaxErrors(t *testing.T) {
 	for _, want := range []string{
 		`line 1, column 6: expected a quoted game code, found "BETA-001"`,
 		"line 2, column 4: expected `player` or `faction`, found \"somebody\"",
-		"line 3, column 20: expected `,`, found \")\"",
-		"line 4, column 6: invalid ship id: must be positive",
+		"line 3, column 25: expected `,`, found \")\"",
+		"line 4, column 6: invalid ship id: \"0\" is not a six-digit entity id",
 	} {
 		if !strings.Contains(message, want) {
 			t.Errorf("error %q does not contain %q", message, want)
@@ -65,8 +65,8 @@ func TestParseProbeOrders(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-ship 2 probe orbit 6
-SHIP 2 PROBE ORBIT 1 2 3 4 5 8 9 10
+ship 100002 probe orbit 6
+SHIP 100002 PROBE ORBIT 1 2 3 4 5 8 9 10
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
@@ -76,7 +76,7 @@ SHIP 2 PROBE ORBIT 1 2 3 4 5 8 9 10
 		t.Fatalf("orders = %d; want 2", len(submission.Orders))
 	}
 	one := probeParams(t, submission.Orders[0])
-	if one.Kind != "ship" || one.EntityID != 2 || !slices.Equal(one.Orbits, []int{6}) {
+	if one.Kind != "ship" || one.EntityID != 100002 || !slices.Equal(one.Orbits, []int{6}) {
 		t.Errorf("order = %+v; want a probe of orbit 6", one)
 	}
 	many := probeParams(t, submission.Orders[1])
@@ -100,7 +100,7 @@ func TestParseRejectsProbeWithoutOrbits(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-ship 2 probe
+ship 100002 probe
 `
 	if _, err := Parse(strings.NewReader(input)); err == nil {
 		t.Fatal("Parse succeeded; want a problem")
@@ -111,14 +111,14 @@ func TestParseProbeWithASystem(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-ship 4 probe system a orbit 1 2 3
+ship 100004 probe system a orbit 1 2 3
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
 		t.Fatal(err)
 	}
 	order := probeParams(t, submission.Orders[0])
-	if order.EntityID != 4 || order.System != "A" {
+	if order.EntityID != 100004 || order.System != "A" {
 		t.Errorf("order = %+v; want a probe of system A", order)
 	}
 	if want := []int{1, 2, 3}; !slices.Equal(order.Orbits, want) {
@@ -131,10 +131,10 @@ func TestParseIgnoresCommentsAndBlankLines(t *testing.T) {
 id faction 1
 
 # a whole line of commentary
-ship 2 move to orbit 6   # and a trailing one
+ship 100002 move to orbit 6   # and a trailing one
    # indented, still a comment
 
-ship 2 probe orbit 1
+ship 100002 probe orbit 1
 `
 	submission, err := Parse(strings.NewReader(input))
 	if err != nil {
@@ -159,7 +159,7 @@ ship 2 probe orbit 1
 // A mistyped verb is told which orders exist, so the list has to hold every
 // registered one rather than a remembered few.
 func TestParseNamesEveryOrderWhenTheVerbIsUnknown(t *testing.T) {
-	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nship 2 attak\n"))
+	_, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nship 100002 attak\n"))
 	if err == nil {
 		t.Fatal("Parse succeeded; want an error")
 	}
@@ -177,7 +177,7 @@ func TestParseNameOrders(t *testing.T) {
 	input := `game "TEST" turn 3
 id faction 1
 
-ship 18 name "Jalopy"
+ship 100018 name "Jalopy"
 we name (-1,2,3) "Stellium Joe"
 we name (-1,2,3) system A "Alpha Sur"
 we name (-1,2,3) system A orbit 8 "Headly's Gate"
@@ -187,7 +187,7 @@ we name (-1,2,3) system A orbit 8 "Headly's Gate"
 		t.Fatal(err)
 	}
 	want := []string{
-		`ship 18 "Jalopy"`,
+		`ship 100018 "Jalopy"`,
 		`(-1,2,3) "Stellium Joe"`,
 		`(-1,2,3) system A "Alpha Sur"`,
 		`(-1,2,3) system A orbit 8 "Headly's Gate"`,
@@ -209,8 +209,8 @@ we name (-1,2,3) system A orbit 8 "Headly's Gate"
 	if got := submission.Orders[1].Params.Actor(); got != 0 {
 		t.Errorf("naming a stellium acts on entity %d; want none", got)
 	}
-	if got := submission.Orders[0].Params.Actor(); got != 18 {
-		t.Errorf("naming a ship acts on entity %d; want 18", got)
+	if got := submission.Orders[0].Params.Actor(); got != 100018 {
+		t.Errorf("naming a ship acts on entity %d; want 100018", got)
 	}
 }
 
@@ -245,40 +245,40 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 	}{
 		{
 			name:  "a move that does not parse says which word stopped it",
-			input: "ship 2 move to planet 6",
+			input: "ship 100002 move to planet 6",
 			want:  "expected `system` or `orbit`, found \"planet\"",
 		},
 		{
 			// The message names the word, and only move's forms follow it.
 			name:  "a move that does not parse then shows only move's forms",
-			input: "ship 2 move to planet 6",
+			input: "ship 100002 move to planet 6",
 			want:  "MOVE is written:\n    =   ship SHIP-ID move to orbit ORBIT\n    =   ship SHIP-ID move to system SYSTEM orbit ORBIT",
 		},
 		{
 			name:  "a jump that does not parse reports only jump's form",
-			input: "ship 2 jump towards (1,2,3)",
+			input: "ship 100002 jump towards (1,2,3)",
 			want:  "expected `to`, found \"towards\"",
 		},
 		{
 			// A word that was nearly right is named, because a player who
 			// mistyped one wants the word and not the grammar.
 			name:  "a near miss is suggested",
-			input: "ship 2 move to orbti 6",
+			input: "ship 100002 move to orbti 6",
 			want:  "did you mean `orbit`?",
 		},
 		{
 			name:  "a field that was read and found wrong says so itself",
-			input: "ship 0 move to orbit 6",
-			want:  "invalid ship id: must be positive",
+			input: "ship 42 move to orbit 6",
+			want:  `invalid ship id: "42" is not a six-digit entity id`,
 		},
 		{
 			name:  "a system outside A through E",
-			input: "ship 2 move to system Z orbit 4",
+			input: "ship 100002 move to system Z orbit 4",
 			want:  `invalid system "Z"; systems are A through E`,
 		},
 		{
 			name:  "trailing words are a mistake, not ignored",
-			input: "ship 2 move to orbit 6 please",
+			input: "ship 100002 move to orbit 6 please",
 			want:  "expected the end of the order, found \"please\"",
 		},
 		{
@@ -288,14 +288,14 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 		},
 		{
 			name:  "an order given to the wrong kind of subject says so",
-			input: "colony 2 move to orbit 4",
+			input: "colony 100002 move to orbit 4",
 			want:  "MOVE is given to a ship, not to a colony",
 		},
 		{
 			// The subject is one NAME takes, so the line is measured against
 			// NAME's forms and shown them; only the place form is a faction's.
 			name:  "a place named by a ship reports name's forms",
-			input: `ship 2 name (1,2,3) "Nope"`,
+			input: `ship 100002 name (1,2,3) "Nope"`,
 			want:  `expected a quoted name, found "("`,
 		},
 	} {
@@ -314,11 +314,11 @@ func TestParseReportsTheOrderThatFailed(t *testing.T) {
 // Coordinates read the same however they are spaced.
 func TestParseAcceptsAnySpacingInCoordinates(t *testing.T) {
 	for _, form := range []string{"(6,-9,8)", "( 6 , -9 , 8 )", "(6, -9,8)"} {
-		submission, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nship 2 jump to " + form + "\n"))
+		submission, err := Parse(strings.NewReader("game \"TEST\" turn 3\nid faction 1\n\nship 100002 jump to " + form + "\n"))
 		if err != nil {
 			t.Fatalf("Parse(%q): %v", form, err)
 		}
-		if got := submission.Orders[0].Params; got != (JumpParams{ShipID: 2, X: 6, Y: -9, Z: 8}) {
+		if got := submission.Orders[0].Params; got != (JumpParams{ShipID: 100002, X: 6, Y: -9, Z: 8}) {
 			t.Errorf("Parse(%q) = %+v; want a jump to (6,-9,8)", form, got)
 		}
 	}
@@ -398,17 +398,17 @@ func TestHelpListsEveryOrder(t *testing.T) {
 // A quote that is never closed is refused.
 //
 // The tokenizer used to read to the end of the line and call it a token, so
-// `ship 18 name "Jalopy` named the ship and said nothing: quoted text is how a
+// `ship 100018 name "Jalopy` named the ship and said nothing: quoted text is how a
 // name is written, and a player who dropped the closing quote found out from a
 // report a turn later. Nothing else a line can get wrong is settled this early,
 // and nothing else needs to be.
 func TestAQuoteThatIsNeverClosedIsRefused(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
-		{`ship 18 name "Jalopy`, `unterminated quoted text "Jalopy"`},
+		{`ship 100018 name "Jalopy`, `unterminated quoted text "Jalopy"`},
 		{`we name (1,2,3) "Near`, `unterminated quoted text "Near"`},
-		{`ship 18 broadcast system B orbit 8 "hello" "sig`, `unterminated quoted text "sig"`},
+		{`ship 100018 broadcast system B orbit 8 "hello" "sig`, `unterminated quoted text "sig"`},
 		// An empty run is still a run: the quote is still open at the newline.
-		{`ship 18 name "`, `unterminated quoted text ""`},
+		{`ship 100018 name "`, `unterminated quoted text ""`},
 	} {
 		_, err := Parse(strings.NewReader(header + item.line + "\n"))
 		if err == nil {
@@ -433,12 +433,12 @@ func TestAnUnterminatedQuoteInTheHeaderIsRefused(t *testing.T) {
 // it read on to the end of the file looking for a terminator the broken line
 // might have swallowed.
 func TestAnUnterminatedQuoteInsideACreateStopsTheGather(t *testing.T) {
-	body := `colony 50 create ship
+	body := `colony 100050 create ship
   using 60 STRC-8
   transfering 25 "FOOD
   with 5 CWKR
 end
-colony 50 assemble 6 SNSR-99
+colony 100050 assemble 6 SNSR-99
 `
 	err := parseProblems(t, body)
 	// The quote is reported where it was written rather than against the line
@@ -446,7 +446,7 @@ colony 50 assemble 6 SNSR-99
 	// several lines, and every token in it remembers which one it came from.
 	for _, want := range []string{
 		`line 6, column 18: unterminated quoted text "FOOD"`,
-		`line 9, column 22: invalid unit tag "SNSR-99"`,
+		`line 9, column 26: invalid unit tag "SNSR-99"`,
 	} {
 		if !strings.Contains(err, want) {
 			t.Errorf("error = %q;\n  want it to hold %q", err, want)
@@ -472,13 +472,13 @@ func TestOpensOrderReadsTheVerbAndConsumesNothing(t *testing.T) {
 	}{
 		// Every subject the grammar has, because the verb sits at a different
 		// word in each of them.
-		{"ship 2 move to orbit 6", "move", "to"},
-		{"colony 50 create ship using 60 STRC-8 end", "create", "ship"},
+		{"ship 100002 move to orbit 6", "move", "to"},
+		{"colony 100050 create ship using 60 STRC-8 end", "create", "ship"},
 		{`we name (-1,2,3) "Stellium Joe"`, "name", "("},
 		// A line that is not an order at all, which is every continuation line
 		// of a create, and a line whose verb is not one the game has.
 		{"  using 60 STRC-8", "", ""},
-		{"ship 2 fly to orbit 6", "", ""},
+		{"ship 100002 fly to orbit 6", "", ""},
 	} {
 		line := fieldParser(item.text)
 		spec, form, ok := line.opens()

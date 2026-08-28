@@ -4,21 +4,21 @@ we 5
 fleet 2 move to orbit 6
 SHIP 2 MOVE TO ORBIT 6
 ShIp 2 MoVe To OrBiT 6
-ship 2 fly to orbit 6
-ship 2 mve to orbit 6
-ship 2 mooove to orbit 6
-ship 2 move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move 
-colony 5 move to orbit 4
+ship 503683 fly to orbit 6
+ship 503683 mve to orbit 6
+ship 503683 mooove to orbit 6
+ship 503683 move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move move 
+colony 265054 move to orbit 4
 we move to orbit 4
-ship 2 rations 75%
-ship 2 probe
-ship 2 probe orbit
-ship 2 probe system
-colony 5 pay USK 1%, SKW 20%
-ship 2 jump to (1,2%,3)
-ship 2 probe system % orbit 1 2 3
-colony 5 sell 10 FOOD 1,000.50 GOLD 75%
-colony 5 assemble 1,0g00 SNSR-1, 500 STRC-2
-ship 2 probe system A o"bit 1 2 3
-ship 2 broadcast system B orb%t 8 "hello"
-colony 5 pay USK 15%, #SKW 20%
+ship 503683 rations 75%
+ship 503683 probe
+ship 503683 probe orbit
+ship 503683 probe system
+colony 265054 pay USK 1%, SKW 20%
+ship 503683 jump to (1,2%,3)
+ship 503683 probe system % orbit 1 2 3
+colony 265054 sell 10 FOOD 1,000.50 GOLD 75%
+colony 265054 assemble 1,0g00 SNSR-1, 500 STRC-2
+ship 503683 probe system A o"bit 1 2 3
+ship 503683 broadcast system B orb%t 8 "hello"
+colony 265054 pay USK 15%, #SKW 20%

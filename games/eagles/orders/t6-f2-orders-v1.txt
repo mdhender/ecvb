@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 6
+id faction 2
+
+ship 896680 move to system B orbit 4

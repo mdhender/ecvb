@@ -4,6 +4,7 @@ package orders
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -15,7 +16,7 @@ import (
 // A create is the one order that may run over several lines, so it is
 // terminated by `end` and line breaks inside it mean nothing.
 func TestCreateReadsOneOrderOutOfSeveralLines(t *testing.T) {
-	spread := `colony 50 create ship
+	spread := `colony 100050 create ship
   using 60 STRC-8,
         2 HDRV-1
         , 1 SNSR-1
@@ -23,7 +24,7 @@ func TestCreateReadsOneOrderOutOfSeveralLines(t *testing.T) {
   with 500 CWKR
 end
 `
-	one := "colony 50 create ship using 60 STRC-8, 2 HDRV-1, 1 SNSR-1 " +
+	one := "colony 100050 create ship using 60 STRC-8, 2 HDRV-1, 1 SNSR-1 " +
 		"transfering 25 FOOD, 5 SKW with 500 CWKR end\n"
 	spreadOrder, err := parseOne(strings.TrimSuffix(spread, "\n"))
 	if err != nil {
@@ -46,7 +47,7 @@ end
 
 // An order that runs to a terminator has to find one.
 func TestCreateWithNoEndIsRefused(t *testing.T) {
-	_, err := Parse(strings.NewReader(header + "colony 50 create ship using 60 STRC-8\n"))
+	_, err := Parse(strings.NewReader(header + "colony 100050 create ship using 60 STRC-8\n"))
 	if err == nil {
 		t.Fatal("an unterminated create was accepted; want it refused")
 	}
@@ -60,12 +61,12 @@ func TestCreateWithNoEndIsRefused(t *testing.T) {
 // and about everything else wrong in the same pass -- not fix it and find three
 // more waiting.
 func TestAMissingEndDoesNotSwallowTheRestOfTheFile(t *testing.T) {
-	body := `colony 50 create ship
+	body := `colony 100050 create ship
   using 60 STRC-8
   transfering 25 FOOD
   with 5 CWKR
-ship 51 fly to orbit 4
-colony 50 assemble 6 SNSR-99
+ship 100051 fly to orbit 4
+colony 100050 assemble 6 SNSR-99
 `
 	_, err := Parse(strings.NewReader(header + body))
 	if err == nil {
@@ -74,8 +75,8 @@ colony 50 assemble 6 SNSR-99
 	// Three problems, and the create's names the line that gave it away.
 	for _, want := range []string{
 		"line 4, column 1: CREATE runs until `end`, and line 8 begins another order",
-		`line 8, column 9: unknown order "fly"`,
-		`line 9, column 22: invalid unit tag "SNSR-99"`,
+		`line 8, column 13: unknown order "fly"`,
+		`line 9, column 26: invalid unit tag "SNSR-99"`,
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error = %q;\n  want it to hold %q", err, want)
@@ -124,7 +125,7 @@ func TestACreateWithNoSubjectIsStillReadWhole(t *testing.T) {
   transfering 25 FOOD
   with 5 CWKR
 end
-colony 50 assemble 6 SNSR-99
+colony 100050 assemble 6 SNSR-99
 `
 	_, err := Parse(strings.NewReader(header + body))
 	if err == nil {
@@ -136,7 +137,7 @@ colony 50 assemble 6 SNSR-99
 	}
 	for _, want := range []string{
 		`line 4, column 1: expected an order to begin with ship, colony, or we; found "create"`,
-		`line 9, column 22: invalid unit tag "SNSR-99"`,
+		`line 9, column 26: invalid unit tag "SNSR-99"`,
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error = %q;\n  want it to hold %q", err, want)
@@ -147,7 +148,7 @@ colony 50 assemble 6 SNSR-99
 // A blank line or a comment inside a multi-line order is part of it, not the
 // end of it.
 func TestBlankLinesAndCommentsInsideACreateAreNotTheEndOfIt(t *testing.T) {
-	body := `colony 50 create ship
+	body := `colony 100050 create ship
   using 60 STRC-8
 
   # the food is for the crew
@@ -170,12 +171,12 @@ end
 
 // The order after a multi-line one is still numbered by its own physical line.
 func TestALineAfterAMultiLineOrderKeepsItsOwnNumber(t *testing.T) {
-	body := `colony 50 create ship
+	body := `colony 100050 create ship
   using 60 STRC-8
   transfering 25 FOOD
   with 500 CWKR
 end
-colony 50 assemble 20 SNSR-1
+colony 100050 assemble 20 SNSR-1
 `
 	submission, err := Parse(strings.NewReader(header + body))
 	if err != nil {
@@ -192,17 +193,17 @@ colony 50 assemble 20 SNSR-1
 func TestCreateRefusesWhatCannotChange(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
 		// A colony is built at a planet, so the builder has to be at one.
-		{"ship 55 create enclosed colony using 60 STRC-8 transfering 25 FOOD with 5 CWKR end",
+		{"ship 100055 create enclosed colony using 60 STRC-8 transfering 25 FOOD with 5 CWKR end",
 			"a colony is created at a planet"},
 		// An open-air colony breathes the air outside.
-		{"colony 56 create open-air colony using 60 STRC-8 transfering 25 FOOD with 5 CWKR end",
+		{"colony 100056 create open-air colony using 60 STRC-8 transfering 25 FOOD with 5 CWKR end",
 			"habitability is above 0"},
 		// A using line names what the entity is made of.
-		{"colony 50 create ship using 100 GOLD transfering 25 FOOD with 5 CWKR end",
+		{"colony 100050 create ship using 100 GOLD transfering 25 FOOD with 5 CWKR end",
 			"GOLD is not built into an entity"},
-		{"colony 50 create ship using 60 STRC-8 transfering 5 CWKR with 5 CWKR end",
+		{"colony 100050 create ship using 60 STRC-8 transfering 5 CWKR with 5 CWKR end",
 			"CWKR is a cadre"},
-		{"colony 50 create ship using 60 STRC-8, 5 STRC-8 transfering 25 FOOD with 5 CWKR end",
+		{"colony 100050 create ship using 60 STRC-8, 5 STRC-8 transfering 25 FOOD with 5 CWKR end",
 			"STRC-8 is named twice in the using list"},
 	} {
 		_, err := Check(context.Background(), openBuildOrderDatabase(t), strings.NewReader(header+item.line+"\n"))
@@ -220,7 +221,7 @@ func TestCreateRefusesWhatCannotChange(t *testing.T) {
 // everything after that is rate rather than failure.
 func TestCreatePutsAnUnfinishedEntityOnTheBoardAtOnce(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
-	result := apply(t, conn, "colony 50 create orbital colony as trade-station"+
+	result := apply(t, conn, "colony 100050 create orbital colony as trade-station"+
 		" using 60 STRC-8 transfering 25 FOOD with 5 CWKR end\n")
 	if result.Orders != 1 {
 		t.Fatalf("orders = %d; want 1", result.Orders)
@@ -249,13 +250,13 @@ func TestCreatePutsAnUnfinishedEntityOnTheBoardAtOnce(t *testing.T) {
 // acts.
 func TestAnUnfinishedEntityCanBeGivenNoOrders(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
-	apply(t, conn, "colony 50 create orbital colony using 60 STRC-8 transfering 25 FOOD with 5 CWKR end\n")
-	id := onlyBuild(t, conn)
+	apply(t, conn, "colony 100050 create orbital colony using 60 STRC-8 transfering 25 FOOD with 5 CWKR end\n")
+	number := onlyBuildNumber(t, conn)
 	for _, item := range []struct{ line, want string }{
 		{"colony ID assemble 10 STRC-8", "under construction and can be given no orders"},
-		{"colony 50 transfer 100 GOLD to colony ID", "under construction; only the build that began it"},
+		{"colony 100050 transfer 100 GOLD to colony ID", "under construction; only the build that began it"},
 	} {
-		line := strings.ReplaceAll(item.line, "ID", formatQuantity(id))
+		line := strings.ReplaceAll(item.line, "ID", strconv.FormatInt(number, 10))
 		_, err := Check(context.Background(), conn, strings.NewReader(header+line+"\n"))
 		if err == nil || !strings.Contains(err.Error(), item.want) {
 			t.Errorf("%s: err = %v; want it to mention %q", line, err, item.want)
@@ -270,7 +271,7 @@ func TestAnUnfinishedEntityCanBeGivenNoOrders(t *testing.T) {
 func TestABuildClaimsDeliversAndAssemblesInOneTurn(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
 	haulage(t, conn)
-	apply(t, conn, "colony 50 create orbital colony using 20 STRC-10, 2 SNSR-1"+
+	apply(t, conn, "colony 100050 create orbital colony using 20 STRC-10, 2 SNSR-1"+
 		" transfering 25 FOOD with 5 CWKR end\n")
 	id := onlyBuild(t, conn)
 	// 20 STRC-10 mass 20 MU each, and five CWKR do 2,500 MU of work between
@@ -308,7 +309,7 @@ func TestABuildClaimsDeliversAndAssemblesInOneTurn(t *testing.T) {
 func TestTheRestOfABuildFollowsTheStructure(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
 	haulage(t, conn)
-	apply(t, conn, "colony 50 create orbital colony using 20 STRC-10, 2 SNSR-1"+
+	apply(t, conn, "colony 100050 create orbital colony using 20 STRC-10, 2 SNSR-1"+
 		" transfering 25 FOOD with 5 CWKR end\n")
 	id := onlyBuild(t, conn)
 	runTurn(t, conn)
@@ -335,7 +336,7 @@ func TestTheRestOfABuildFollowsTheStructure(t *testing.T) {
 func TestABuildWithNoTransportsMakesNoProgressAndDoesNotFail(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
 	testdb.Exec(t, conn, "DELETE FROM inventory WHERE entity_id = 50 AND unit = 'TRAN';")
-	result := apply(t, conn, "colony 50 create orbital colony using 20 STRC-10"+
+	result := apply(t, conn, "colony 100050 create orbital colony using 20 STRC-10"+
 		" transfering 25 FOOD with 5 CWKR end\n")
 	if result.Orders != 1 {
 		t.Fatalf("orders = %d; want the create kept", result.Orders)
@@ -357,7 +358,7 @@ func TestABuildWithNoTransportsMakesNoProgressAndDoesNotFail(t *testing.T) {
 func TestABuildWillNotDeliverPeopleItCannotKeepAlive(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
 	haulage(t, conn)
-	apply(t, conn, "colony 50 create enclosed colony using 1 STRC-10"+
+	apply(t, conn, "colony 100050 create enclosed colony using 1 STRC-10"+
 		" transfering 5 USK with 5 CWKR end\n")
 	id := onlyBuild(t, conn)
 	// The first turn finishes the structure, so the population line is
@@ -377,8 +378,8 @@ func TestABuildWillNotDeliverPeopleItCannotKeepAlive(t *testing.T) {
 func TestTheOlderBuildIsServedFirst(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
 	// Only 20 STRC-10 in cargo between them, and each build wants all 20.
-	apply(t, conn, `colony 50 create orbital colony using 20 STRC-10 transfering 25 FOOD with 5 CWKR end
-colony 50 create enclosed colony using 20 STRC-10 transfering 25 FOOD with 5 CWKR end
+	apply(t, conn, `colony 100050 create orbital colony using 20 STRC-10 transfering 25 FOOD with 5 CWKR end
+colony 100050 create enclosed colony using 20 STRC-10 transfering 25 FOOD with 5 CWKR end
 `)
 	first, second := twoBuilds(t, conn)
 	if got := buildScalar(t, conn, `SELECT delivered + completed FROM construction_item
@@ -398,8 +399,8 @@ func TestATransferOrderIsServedBeforeABuildsDelivery(t *testing.T) {
 	conn := openBuildOrderDatabase(t)
 	// The twenty TRAN-1 carry 400 MU a turn. A transfer of 400 GOLD uses all
 	// of it, so the build's structure waits for next turn.
-	apply(t, conn, `colony 50 create orbital colony using 20 STRC-10 transfering 25 FOOD with 5 CWKR end
-colony 50 transfer 400 GOLD to ship 51
+	apply(t, conn, `colony 100050 create orbital colony using 20 STRC-10 transfering 25 FOOD with 5 CWKR end
+colony 100050 transfer 400 GOLD to ship 100051
 `)
 	id := onlyBuild(t, conn)
 	if got := storedQuantity(t, conn, 51, "cargo", "GOLD", 0); got != 400 {
@@ -411,18 +412,18 @@ colony 50 transfer 400 GOLD to ship 51
 	}
 }
 
-// Colony 50 is a colony with transports, stock in cargo to build from, and a
-// small cadre. Ship 51 is beside it; 55 is in the stellium orbit, where no
+// Colony 100050 is a colony with transports, stock in cargo to build from, and a
+// small cadre. Ship 100051 is beside it; 55 is in the stellium orbit, where no
 // colony can be built; 56 is at a planet nobody can breathe on.
 func openBuildOrderDatabase(t *testing.T) *sqlite.Conn {
 	t.Helper()
 	conn := openInventoryOrderDatabase(t)
 	testdb.Exec(t, conn, `
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES (32, 20, 8, 'asteroid', 0);
-		INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
+		INSERT INTO entity (id, game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
 			faction_id, enclosed_volume, mass) VALUES
-			(55, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 50000, 10000),
-			(56, 'COPN', 1, 10, 20, 32, 0, 1, 50000, 10000);
+			(55, 1, 100055, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 50000, 10000),
+			(56, 1, 100056, 'COPN', 1, 10, 20, 32, 0, 1, 50000, 10000);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(50, 'cargo', 'STRC', 10, 20),
 			(50, 'cargo', 'SNSR', 1, 20),
@@ -449,7 +450,7 @@ func runTurn(t *testing.T, conn *sqlite.Conn) {
 	apply(t, conn, "")
 }
 
-// onlyBuild is the entity the file being tested began building.
+// onlyBuild is the row id of the entity the file being tested began building.
 func onlyBuild(t *testing.T, conn *sqlite.Conn) int64 {
 	t.Helper()
 	var id int64
@@ -460,6 +461,21 @@ func onlyBuild(t *testing.T, conn *sqlite.Conn) int64 {
 		t.Fatal("no build was recorded")
 	}
 	return id
+}
+
+// onlyBuildNumber is that entity under the handle a player writes, for a test
+// that gives the unfinished entity an order.
+func onlyBuildNumber(t *testing.T, conn *sqlite.Conn) int64 {
+	t.Helper()
+	var number int64
+	if err := scanOne(conn, `SELECT coalesce(min(e.number), 0) FROM under_construction AS uc
+		JOIN entity AS e ON e.id = uc.entity_id;`, &number); err != nil {
+		t.Fatal(err)
+	}
+	if number == 0 {
+		t.Fatal("no build was recorded")
+	}
+	return number
 }
 
 func twoBuilds(t *testing.T, conn *sqlite.Conn) (first, second int64) {
@@ -525,7 +541,7 @@ func TestABuildDeliversOnlyWhatTheNewEntityHasRoomFor(t *testing.T) {
 	// the new colony has 10 VU to receive things into. A FARM-1 takes 2 VU in
 	// cargo, so five of the twenty asked for fit and the rest wait for
 	// structure that is never coming.
-	apply(t, conn, "colony 50 create orbital colony using 1 STRC-10"+
+	apply(t, conn, "colony 100050 create orbital colony using 1 STRC-10"+
 		" transfering 20 FARM-1 with 5 CWKR end\n")
 	id := onlyBuild(t, conn)
 	runTurn(t, conn)

@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 4
 id faction 9
 
-colony 30 create orbital colony as trade-station using 60 STRC-10 transfering 25 GOLD with 5 CWKR end
+colony 731510 create orbital colony as trade-station using 60 STRC-10 transfering 25 GOLD with 5 CWKR end

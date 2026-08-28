@@ -78,6 +78,33 @@ Spatial hierarchy: `game → stellium → system (A–E) → planet (orbit 1–1
 Plural of *stellium* is *stellia*. Distance between stellia is Euclidean, rounded up;
 compare squared distances so no floating point enters the query.
 
+### The two handles an entity has
+
+**`entity.id` is the database's and never leaves the server; `entity.number` is
+the game's and is the only one a player ever sees or types.** Every child table,
+every join, and build seniority use the row id. The parser, `Bind`, every report
+column, `game_order.actor_entity_number`, the engine log, and every `prng` draw
+about an entity use the number. `Binder.actor` and `World.EntityByNumber` are
+the one place the first becomes the second. `faction` has the same pair, and
+`ecrpt --faction`, an order file's `id faction N`, and a report's FACTION column
+all take the number.
+
+A number is six digits and unique within its game. `internal/entityid` makes it
+by permuting `game.next_entity_ordinal` under the game's seeds, which buys three
+things at once: a permutation is a bijection, so uniqueness needs no collision
+check and so no retry that would depend on write order; the seeds make it
+reproducible, so a replay compares byte for byte; and without the seeds it is
+not invertible, so a number an opponent can see says nothing about how many
+entities the game has built. Faction numbers are the counter itself — a player
+already knows how many factions there are — and the `uncontrolled` agent is made
+before the first player, so it is faction 1 and the players count from 2.
+
+The rule this restores is `internal/prng`'s: an instance key must be intrinsic
+to the game, never a row id, because a row id is drawn from one sequence shared
+by every game in the database. `DrawRing` now addresses its draw by
+`Entity.Number` and `Entity.FactionNumber` and holds that rule without
+exception.
+
 ### Orders that parse and do not yet act
 
 **Every verb of `docs/accepted-orders.md` is registered.** Ten of the
@@ -124,8 +151,8 @@ register(&Spec{
 })
 ```
 
-Every order line is **subject first**: `ship 18 jump to (-1,2,3)`,
-`colony 24 probe orbit 5`, `we name (-1,2,3) "Stellium Joe"`. The parser
+Every order line is **subject first**: `ship 482137 jump to (-1,2,3)`,
+`colony 719042 probe orbit 5`, `we name (-1,2,3) "Stellium Joe"`. The parser
 tokenizes the line once, reads the subject, then dispatches on the verb, so a
 line is only ever measured against the forms of the order it names -- and only
 against the forms its subject may be given. `Subjects` is that list, and a line
@@ -272,7 +299,7 @@ so an entry would be a name in the player's help with nothing behind it.
 `docs/turn-sequence.md` the twenty-two stages it resolves in. Neither is the
 spec of what exists: `docs/orders.md` is what is actually built, and a test fails
 when a registered form is missing from it. The accepted doc writes every order
-subject first -- `ship 18 jump to (-1,2,3)`, and `we` for the orders no ship
+subject first -- `ship 482137 jump to (-1,2,3)`, and `we` for the orders no ship
 carries out -- and gives `create` multiple lines terminated by `end`. The built
 parser reads neither, so the parser rewrite comes before the rest of the orders;
 `docs/plan/beta-plan.md` carries the design.
@@ -382,9 +409,10 @@ needed and nothing changed in `ec turn open`'s purge.
    `ecrpt show orders --turn N`. `in_transit` is deliberately not purged: a
    crossing is live state that outlives the turn it began in.
 
-Every order is a row of `game_order`, whatever its verb: `verb`, `actor_entity_id`,
-`input` (the order in the words the player wrote), and `params` (everything else it
-said, as JSON, also in the player's words and never as an id). It carries both
+Every order is a row of `game_order`, whatever its verb: `verb`,
+`actor_entity_number`, `input` (the order in the words the player wrote), and
+`params` (everything else it said, as JSON, also in the player's words and never
+as a row id). It carries both
 `sequence` (engine resolution order: earlier phases first) and `source_line` (position
 in the submitted file). The three-way status CHECK is written once there.
 
@@ -393,7 +421,7 @@ record more than a status: `order_movement` (where the order took its actor — 
 `Movement: true` on the Spec) and `order_survey` (the planet it read). A new order kind
 needs neither unless it records that kind of thing.
 
-Because `params` holds no ids, SQLite no longer checks that a jump's destination is in
+Because `params` holds no row ids, SQLite no longer checks that a jump's destination is in
 this game. It does not have to: `Bind` resolves the coordinates against the game's own
 stellia when the turn runs, so a destination that is not there is a failed order rather
 than a corrupt row. The compound foreign keys that do fire — faction in game, actor

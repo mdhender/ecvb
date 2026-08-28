@@ -1,4 +1,0 @@
-game "EAGLE-01" turn 2
-id faction 1
-
-ship 4 move to orbit 11

@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 9
 id faction 8
 with 5 CWKR
-colony 5 create ship using 60 STRC-8 with 5 CWKR end end
-colony 5 create ship using end
-colony 5 create end
-colony 5 create ship using 60 STRC-8 transfering with 5 CWKR end
-colony 5 create farm-group with 5 FARM-1 end
-colony 5 create mine-group with 5 MINE-1 working deposit
-colony 5 create factory-group with 5 FACT-1 making
-colony 5 create open-air colony as trade-station end
-colony 5 create orbital colony using 60 STRC-8 with 5 CWKR
-colony 5 create ship
-colony 5 create ship using 60 STRC-8
-colony 5 create "ship" end
-colony 5 create create create end
-colony 5 create ship using 
+colony 265054 create ship using 60 STRC-8 with 5 CWKR end end
+colony 265054 create ship using end
+colony 265054 create end
+colony 265054 create ship using 60 STRC-8 transfering with 5 CWKR end
+colony 265054 create farm-group with 5 FARM-1 end
+colony 265054 create mine-group with 5 MINE-1 working deposit
+colony 265054 create factory-group with 5 FACT-1 making
+colony 265054 create open-air colony as trade-station end
+colony 265054 create orbital colony using 60 STRC-8 with 5 CWKR
+colony 265054 create ship
+colony 265054 create ship using 60 STRC-8
+colony 265054 create "ship" end
+colony 265054 create create create end
+colony 265054 create ship using 
 we name W(1,2,3) system A orbit 8 "x"
 we name
-colony 5 sell 100 FOOD 1,000.50
-colony 5
-colony 5 assemble 1,000 SmSR-1, 500 STRC-2
-colony 5 buy tech-level Tp-4 800,000 GOLD
-colony 5 pay U7K 15%, SKW 20%
+colony 265054 sell 100 FOOD 1,000.50
+colony 265054
+colony 265054 assemble 1,000 SmSR-1, 500 STRC-2
+colony 265054 buy tech-level Tp-4 800,000 GOLD
+colony 265054 pay U7K 15%, SKW 20%

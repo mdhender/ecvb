@@ -1,19 +1,19 @@
 game "GOLD-01" turn 0
 id faction 1
 
-ship 100 probe orbit 4 6        # the home planet and its neighbour
-ship 100 probe system B orbit 4
-colony 101 probe orbit 4
-ship 106 probe system A orbit 4 # from the stellium orbit, which has to name a system
-ship 100 move to orbit 6        # one hop: planet to planet inside one system
-ship 104 move to orbit 6        # 104 holds 1 FUEL and a hop costs 4
-ship 106 move to orbit 11       # already there: nowhere to go and nothing to burn
-ship 105 move to orbit 11
-ship 105 jump to (1,2,2)        # a HDRV-1 takes three turns over a 3 ly crossing
-colony 107 assemble 100 SNSR-1        # 4,000 MU asked of a 2,500 MU cadre: 62 of them
-colony 107 transfer 300 GOLD to ship 100  # ring 0 to ring 64 of one planet is the same place
-colony 108 stow 12,000 METL           # 20 units of production labour move 10,000 MU
-colony 109 create open-air colony    # the one colony that needs no life support
+ship 985070 probe orbit 4 6        # the home planet and its neighbour
+ship 985070 probe system B orbit 4
+colony 503683 probe orbit 4
+ship 219454 probe system A orbit 4 # from the stellium orbit, which has to name a system
+ship 985070 move to orbit 6        # one hop: planet to planet inside one system
+ship 265054 move to orbit 6        # it holds 1 FUEL and a hop costs 4
+ship 219454 move to orbit 11       # already there: nowhere to go and nothing to burn
+ship 603919 move to orbit 11
+ship 603919 jump to (1,2,2)        # a HDRV-1 takes three turns over a 3 ly crossing
+colony 802784 assemble 100 SNSR-1        # 4,000 MU asked of a 2,500 MU cadre: 62 of them
+colony 802784 transfer 300 GOLD to ship 985070  # ring 0 to ring 64 of one planet is the same place
+colony 895038 stow 12,000 METL           # 20 units of production labour move 10,000 MU
+colony 650056 create open-air colony    # the one colony that needs no life support
   using 40 STRC-2, 2 SNSR-1
   transfering 10 FOOD, 5 USK
   with 4 CWKR

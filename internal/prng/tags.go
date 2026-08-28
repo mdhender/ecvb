@@ -17,13 +17,13 @@ package prng
 // renumbered. TagPlayer and TagFaction draws use their game-assigned numbers,
 // which must likewise be stable — never database row ids.
 //
-// An entity is the case that rule does not cover. A ship has no coordinates of
-// its own — it has a location, and the location moves — so its id is the only
-// stable handle it has. That id is assigned by the game, printed in every
-// report, written by the player as `ship 18`, and never reused or renumbered,
-// so it addresses draws about that entity. The paragraph above is about
-// addressing a *place* by a row id when the place has coordinates; it is not a
-// ban on the numbers the game gives things and shows the player.
+// An entity has no coordinates of its own — it has a location, and the location
+// moves — so what addresses draws about it is entity.number: a six-digit number
+// the game assigns from a per-game ordinal, unique within the game, never
+// reused, printed in every report and written by the player as `ship 482137`.
+// A faction is addressed by faction.number the same way. Neither is a row id,
+// so the rule above holds without exception: nothing in a key path depends on
+// the order rows happened to be written.
 //
 // FROZEN SURFACE — APPEND ONLY. The block starts at 1 (0 is invalid, so a
 // forgotten tag is an obvious bug rather than a silent alias). Never insert or
@@ -45,4 +45,8 @@ const (
 	// fresh ring; the faction and entity are there because two ships may settle
 	// at one planet in one turn.
 	TagRing
+	// 9: the public number of an entity, addressed by (round, half). It is the
+	// round function of the keyed permutation in internal/entityid that turns a
+	// game's entity ordinal into the number the player sees.
+	TagEntityNumber
 )

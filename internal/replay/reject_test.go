@@ -35,87 +35,87 @@ func TestSubmitRejects(t *testing.T) {
 	}{
 		{
 			name:  "no drive",
-			order: "ship 102 move to orbit 6",
-			want:  "ship 102 has no assembled HDRV and cannot move",
+			order: "ship 327307 move to orbit 6",
+			want:  "ship 327307 has no assembled HDRV and cannot move",
 		},
 		{
 			name:  "ship outweighs its drive",
-			order: "ship 103 move to orbit 6",
-			want:  "ship 103 masses 9000 MU and its drive propels 1045 MU",
+			order: "ship 896680 move to orbit 6",
+			want:  "ship 896680 masses 9000 MU and its drive propels 1045 MU",
 		},
 		{
-			// Ship 100 starts at a planet, and a jump begins from the stellium
+			// Ship 985070 starts at a planet, and a jump begins from the stellium
 			// orbit. (3,4,0) is 5 light years away, which the drive's old
 			// range of 3 refused and nothing refuses now.
 			name:  "jump from a planet",
-			order: "ship 100 jump to (3,4,0)",
-			want:  "ship 100 is at a planet and a jump begins from the stellium orbit; move it to orbit 11 first",
+			order: "ship 985070 jump to (3,4,0)",
+			want:  "ship 985070 is at a planet and a jump begins from the stellium orbit; move it to orbit 11 first",
 		},
 		{
 			name:  "jump to empty space",
-			order: "ship 100 jump to (9,9,9)",
+			order: "ship 985070 jump to (9,9,9)",
 			want:  `game "GOLD-01" has no stellium at (9,9,9)`,
 		},
 		{
 			name:  "no planet in that orbit",
-			order: "ship 100 move to orbit 9",
+			order: "ship 985070 move to orbit 9",
 			want:  "system current has no planet in orbit 9",
 		},
 		{
 			name:  "no such system in this stellium",
-			order: "ship 100 probe system E orbit 1",
+			order: "ship 985070 probe system E orbit 1",
 			want:  "current stellium has no system E",
 		},
 		{
 			name:  "more probes than the sensors launch",
-			order: "ship 100 probe orbit 4 6 4 6 4",
-			want:  "ship 100 has only 4 probes this turn",
+			order: "ship 985070 probe orbit 4 6 4 6 4",
+			want:  "ship 985070 has only 4 probes this turn",
 		},
 		{
 			name:  "a ship is not a colony",
-			order: "colony 100 probe orbit 4",
-			want:  "entity 100 is a ship, not a colony",
+			order: "colony 985070 probe orbit 4",
+			want:  "entity 985070 is a ship, not a colony",
 		},
 		{
 			name:  "another faction's ship",
-			order: "ship 200 move to orbit 6",
-			want:  "ship 200 does not belong to faction 1",
+			order: "ship 560344 move to orbit 6",
+			want:  "ship 560344 does not belong to faction 1",
 		},
 		{
 			name:  "the stellium orbit belongs to no system",
-			order: "ship 100 move to system A orbit 11",
+			order: "ship 985070 move to system A orbit 11",
 			want:  "orbit 11 is the stellium orbit and belongs to no system",
 		},
 		{
 			name:  "a colony cannot move",
-			order: "ship 101 move to orbit 6",
-			want:  "entity 101 is a COPN, not a ship",
+			order: "ship 503683 move to orbit 6",
+			want:  "entity 503683 is a COPN, not a ship",
 		},
 		{
 			// Written as a colony, the line never reaches MOVE's parser: the
 			// subject decides which orders a line may name.
 			name:  "an order given to a subject that cannot be given it",
-			order: "colony 101 move to orbit 6",
+			order: "colony 503683 move to orbit 6",
 			want:  "MOVE is given to a ship, not to a colony",
 		},
 		{
 			name:  "a name longer than a name may be",
-			order: `ship 100 name "twenty five characters!!!"`,
+			order: `ship 985070 name "twenty five characters!!!"`,
 			want:  `a name may be 24 characters and "twenty five characters!!!" is 25`,
 		},
 		{
 			name:  "a name that begins with a space",
-			order: `ship 100 name " Bellerophon"`,
+			order: `ship 985070 name " Bellerophon"`,
 			want:  "a name may not begin or end with a space",
 		},
 		{
 			name:  "a name with a gap in it",
-			order: `ship 100 name "Bell  erophon"`,
+			order: `ship 985070 name "Bell  erophon"`,
 			want:  "a name may not hold two spaces in a row",
 		},
 		{
 			name:  "a name with nothing in it",
-			order: `ship 100 name ""`,
+			order: `ship 985070 name ""`,
 			want:  "a name cannot be empty",
 		},
 		{
@@ -135,28 +135,28 @@ func TestSubmitRejects(t *testing.T) {
 		},
 		{
 			name:  "assembling a resource, which is measured rather than made",
-			order: "colony 107 assemble 100 GOLD",
+			order: "colony 802784 assemble 100 GOLD",
 			want:  "GOLD is a resource; it is measured rather than made, and is never assembled",
 		},
 		{
 			name:  "assembling people",
-			order: "colony 107 assemble 100 SOL",
+			order: "colony 802784 assemble 100 SOL",
 			want:  "SOL is population; people are carried and fed, not assembled",
 		},
 		{
 			name:  "assembling a cadre, which is an assignment rather than a thing",
-			order: "colony 107 assemble 5 CWKR",
+			order: "colony 802784 assemble 5 CWKR",
 			want:  "CWKR is a cadre, an assignment of people rather than a unit, and is never assembled",
 		},
 		{
 			name:  "one order naming the same unit twice",
-			order: "colony 107 unassemble 10 STRC-10, 5 STRC-10",
+			order: "colony 802784 unassemble 10 STRC-10, 5 STRC-10",
 			want:  "STRC-10 is named twice",
 		},
 		{
 			// A quantity over 999 separates every three digits with a comma.
 			name:  "a quantity written without its separators",
-			order: "colony 107 assemble 1000 SNSR-1",
+			order: "colony 802784 assemble 1000 SNSR-1",
 			want:  "a quantity over 999 separates every three digits with a comma, as in 1,000",
 		},
 		{
@@ -166,18 +166,18 @@ func TestSubmitRejects(t *testing.T) {
 			// refuse; this scenario's only other faction is the uncontrolled
 			// one, and handing things to that is allowed.
 			name:  "transferring to itself",
-			order: "colony 107 transfer 100 GOLD to colony 107",
-			want:  "colony 107 cannot transfer to itself",
+			order: "colony 802784 transfer 100 GOLD to colony 802784",
+			want:  "colony 802784 cannot transfer to itself",
 		},
 		{
 			name:  "transferring a cadre rather than the people in it",
-			order: "colony 107 transfer 5 CWKR to colony 101",
+			order: "colony 802784 transfer 5 CWKR to colony 503683",
 			want:  "CWKR is a cadre, an assignment of people rather than a thing to carry",
 		},
 		{
 			name:  "naming another faction's ship",
-			order: `ship 200 name "Easy Target"`,
-			want:  "ship 200 does not belong to faction 1",
+			order: `ship 560344 name "Easy Target"`,
+			want:  "ship 560344 does not belong to faction 1",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

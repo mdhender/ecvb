@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 1
 id faction 7
 
-colony 21 stow 90 GOLD
+colony 234806 stow 90 GOLD

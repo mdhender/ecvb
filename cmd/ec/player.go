@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/world"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -24,11 +25,14 @@ type homeCandidate struct {
 	z          int
 }
 
-func addPlayer(ctx context.Context, directory, gameCode, email string) (factionID int64, err error) {
+// addPlayer adds a player and returns the number their faction is known by in
+// this game -- what a report prints and what "ecrpt --faction" takes, never the
+// row id.
+func addPlayer(ctx context.Context, directory, gameCode, email string) (factionNumber int64, err error) {
 	return addPlayerWithKit(ctx, directory, gameCode, email, filepath.Join(directory, "home-planet-seed.json"))
 }
 
-func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath string) (factionID int64, err error) {
+func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath string) (factionNumber int64, err error) {
 	if gameCode == "" {
 		return 0, fmt.Errorf("game is required")
 	}
@@ -127,12 +131,10 @@ func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath s
 		return 0, err
 	}
 
-	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, user_id) VALUES (?, ?);", &sqlitex.ExecOptions{
-		Args: []any{gameID, userID},
-	}); err != nil {
-		return 0, fmt.Errorf("create faction for %q in game %q: %w", email, gameCode, err)
-	}
-	factionID = conn.LastInsertRowID()
+	// The uncontrolled faction is made before the first player rather than
+	// after, so that a game's faction numbers read as the player expects: 1 is
+	// the agent that holds the derelicts, and the players count from 2. It is
+	// still made only when a kit actually hands it something.
 	uncontrolledFactionID := int64(0)
 	for _, entity := range kit.entities {
 		if !entity.controlled {
@@ -143,6 +145,16 @@ func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath s
 			break
 		}
 	}
+	factionNumber, err = world.NextFactionNumber(conn, gameID)
+	if err != nil {
+		return 0, err
+	}
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, number, user_id) VALUES (?, ?, ?);", &sqlitex.ExecOptions{
+		Args: []any{gameID, factionNumber, userID},
+	}); err != nil {
+		return 0, fmt.Errorf("create faction for %q in game %q: %w", email, gameCode, err)
+	}
+	factionID := conn.LastInsertRowID()
 	if err := sqlitex.ExecuteTransient(conn, "UPDATE planet SET faction_id = ? WHERE id = ? AND faction_id IS NULL;", &sqlitex.ExecOptions{
 		Args: []any{factionID, selected.planetID},
 	}); err != nil {
@@ -151,10 +163,10 @@ func addPlayerWithKit(ctx context.Context, directory, gameCode, email, kitPath s
 	if conn.Changes() != 1 {
 		return 0, fmt.Errorf("assign home planet: planet is no longer available")
 	}
-	if err := insertKit(conn, kit, selected, factionID, uncontrolledFactionID); err != nil {
+	if err := insertKit(conn, kit, selected, gameID, factionID, uncontrolledFactionID); err != nil {
 		return 0, fmt.Errorf("load kit %q: %w", kit.name, err)
 	}
-	return factionID, nil
+	return factionNumber, nil
 }
 
 func homeCandidates(conn *sqlite.Conn, gameID int64) ([]homeCandidate, error) {

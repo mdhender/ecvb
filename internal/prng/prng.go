@@ -64,7 +64,7 @@ func (s Seeds) validatePath(path []Key) {
 	if len(path) == 0 || path[0] == 0 {
 		panic("prng: path must start with a nonzero domain key")
 	}
-	if !s.derived && (path[0] < TagCluster || path[0] > TagRing) {
+	if !s.derived && (path[0] < TagCluster || path[0] > TagEntityNumber) {
 		panic("prng: root path must start with a registered domain tag")
 	}
 }

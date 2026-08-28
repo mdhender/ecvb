@@ -101,12 +101,12 @@ func TestECRptShowTurnByEmail(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	for _, want := range []string{
-		"TURN REPORT", "BETA-001  3     41       player@example.com",
+		"TURN REPORT", "BETA-001  3     1        player@example.com",
 		"CONTROLLED PLANETS", "871  79        9,13,-5",
-		"ENTITIES", "501  SHIP  2", "502  COPN  1",
-		"CENSUS", "501     SKW    1200",
-		"INVENTORY", "501     cargo        FUEL", "502     cargo        GOLD",
-		"ORDERS", "1         4     501     move", "2         3     501     jump",
+		"ENTITIES", "100501  SHIP  2", "100502  COPN  1",
+		"CENSUS", "100501  SKW    1200",
+		"INVENTORY", "100501  cargo        FUEL", "100502  cargo        GOLD",
+		"ORDERS", "1         4     100501  move", "2         3     100501  jump",
 	} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("output does not contain %q:\n%s", want, output.String())
@@ -128,8 +128,8 @@ func TestECRptShowOrdersByEmail(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	for _, want := range []string{
-		"ORDERS REPORT", "BETA-001  3     41       player@example.com",
-		"SEQUENCE  LINE  ENTITY  VERB", "1         4     501     move", "2         3     501     jump",
+		"ORDERS REPORT", "BETA-001  3     1        player@example.com",
+		"SEQUENCE  LINE  ENTITY  VERB", "1         4     100501  move", "2         3     100501  jump",
 		"orbit 1", "pending",
 	} {
 		if !strings.Contains(output.String(), want) {
@@ -142,14 +142,14 @@ func TestECRptShowOrdersForAgentFaction(t *testing.T) {
 	directory := createTestDatabase(t)
 	var output bytes.Buffer
 	if err := run(context.Background(), []string{
-		"--db-path", directory, "show", "orders", "--game", "BETA-001", "--faction", "42",
+		"--db-path", directory, "show", "orders", "--game", "BETA-001", "--faction", "2",
 	}, &output); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if want := "BETA-001  3     42       agent:uncontrolled"; !strings.Contains(output.String(), want) {
+	if want := "BETA-001  3     2        agent:uncontrolled"; !strings.Contains(output.String(), want) {
 		t.Errorf("output does not contain %q:\n%s", want, output.String())
 	}
-	if strings.Contains(output.String(), "501") {
+	if strings.Contains(output.String(), "100501") {
 		t.Errorf("agent report contains another faction's orders:\n%s", output.String())
 	}
 }
@@ -158,7 +158,7 @@ func TestECRptShowTurnByFactionWithOptionalSections(t *testing.T) {
 	directory := createTestDatabase(t)
 	var output bytes.Buffer
 	if err := run(context.Background(), []string{
-		"--db-path", directory, "show", "turn", "--game", "BETA-001", "--faction", "41",
+		"--db-path", directory, "show", "turn", "--game", "BETA-001", "--faction", "1",
 		"--show-deposits", "--summarize-resources", "--work-groups",
 	}, &output); err != nil {
 		t.Fatalf("run: %v", err)
@@ -166,7 +166,7 @@ func TestECRptShowTurnByFactionWithOptionalSections(t *testing.T) {
 	for _, want := range []string{
 		"DEPOSITS", "871     1         fuel",
 		"RESOURCE SUMMARY", "FUEL      30", "GOLD      7", "METL      9",
-		"WORK GROUPS", "502     MINE  1         1        1     4",
+		"WORK GROUPS", "100502  MINE  1         1        1     4",
 	} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("output does not contain %q:\n%s", want, output.String())
@@ -178,11 +178,11 @@ func TestECRptShowTurnForAgentFaction(t *testing.T) {
 	directory := createTestDatabase(t)
 	var output bytes.Buffer
 	if err := run(context.Background(), []string{
-		"--db-path", directory, "show", "turn", "--game", "BETA-001", "--faction", "42",
+		"--db-path", directory, "show", "turn", "--game", "BETA-001", "--faction", "2",
 	}, &output); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if want := "BETA-001  3     42       agent:uncontrolled"; !strings.Contains(output.String(), want) {
+	if want := "BETA-001  3     2        agent:uncontrolled"; !strings.Contains(output.String(), want) {
 		t.Errorf("output does not contain %q:\n%s", want, output.String())
 	}
 }
@@ -194,10 +194,10 @@ func TestECRptShowWritesOutputFile(t *testing.T) {
 		args    []string
 		content string
 	}{
-		{name: "orders", args: []string{"orders", "--game", "BETA-001", "--faction", "41"}, content: "ORDERS REPORT"},
+		{name: "orders", args: []string{"orders", "--game", "BETA-001", "--faction", "1"}, content: "ORDERS REPORT"},
 		{name: "stellium", args: []string{"stellium", "79"}, content: "STELLIUM"},
 		{name: "system", args: []string{"system", "88"}, content: "SYSTEM"},
-		{name: "turn", args: []string{"turn", "--game", "BETA-001", "--faction", "41"}, content: "TURN REPORT"},
+		{name: "turn", args: []string{"turn", "--game", "BETA-001", "--faction", "1"}, content: "TURN REPORT"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -230,10 +230,10 @@ func TestRunShowTurnValidatesPlayerSelector(t *testing.T) {
 	}{
 		{name: "missing game", args: []string{"--email", "player@example.com"}, want: "game is required"},
 		{name: "missing selector", args: []string{"--game", "BETA-001"}, want: "exactly one"},
-		{name: "both selectors", args: []string{"--game", "BETA-001", "--email", "player@example.com", "--faction", "41"}, want: "exactly one"},
+		{name: "both selectors", args: []string{"--game", "BETA-001", "--email", "player@example.com", "--faction", "1"}, want: "exactly one"},
 		{name: "bad email", args: []string{"--game", "BETA-001", "--email", "not-an-email"}, want: "invalid email"},
 		{name: "missing player", args: []string{"--game", "BETA-001", "--email", "missing@example.com"}, want: "does not exist"},
-		{name: "faction in other game", args: []string{"--game", "OTHER", "--faction", "41"}, want: "does not exist"},
+		{name: "faction in other game", args: []string{"--game", "OTHER", "--faction", "1"}, want: "does not exist"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -254,10 +254,10 @@ func TestRunShowOrdersValidatesPlayerSelector(t *testing.T) {
 	}{
 		{name: "missing game", args: []string{"--email", "player@example.com"}, want: "game is required"},
 		{name: "missing selector", args: []string{"--game", "BETA-001"}, want: "exactly one"},
-		{name: "both selectors", args: []string{"--game", "BETA-001", "--email", "player@example.com", "--faction", "41"}, want: "exactly one"},
+		{name: "both selectors", args: []string{"--game", "BETA-001", "--email", "player@example.com", "--faction", "1"}, want: "exactly one"},
 		{name: "bad email", args: []string{"--game", "BETA-001", "--email", "not-an-email"}, want: "invalid email"},
 		{name: "missing player", args: []string{"--game", "BETA-001", "--email", "missing@example.com"}, want: "does not exist"},
-		{name: "faction in other game", args: []string{"--game", "OTHER", "--faction", "41"}, want: "does not exist"},
+		{name: "faction in other game", args: []string{"--game", "OTHER", "--faction", "1"}, want: "does not exist"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -284,7 +284,7 @@ func createTestDatabase(t *testing.T) string {
 		INSERT INTO users (id, email, role) VALUES (11, 'player@example.com', 'non-administrator');
 		INSERT INTO game (id, code, turn) VALUES (1, 'BETA-001', 3), (2, 'OTHER', 0);
 		INSERT INTO agent (id, code, description) VALUES (21, 'uncontrolled', 'Uncontrolled faction');
-		INSERT INTO faction (id, game_id, user_id, agent_id) VALUES (41, 1, 11, NULL), (42, 1, NULL, 21);
+		INSERT INTO faction (id, game_id, number, user_id, agent_id) VALUES (41, 1, 1, 11, NULL), (42, 1, 2, NULL, 21);
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES (79, 1, 9, 13, -5);
 		INSERT INTO system (id, stellium_id, sequence) VALUES (88, 79, 'A');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability, faction_id) VALUES (871, 88, 1, 'rocky', 8, 41), (872, 88, 2, 'asteroid', 0, NULL);
@@ -293,9 +293,9 @@ func createTestDatabase(t *testing.T) string {
 			(871, 2, 'metals', 10, 50, 40),
 			(871, 3, 'fuel', 15, 10, 5),
 			(872, 1, 'gold', 5, 20, 15);
-		INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
-			(501, 'SHIP', 2, 79, 88, 871, 64, 41, 100, 200),
-			(502, 'COPN', 1, 79, 88, 871, 0, 41, 300, 400);
+		INSERT INTO entity (id, game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
+			(501, 1, 100501, 'SHIP', 2, 79, 88, 871, 64, 41, 100, 200),
+			(502, 1, 100502, 'COPN', 1, 79, 88, 871, 0, 41, 300, 400);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(501, 'cargo', 'FUEL', 0, 30), (501, 'cargo', 'METL', 0, 9),
 			(502, 'cargo', 'GOLD', 0, 7), (502, 'operational', 'MINE', 1, 4);
@@ -303,10 +303,10 @@ func createTestDatabase(t *testing.T) string {
 		INSERT INTO work_group (id, entity_id, unit, sequence, deposit_id) VALUES (61, 502, 'MINE', 1, 1);
 		INSERT INTO work_group_units (work_group_id, tech_level, quantity) VALUES (61, 1, 4);
 		INSERT INTO game_order (
-			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_id, input, params, fuel_spent
+			game_id, turn, faction_id, sequence, source_line, verb, actor_entity_number, input, params, fuel_spent
 		) VALUES
-			(1, 3, 41, 1, 4, 'move', 501, 'orbit 1', '{"orbit":1}', 4),
-			(1, 3, 41, 2, 3, 'jump', 501, '(9,13,-5)', '{"x":9,"y":13,"z":-5}', 0);
+			(1, 3, 41, 1, 4, 'move', 100501, 'orbit 1', '{"orbit":1}', 4),
+			(1, 3, 41, 2, 3, 'jump', 100501, '(9,13,-5)', '{"x":9,"y":13,"z":-5}', 0);
 	`, nil); err != nil {
 		t.Fatal(err)
 	}

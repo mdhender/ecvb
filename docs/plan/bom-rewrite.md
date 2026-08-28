@@ -112,7 +112,8 @@ half of this note:
    into existence when the order **executes at resolution**, never at submission.
 
 6. **Seniority.** Settled, and more cheaply than I proposed: **the new entity's
-   `id` is the proxy.** It is unique, monotonic, and never reused, so it orders
+   row `id` is the proxy** -- not `entity.number`, which is a permutation and
+   carries no order. A row id is unique, monotonic, and never reused, so it orders
    builds by when they started without storing anything. This drops the
    `started_turn` and `sequence` columns I had proposed, and with them the
    wrinkle that `ec turn open` purges `game_order` and so a foreign key would not

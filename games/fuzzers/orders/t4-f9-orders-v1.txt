@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 4
 id faction 9
-colony 5 assemble 6 SNSR-
-colony 5 assemble 6 SNSR-0
-colony 5 assemble 6 SNSR-11
-colony 5 assemble 6 SNSR-1,
-colony 5 assemble 6 SNSR-1, ,
-colony 5 assemble 6 SNSR-1,,6 STRC-2
-colony 5 assemble 6 SNSR-1 6 STRC-2
-colony 5 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
-colony 5 unassemble 10 STRC-10, 5 STRC-10
-colony 5 transfer 1 GOLD to
-colony 5 transfer 1 GOLD to ship
-colony 5 transfer to ship 6
-colony 5 assemble 6 SNSR-99
-colony 5 assemble 6 snsr!
-ship 2 broadcast system Borbit 8 "hello"
+colony 265054 assemble 6 SNSR-
+colony 265054 assemble 6 SNSR-0
+colony 265054 assemble 6 SNSR-11
+colony 265054 assemble 6 SNSR-1,
+colony 265054 assemble 6 SNSR-1, ,
+colony 265054 assemble 6 SNSR-1,,6 STRC-2
+colony 265054 assemble 6 SNSR-1 6 STRC-2
+colony 265054 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
+colony 265054 unassemble 10 STRC-10, 5 STRC-10
+colony 265054 transfer 1 GOLD to
+colony 265054 transfer 1 GOLD to ship
+colony 265054 transfer to ship 603919
+colony 265054 assemble 6 SNSR-99
+colony 265054 assemble 6 snsr!
+ship 503683 broadcast system Borbit 8 "hello"
 shi. 2 broadcast system B orbit 8 "hello"
-colony 5 assemble 1,000 SNS-1, 500 STRC-2
+colony 265054 assemble 1,000 SNS-1, 500 STRC-2
 co,lony 5 create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKR end
 colony # create ship using 60 STRC-8 transfering 25 FOOD with 5 CWKR end
 colo
-ship 2 move to orbit 6
+ship 503683 move to orbit 6
 uhip 2 broadcast system B orbit 8 "hello"

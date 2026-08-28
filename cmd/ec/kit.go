@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/mdhender/ecvb/internal/units"
+	"github.com/mdhender/ecvb/internal/world"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -297,10 +298,29 @@ func ensureUncontrolledFaction(conn *sqlite.Conn, gameID int64) (int64, error) {
 	if agentID == 0 {
 		return 0, fmt.Errorf("find uncontrolled agent: agent does not exist")
 	}
-	if err := sqlitex.ExecuteTransient(conn, `
-		INSERT OR IGNORE INTO faction (game_id, agent_id)
-		VALUES (?, ?);`, &sqlitex.ExecOptions{Args: []any{gameID, agentID}}); err != nil {
-		return 0, fmt.Errorf("create uncontrolled faction: %w", err)
+	// The number is taken before the insert, and only when the insert will
+	// happen: OR IGNORE means this runs once per game, and a counter bumped for
+	// a row that was ignored would leave a gap in the game's faction numbers.
+	var existing int64
+	if err := sqlitex.ExecuteTransient(conn, "SELECT count(*) FROM faction WHERE game_id = ? AND agent_id = ?;", &sqlitex.ExecOptions{
+		Args: []any{gameID, agentID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			existing = stmt.ColumnInt64(0)
+			return nil
+		},
+	}); err != nil {
+		return 0, fmt.Errorf("find uncontrolled faction: %w", err)
+	}
+	if existing == 0 {
+		number, err := world.NextFactionNumber(conn, gameID)
+		if err != nil {
+			return 0, err
+		}
+		if err := sqlitex.ExecuteTransient(conn, `
+			INSERT INTO faction (game_id, number, agent_id)
+			VALUES (?, ?, ?);`, &sqlitex.ExecOptions{Args: []any{gameID, number, agentID}}); err != nil {
+			return 0, fmt.Errorf("create uncontrolled faction: %w", err)
+		}
 	}
 	var factionID int64
 	if err := sqlitex.ExecuteTransient(conn, "SELECT id FROM faction WHERE game_id = ? AND agent_id = ?;", &sqlitex.ExecOptions{
@@ -318,7 +338,7 @@ func ensureUncontrolledFaction(conn *sqlite.Conn, gameID int64) (int64, error) {
 	return factionID, nil
 }
 
-func insertKit(conn *sqlite.Conn, kit preparedKit, home homeCandidate, playerFactionID, uncontrolledFactionID int64) error {
+func insertKit(conn *sqlite.Conn, kit preparedKit, home homeCandidate, gameID, playerFactionID, uncontrolledFactionID int64) error {
 	for _, entity := range kit.entities {
 		factionID := playerFactionID
 		if !entity.controlled {
@@ -331,12 +351,19 @@ func insertKit(conn *sqlite.Conn, kit preparedKit, home homeCandidate, playerFac
 		case "SHIP":
 			planetRing = 64
 		}
+		// The kit's own string ids name the entities to each other while the
+		// kit is being read; what the player will call them is the game's
+		// number, taken here, and the two never meet.
+		number, err := world.NextEntityNumber(conn, gameID)
+		if err != nil {
+			return err
+		}
 		if err := sqlitex.ExecuteTransient(conn, `
 			INSERT INTO entity (
-				unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
+				game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
 				faction_id, enclosed_volume, mass
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{Args: []any{
-			entity.kind, entity.techLevel, home.stelliumID, home.systemID, home.planetID,
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{Args: []any{
+			gameID, number, entity.kind, entity.techLevel, home.stelliumID, home.systemID, home.planetID,
 			planetRing, factionID, entity.enclosedVolume, entity.mass,
 		}}); err != nil {
 			return fmt.Errorf("insert %s entity %q: %w", entity.kind, entity.seedID, err)

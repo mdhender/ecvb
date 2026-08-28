@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 0
 id faction 10
 
-colony 33 create farm-group with 5 FARM-1
+colony 450174 create farm-group with 5 FARM-1

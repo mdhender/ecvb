@@ -29,17 +29,22 @@ const (
 // number is a position in the phase table, so every reordering of a turn
 // silently redrew every ring in every game.
 //
+// The faction and the ship are named by the numbers the game gave them, never
+// by their row ids. That is the same rule read once more: a row id is drawn
+// from a sequence shared with every other game in the database, so addressing
+// a draw by one would weld this game's rings to what some other game wrote.
+//
 // The turn is in the address because a ship ordered to the planet it is
 // already at draws a fresh ring, which is the one way to change a ring without
 // going anywhere. The faction and the ship are in it because two ships may
 // settle at one planet in one turn.
-func (w *World) DrawRing(at Location, turn int, factionID, entityID int64) (int, error) {
+func (w *World) DrawRing(at Location, turn int, ship *Entity) (int, error) {
 	if at.PlanetID == 0 {
-		return 0, fmt.Errorf("draw a ring for entity %d: it is not at a planet", entityID)
+		return 0, fmt.Errorf("draw a ring for entity %d: it is not at a planet", ship.Number)
 	}
 	point, ok := w.stellia[at.StelliumID]
 	if !ok {
-		return 0, fmt.Errorf("draw a ring for entity %d: stellium %d is not in this game", entityID, at.StelliumID)
+		return 0, fmt.Errorf("draw a ring for entity %d: stellium %d is not in this game", ship.Number, at.StelliumID)
 	}
 	sequence, orbit, err := w.planetAddress(at.PlanetID)
 	if err != nil {
@@ -48,7 +53,7 @@ func (w *World) DrawRing(at Location, turn int, factionID, entityID int64) (int,
 	roller := w.game.Seed.Roller(prng.TagRing,
 		prng.Key(point.X), prng.Key(point.Y), prng.Key(point.Z),
 		prng.Key(sequence), prng.Key(orbit),
-		prng.Key(turn), prng.Key(factionID), prng.Key(entityID))
+		prng.Key(turn), prng.Key(ship.FactionNumber), prng.Key(ship.Number))
 	return roller.RollRange(MinShipRing, MaxShipRing), nil
 }
 

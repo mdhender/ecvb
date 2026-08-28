@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 1
 id faction 8
 
-ship 28 transfer 90 GOLD to colony 25
+ship 637610 transfer 90 GOLD to colony 867793

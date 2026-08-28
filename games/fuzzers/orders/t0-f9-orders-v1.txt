@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 0
 id faction 9
-colony 5 assemble 6 SNSR-99
-colony 5 assemble 6 snsr!
-colony 5 assemble 6 
-colony 5 assemble 6 -
-colony 5 assemble 6 -1
-colony 5 assemble 6 SNSR-
-colony 5 assemble 6 SNSR-0
-colony 5 assemble 6 SNSR-11
-colony 5 assemble 6 SNSR-1,
-colony 5 assemble 6 SNSR-1, ,
-colony 5 assemble 6 SNSR-1,,6 STRC-2
-colony 5 assemble 6 SNSR-1 6 STRC-2
-colony 5 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
-colony 5 unassemble 10 STRC-10, 5 STRC-10
-colony 5 pay USK 15%,
-colony 5 sell 100
+colony 265054 assemble 6 SNSR-99
+colony 265054 assemble 6 snsr!
+colony 265054 assemble 6 
+colony 265054 assemble 6 -
+colony 265054 assemble 6 -1
+colony 265054 assemble 6 SNSR-
+colony 265054 assemble 6 SNSR-0
+colony 265054 assemble 6 SNSR-11
+colony 265054 assemble 6 SNSR-1,
+colony 265054 assemble 6 SNSR-1, ,
+colony 265054 assemble 6 SNSR-1,,6 STRC-2
+colony 265054 assemble 6 SNSR-1 6 STRC-2
+colony 265054 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
+colony 265054 unassemble 10 STRC-10, 5 STRC-10
+colony 265054 pay USK 15%,
+colony 265054 sell 100
 w name (1,2,3) system A orbit 8 "x"
 e name (1,2,3) system A orbit 8 "x"
 shmp 2 jump to (1,2,3)
 colonyi 5 assemble 1,000 SNSR-1, 500 STRC-2
-colony 5 pay US
-colony 5 sel1l 100 FOOD 1,000.50 GOLD 75%
+colony 265054 pay US
+colony 265054 sel1l 100 FOOD 1,000.50 GOLD 75%

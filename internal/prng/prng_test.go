@@ -108,6 +108,11 @@ func goldenInputs() golden {
 		// ship, which is the collision the entity id is there to prevent.
 		{prng.TagRing, 3, -7, 12, 1, 5, 4, 1, 100},
 		{prng.TagRing, 3, -7, 12, 1, 5, 4, 1, 101},
+		// The round function of the entity-number permutation, addressed by
+		// (round, half). Two rounds over one half must differ, or the Feistel
+		// degenerates.
+		{prng.TagEntityNumber, 0, 517},
+		{prng.TagEntityNumber, 1, 517},
 	}
 	derivePaths := [][]prng.Key{
 		{prng.TagCluster},

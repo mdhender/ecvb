@@ -7,8 +7,8 @@ Every order names its subject first and then what the subject is being told to
 do:
 
 ```text
-ship 18 jump to (-1,2,3)
-colony 24 probe orbit 5
+ship 482137 jump to (-1,2,3)
+colony 719042 probe orbit 5
 we name (-1,2,3) "Stellium Joe"
 ```
 
@@ -55,7 +55,7 @@ because a quantity is always followed by a unit code and never by another
 quantity:
 
 ```text
-ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+ship 482137 transfer 4,500 GOLD, 18,000 FOOD to colony 719042
 ```
 
 A unit code is a code on its own, such as `GOLD`, or a code and a technology
@@ -101,13 +101,13 @@ line or follow an order:
 
 ```text
 # scout the neighbouring system
-ship 2 probe system B orbit 4    # before anything moves
+ship 240118 probe system B orbit 4    # before anything moves
 ```
 
 **Quoted text is closed on the line it opens.** A game code, an email address,
 a name, and a broadcast's message and signature are all quoted, and a quote
 with no closing `"` is refused where it is written rather than read to the end
-of the line -- otherwise `ship 18 name "Jalopy` would quietly name the ship and
+of the line -- otherwise `ship 482137 name "Jalopy` would quietly name the ship and
 say nothing about the missing quote.
 
 Keywords and system letters are case-insensitive. Game codes are matched
@@ -127,7 +127,7 @@ ship SHIP-ID jump to (X,Y,Z)
 Example:
 
 ```text
-ship 2 jump to (6,-9,8)
+ship 240118 jump to (6,-9,8)
 ```
 
 The ship must belong to the submitting faction. The coordinates must identify a
@@ -139,8 +139,8 @@ under its own power, with a `MOVE`.
 it out first, in the same file, with `ship SHIP-ID move to orbit 11`.
 
 ```text
-ship 2 move to orbit 11
-ship 2 jump to (6,-9,8)
+ship 240118 move to orbit 11
+ship 240118 jump to (6,-9,8)
 ```
 
 Every `MOVE` resolves before any `JUMP`, so those two lines work in either
@@ -206,7 +206,7 @@ ship SHIP-ID move to orbit ORBIT
 Example:
 
 ```text
-ship 2 move to orbit 6
+ship 240118 move to orbit 6
 ```
 
 The ship must currently have a system, and that system must contain a planet in
@@ -221,7 +221,7 @@ ship SHIP-ID move to system SYSTEM orbit ORBIT
 Example:
 
 ```text
-ship 2 move to system B orbit 4
+ship 240118 move to system B orbit 4
 ```
 
 The named system must exist in the ship's current stellium and must contain a
@@ -234,13 +234,13 @@ order, so re-resolving a turn puts the ship in the same ring.
 Return to the stellium orbit:
 
 ```text
-ship 2 move to orbit 11
+ship 240118 move to orbit 11
 ```
 
 Orbit 11 does not exist. It is a fiction that gives `MOVE` a way to say "leave
 the planets", and it is the only orbit that is not a place: no planet occupies
 it, and a probe cannot read it. Because the stellium orbit belongs to no
-system, `ship 2 move to system A orbit 11` is an error. The ship ends the move
+system, `ship 240118 move to system A orbit 11` is an error. The ship ends the move
 orbiting the stellium with no system, planet, or ring, which is where a jump
 also leaves it -- and where a jump has to begin.
 
@@ -283,7 +283,7 @@ A ship that cannot pay for an order does not stop the submission. `orders
 check` and `orders submit` accept the file and warn:
 
 ```text
-warning: line 5: ship 2 needs 960 FUEL to jump and holds 144; the order is kept in case that changes before the turn resolves
+warning: line 5: ship 240118 needs 960 FUEL to jump and holds 144; the order is kept in case that changes before the turn resolves
 ```
 
 The warning comes from running the turn: each order is executed in resolution
@@ -312,20 +312,20 @@ orders.
 Example:
 
 ```text
-ship 2 probe orbit 6
+ship 240118 probe orbit 6
 ```
 
 One order may name several orbits, and spends one probe on each:
 
 ```text
-ship 2 probe orbit 1 2 3 4 5 8 9 10
+ship 240118 probe orbit 1 2 3 4 5 8 9 10
 ```
 
 A probe may also name a system of the ship's current stellium:
 
 ```text
-ship 4 probe system A orbit 1
-ship 4 probe system A orbit 1 2 3
+ship 403556 probe system A orbit 1
+ship 403556 probe system A orbit 1 2 3
 ```
 
 A probe that names no system reads the system the entity is in, which is why a
@@ -367,8 +367,8 @@ we name (X,Y,Z) system SYSTEM orbit ORBIT "NAME"
 Examples:
 
 ```text
-ship 18 name "Jalopy"
-colony 24 name "Jingo"
+ship 482137 name "Jalopy"
+colony 719042 name "Jingo"
 we name (-1,2,3) "Stellium Joe"
 we name (-1,2,3) system A "Alpha Sur"
 we name (-1,2,3) system A orbit 8 "Headly's Gate"
@@ -390,7 +390,7 @@ encounter yet.
 
 ```text
 we name faction 5 "The Hegemony"
-we name player 5 ship 19 "Easy Target"
+we name player 5 ship 193864 "Easy Target"
 ```
 
 A name is yours. Naming your ship does not change what anybody else's report
@@ -431,7 +431,7 @@ by `end`. Line breaks and spacing inside it mean nothing.
 Examples:
 
 ```text
-ship 18 create ship
+ship 482137 create ship
   using 60 STRC-8,
         61 HDRV-1, 5 SDRV-1
         , 5 LFSU-3, 1 SNSR-1
@@ -439,7 +439,7 @@ ship 18 create ship
   with 500 CWKR
 end
 
-colony 24 create orbital colony as trade-station
+colony 719042 create orbital colony as trade-station
   using 200 STRC-4, 20 LFSU-2
   transfering 40 USK
   with 100 CWKR
@@ -605,9 +605,9 @@ ship.
 Examples:
 
 ```text
-colony 24 create factory-group with 54,000 FACT-6 making CNGD
-ship 18 create farm-group with 1,234,000 FARM-6
-colony 83 create mine-group with 25,680 MINE-2 working deposit 18
+colony 719042 create factory-group with 54,000 FACT-6 making CNGD
+ship 482137 create farm-group with 1,234,000 FARM-6
+colony 831470 create mine-group with 25,680 MINE-2 working deposit 18
 ```
 
 ## UNASSEMBLE
@@ -625,8 +625,8 @@ inventory. It is lossless: what comes apart is what went together.
 Examples:
 
 ```text
-ship 18 unassemble 1,000 SNSR-1
-colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
+ship 482137 unassemble 1,000 SNSR-1
+colony 719042 unassemble and stow 60 STRL-1, 5 LFSU-1
 ```
 
 `and stow` puts the units down in cargo instead, which is what a `TRANSFER`
@@ -658,8 +658,8 @@ a transport picks a load up: units must be in **cargo** to be transferred, so a
 Examples:
 
 ```text
-ship 18 stow 18,000 FOOD, 800 HDRV-1
-colony 24 stow 12,000 METL
+ship 482137 stow 18,000 FOOD, 800 HDRV-1
+colony 719042 stow 12,000 METL
 ```
 
 It neither takes a unit apart nor puts one together, so it reaches things an
@@ -698,8 +698,8 @@ what a transfer set down for the market.
 Examples:
 
 ```text
-colony 24 unstow 800 HDRV-1, 18,000 FOOD
-colony 24 unstow 9,000 METL
+colony 719042 unstow 800 HDRV-1, 18,000 FOOD
+colony 719042 unstow 9,000 METL
 ```
 
 It reaches the same things a `STOW` does and refuses the same two, and it is
@@ -751,8 +751,8 @@ sending entity's transports do the carrying and it pays their fuel.
 Examples:
 
 ```text
-ship 18 transfer 500 SOL to colony 24
-ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+ship 482137 transfer 500 SOL to colony 719042
+ship 482137 transfer 4,500 GOLD, 18,000 FOOD to colony 719042
 ```
 
 The recipient must be one of your own entities or an uncontrolled one, and the
@@ -799,8 +799,8 @@ stage 10 of the same turn.
 Examples:
 
 ```text
-ship 18 assemble 6,000 SNSR-1
-colony 24 assemble 5 LFSU-1, 60 STRL-1
+ship 482137 assemble 6,000 SNSR-1
+colony 719042 assemble 5 LFSU-1, 60 STRL-1
 ```
 
 Nothing in the order says where a unit goes; the unit code does. `HDRV`,
@@ -882,7 +882,7 @@ than a count of anything.
 Examples:
 
 ```text
-colony 24 attack ship 18 75%
+colony 719042 attack ship 482137 75%
 ```
 
 ## INVADE
@@ -900,7 +900,7 @@ rather than to destroying it.
 Examples:
 
 ```text
-colony 24 invade ship 18 55%
+colony 719042 invade ship 482137 55%
 ```
 
 ## RAID
@@ -919,7 +919,7 @@ list.
 Examples:
 
 ```text
-ship 18 raid colony 24 seeking GOLD, FUEL 22%
+ship 482137 raid colony 719042 seeking GOLD, FUEL 22%
 ```
 
 ## SUPPORT
@@ -936,16 +936,16 @@ colony COLONY-ID support (ship | colony) ID defending [against (ship | colony) I
 Support commits a share of the entity to somebody else's battle, on one side or
 the other. Naming the other side is optional either way: support given without
 one is given against whoever turns up. The defending form says `against` first,
-because otherwise `defending ship 33` would read as defending that ship rather
+because otherwise `defending ship 336205` would read as defending that ship rather
 than defending from it.
 
 Examples:
 
 ```text
-ship 18 support ship 97 attacking 35%
-ship 18 support ship 97 attacking colony 24 35%
-ship 18 support colony 14 defending 40%
-ship 18 support colony 14 defending against ship 33 45%
+ship 482137 support ship 972641 attacking 35%
+ship 482137 support ship 972641 attacking colony 719042 35%
+ship 482137 support colony 147330 defending 40%
+ship 482137 support colony 147330 defending against ship 336205 45%
 ```
 
 ## RETOOL
@@ -965,8 +965,8 @@ retooling turn now. Either way production resumes a turn later.
 Examples:
 
 ```text
-colony 24 retool factory-group 3 making CNGD
-colony 24 retool immediately factory-group 3 making FOOD
+colony 719042 retool factory-group 3 making CNGD
+colony 719042 retool immediately factory-group 3 making FOOD
 ```
 
 ## IDLE
@@ -984,7 +984,7 @@ working until the work in progress drains out of them.
 Examples:
 
 ```text
-colony 24 idle 5,000 FACT-6 in factory-group 3
+colony 719042 idle 5,000 FACT-6 in factory-group 3
 ```
 
 ## REMOVE
@@ -1003,8 +1003,8 @@ what it can of the work in progress.
 Examples:
 
 ```text
-colony 24 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow
-colony 24 remove 40,000 FARM-3 from farm-group 1
+colony 719042 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow
+colony 719042 remove 40,000 FARM-3 from farm-group 1
 ```
 
 ## ADD
@@ -1023,7 +1023,7 @@ workers.
 Examples:
 
 ```text
-colony 24 add 63 FACT-9 to factory-group 3
+colony 719042 add 63 FACT-9 to factory-group 3
 ```
 
 ## ACTIVATE
@@ -1041,7 +1041,7 @@ resumes at once.
 Examples:
 
 ```text
-colony 24 activate 5,000 FACT-6 in factory-group 3
+colony 719042 activate 5,000 FACT-6 in factory-group 3
 ```
 
 ## SELL
@@ -1069,8 +1069,8 @@ by quantity.
 Examples:
 
 ```text
-ship 18 sell 4,500 GOLD 1.0 CNGD
-colony 24 sell tech-level TL-4 800,000 GOLD 5%
+ship 482137 sell 4,500 GOLD 1.0 CNGD
+colony 719042 sell tech-level TL-4 800,000 GOLD 5%
 ```
 
 ## BUY
@@ -1093,8 +1093,8 @@ taken, and pays the extra themselves.
 Examples:
 
 ```text
-ship 18 buy 100 FOOD 3 CNGD
-ship 18 buy tech-level TL-6 1,000,000 GOLD
+ship 482137 buy 100 FOOD 3 CNGD
+ship 482137 buy tech-level TL-6 1,000,000 GOLD
 ```
 
 ## SURVEY
@@ -1112,7 +1112,7 @@ the entity stood when the turn began, because movement is later.
 Examples:
 
 ```text
-ship 18 survey
+ship 482137 survey
 ```
 
 ## ASSESS
@@ -1129,7 +1129,7 @@ Spends spies reading how rebellious a place is.
 Examples:
 
 ```text
-colony 24 assess rebels using 1 spies
+colony 719042 assess rebels using 1 spies
 ```
 
 ## DETECT
@@ -1146,7 +1146,7 @@ Spends spies finding another faction's spies.
 Examples:
 
 ```text
-colony 24 detect spies using 4 spies
+colony 719042 detect spies using 4 spies
 ```
 
 ## OBTAIN
@@ -1163,7 +1163,7 @@ Spends spies reading another entity.
 Examples:
 
 ```text
-colony 24 obtain information from ship 18 using 200 spies
+colony 719042 obtain information from ship 482137 using 200 spies
 ```
 
 ## CONVERT
@@ -1180,7 +1180,7 @@ Spends spies turning rebels back.
 Examples:
 
 ```text
-colony 24 convert rebels using 3 spies
+colony 719042 convert rebels using 3 spies
 ```
 
 ## INCITE
@@ -1197,7 +1197,7 @@ Spends spies raising rebels somewhere.
 Examples:
 
 ```text
-colony 24 incite rebels using 21 spies
+colony 719042 incite rebels using 21 spies
 ```
 
 ## NEUTRALIZE
@@ -1216,7 +1216,7 @@ spies rather than committing a share of an entity to a battle -- and it is named
 Examples:
 
 ```text
-colony 24 neutralize faction 1 spies using 11 spies
+colony 719042 neutralize faction 1 spies using 11 spies
 ```
 
 ## DRAFT
@@ -1241,8 +1241,8 @@ assigns population rather than converting it: one `CWKR` is one `SKW` plus one
 Examples:
 
 ```text
-ship 18 draft 4,250 CWKR
-colony 24 draft 200 SOL, 1,000 CWKR
+ship 482137 draft 4,250 CWKR
+colony 719042 draft 200 SOL, 1,000 CWKR
 ```
 
 ## DISBAND
@@ -1261,8 +1261,8 @@ draft took them from. Disbanding a cadre returns its population unchanged.
 Examples:
 
 ```text
-ship 18 disband 13 SOL
-ship 18 disband 1,000 CWKR
+ship 482137 disband 13 SOL
+ship 482137 disband 1,000 CWKR
 ```
 
 ## PAY
@@ -1280,8 +1280,8 @@ is no ceiling: a faction may overpay.
 Examples:
 
 ```text
-ship 18 pay USK 120%
-colony 24 pay SKW 15%, USK 18%
+ship 482137 pay USK 120%
+colony 719042 pay SKW 15%, USK 18%
 ```
 
 ## RATIONS
@@ -1299,8 +1299,8 @@ ceiling here either.
 Examples:
 
 ```text
-ship 18 rations 75%
-colony 24 rations 130%
+ship 482137 rations 75%
+colony 719042 rations 130%
 ```
 
 ## RELEASE
@@ -1318,7 +1318,7 @@ entity at the place: a faction may release a planet whose garrison is gone.
 Examples:
 
 ```text
-we release ship 18
+we release ship 482137
 we release (-1,2,3) system A orbit 5
 ```
 
@@ -1379,8 +1379,8 @@ movement, so a ship that arrives this turn can take control of what it finds.
 Examples:
 
 ```text
-ship 18 control colony 24
-colony 8 control system A orbit 5
+ship 482137 control colony 719042
+colony 815902 control system A orbit 5
 ```
 
 ## BROADCAST
@@ -1398,7 +1398,7 @@ optional: a broadcast may be anonymous.
 Examples:
 
 ```text
-ship 18 broadcast system B orbit 8 "message" "optional signature"
+ship 482137 broadcast system B orbit 8 "message" "optional signature"
 ```
 
 ## Checking and submitting

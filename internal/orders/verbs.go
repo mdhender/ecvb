@@ -127,7 +127,7 @@ func init() {
 				// recorded yet -- so those two forms parse and do not yet act.
 				if as, ok := p.keyword("player", "faction"); ok {
 					other := &FactionRef{As: as}
-					if other.ID, err = p.entityID("faction"); err != nil {
+					if other.ID, err = p.factionID(); err != nil {
 						return nil, err
 					}
 					if word, ok := p.peek(); ok && !word.quoted &&
@@ -459,6 +459,8 @@ func init() {
 // MoveParams is a MOVE as written: a ship and an orbit, which a system of the
 // ship's own stellium may qualify.
 type MoveParams struct {
+	// ShipID is the ship's number, which is what the player wrote and what the
+	// order is stored under; the row id never reaches a Params.
 	ShipID int64  `json:"-"`
 	System string `json:"system,omitempty"`
 	Orbit  int    `json:"orbit"`
@@ -510,11 +512,11 @@ func (p MoveParams) Bind(b *Binder) ([]Bound, error) {
 		order.systemID, order.planetID = systemID, planet.ID
 	}
 	if !ship.Drive.Installed() {
-		return nil, fmt.Errorf("ship %d has no assembled %s and cannot move", ship.ID, jumpdrive.Unit)
+		return nil, fmt.Errorf("ship %d has no assembled %s and cannot move", ship.Number, jumpdrive.Unit)
 	}
 	if !ship.Drive.CanPropel(ship.Mass) {
 		return nil, fmt.Errorf("ship %d masses %d MU and its drive propels %d MU",
-			ship.ID, ship.Mass, ship.Drive.Capacity)
+			ship.Number, ship.Mass, ship.Drive.Capacity)
 	}
 	order.kind = jumpdrive.KindOfMove(ship.Location.SystemID, order.systemID)
 	order.cost = ship.Drive.FuelForMove(order.kind)
@@ -540,7 +542,7 @@ type moveBound struct {
 // Params is the move as it will be stored: the orbit asked for, and the system
 // only if the player named one.
 func (o *moveBound) Params() Params {
-	return MoveParams{ShipID: o.ship.ID, System: o.system, Orbit: o.orbit}
+	return MoveParams{ShipID: o.ship.Number, System: o.system, Orbit: o.orbit}
 }
 
 func (o *moveBound) Fuel() int64 { return o.cost }
@@ -563,7 +565,7 @@ func (o *moveBound) Apply(t *Turn) (Outcome, error) {
 	// ordered to the stellium orbit has no ring at all.
 	final := world.Location{StelliumID: o.stelliumID, SystemID: o.systemID, PlanetID: o.planetID}
 	if o.systemID != 0 {
-		ring, err := t.World.DrawRing(final, t.Number, t.FactionID, o.ship.ID)
+		ring, err := t.World.DrawRing(final, t.Number, o.ship)
 		if err != nil {
 			return Outcome{}, err
 		}
@@ -621,14 +623,14 @@ func (p JumpParams) Bind(b *Binder) ([]Bound, error) {
 	}
 	if ship.Location.SystemID != 0 {
 		return nil, fmt.Errorf("ship %d is at a planet and a jump begins from the stellium orbit; move it to orbit %d first",
-			ship.ID, StelliumOrbit)
+			ship.Number, StelliumOrbit)
 	}
 	if !ship.Drive.Installed() {
-		return nil, fmt.Errorf("ship %d has no assembled %s and cannot jump", ship.ID, jumpdrive.Unit)
+		return nil, fmt.Errorf("ship %d has no assembled %s and cannot jump", ship.Number, jumpdrive.Unit)
 	}
 	if !ship.Drive.CanPropel(ship.Mass) {
 		return nil, fmt.Errorf("ship %d masses %d MU and its jump drive propels %d MU",
-			ship.ID, ship.Mass, ship.Drive.Capacity)
+			ship.Number, ship.Mass, ship.Drive.Capacity)
 	}
 	from := b.World.Coordinates(ship.Location.StelliumID)
 	lightYears := jumpdrive.Distance(from.X, from.Y, from.Z, p.X, p.Y, p.Z)
@@ -652,7 +654,7 @@ type jumpBound struct {
 
 // Params is the jump as it will be stored: the point it is bound for.
 func (o *jumpBound) Params() Params {
-	return JumpParams{ShipID: o.ship.ID, X: o.x, Y: o.y, Z: o.z}
+	return JumpParams{ShipID: o.ship.Number, X: o.x, Y: o.y, Z: o.z}
 }
 
 func (o *jumpBound) Fuel() int64 { return o.cost }
@@ -718,7 +720,7 @@ func (p ProbeParams) Bind(b *Binder) ([]Bound, error) {
 		return nil, err
 	}
 	if !entity.Sensors.Installed() {
-		return nil, fmt.Errorf("%s %d has no assembled %s and cannot probe", noun(entity), entity.ID, sensors.Unit)
+		return nil, fmt.Errorf("%s %d has no assembled %s and cannot probe", noun(entity), entity.Number, sensors.Unit)
 	}
 	// A probe that names a system reads any system of the entity's stellium. A
 	// probe that does not reads the system the entity is in, which is why an
@@ -728,14 +730,14 @@ func (p ProbeParams) Bind(b *Binder) ([]Bound, error) {
 		return nil, err
 	}
 	if systemID == 0 {
-		return nil, fmt.Errorf("%s %d is orbiting the stellium; name a system to probe", noun(entity), entity.ID)
+		return nil, fmt.Errorf("%s %d is orbiting the stellium; name a system to probe", noun(entity), entity.Number)
 	}
 	var bounds []Bound
 	var found bindErrors
 	for _, orbit := range p.Orbits {
 		if b.World.ProbesSpent(entity.ID) >= entity.Sensors.Probes {
 			found = append(found, fmt.Errorf("%s %d has only %d probes this turn",
-				noun(entity), entity.ID, entity.Sensors.Probes))
+				noun(entity), entity.Number, entity.Sensors.Probes))
 			break
 		}
 		if orbit < 1 || orbit > 10 {
@@ -770,7 +772,7 @@ type probeBound struct {
 
 // Params is one probe of one orbit, which is what a stored probe order is.
 func (o *probeBound) Params() Params {
-	return ProbeParams{EntityID: o.entity.ID, System: o.system, Orbits: []int{o.orbit}}
+	return ProbeParams{EntityID: o.entity.Number, System: o.system, Orbits: []int{o.orbit}}
 }
 
 // Fuel is nothing: a probe is launched, not flown.
@@ -960,7 +962,7 @@ func (o *nameBound) Apply(t *Turn) (Outcome, error) {
 	// A name moves nothing, so the order happened wherever its actor stands; a
 	// place has no actor and no location at all.
 	at := world.Location{}
-	if entity := t.World.Entity(o.params.Entity); entity != nil {
+	if entity := t.World.EntityByNumber(o.params.Entity); entity != nil {
 		at = entity.Location
 	}
 	return succeeded(at, at, 0), nil
@@ -1340,7 +1342,7 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 	}
 	if occupied > usable {
 		return failed(at, fmt.Sprintf("%s %d would hold %s VU in %s VU of enclosed space",
-			noun(o.entity), o.entity.ID, formatQuantity(occupied), formatQuantity(usable))), nil
+			noun(o.entity), o.entity.Number, formatQuantity(occupied), formatQuantity(usable))), nil
 	}
 	if err := t.World.ShiftAll(o.entity, shifts); err != nil {
 		return Outcome{}, err
@@ -1353,7 +1355,7 @@ func (o *workBound) Apply(t *Turn) (Outcome, error) {
 			reason = o.rate(o.entity, allowed)
 		}
 		item.Note = fmt.Sprintf("%s %d %s %s; %s",
-			noun(o.entity), o.entity.ID, o.verb, strings.Join(short, ", "), reason)
+			noun(o.entity), o.entity.Number, o.verb, strings.Join(short, ", "), reason)
 	}
 	return item, nil
 }
@@ -1397,7 +1399,7 @@ func (p TransferParams) Bind(b *Binder) ([]Bound, error) {
 		return nil, err
 	}
 	if recipient.ID == entity.ID {
-		return nil, fmt.Errorf("%s %d cannot transfer to itself", noun(entity), entity.ID)
+		return nil, fmt.Errorf("%s %d cannot transfer to itself", noun(entity), entity.Number)
 	}
 	var found bindErrors
 	seen := make(map[string]bool, len(p.Units))
@@ -1476,7 +1478,7 @@ func (o *transferBound) Apply(t *Turn) (Outcome, error) {
 	at := o.entity.Location
 	if !sameBerth(o.entity.Location, o.recipient.Location) {
 		return failed(at, fmt.Sprintf("%s %d and %s %d are not at the same place",
-			noun(o.entity), o.entity.ID, noun(o.recipient), o.recipient.ID)), nil
+			noun(o.entity), o.entity.Number, noun(o.recipient), o.recipient.Number)), nil
 	}
 	free := t.World.TransportsFree(o.entity)
 	capacity := transport.Capacity(free)
@@ -1537,7 +1539,7 @@ func (o *transferBound) Apply(t *Turn) (Outcome, error) {
 	item := succeeded(at, at, cost)
 	if len(short) != 0 {
 		item.Note = fmt.Sprintf("%s %d transferred %s; %s",
-			noun(o.entity), o.entity.ID, strings.Join(short, ", "), o.shortfall(free))
+			noun(o.entity), o.entity.Number, strings.Join(short, ", "), o.shortfall(free))
 	}
 	return item, nil
 }
@@ -1651,7 +1653,7 @@ func (p CreateParams) Bind(b *Binder) ([]Bound, error) {
 		// there.
 		if entity.Location.SystemID == 0 {
 			found = append(found, fmt.Errorf("a colony is created at a planet, and %s %d is in the stellium orbit",
-				noun(entity), entity.ID))
+				noun(entity), entity.Number))
 		} else if kind == "COPN" {
 			planet, exists, err := b.World.PlanetByID(entity.Location.PlanetID)
 			if err != nil {

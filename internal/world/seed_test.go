@@ -28,8 +28,8 @@ func TestRingsAreAddressedAndRepeat(t *testing.T) {
 
 	// The same ship settling at the same planet on the same turn reaches the
 	// same ring however the turn is resolved.
-	first := drawRing(t, loaded, at, 3, 1, 40)
-	if again := drawRing(t, loaded, at, 3, 1, 40); again != first {
+	first := drawRing(t, loaded, at, 3, 1, 100040)
+	if again := drawRing(t, loaded, at, 3, 1, 100040); again != first {
 		t.Errorf("ring = %d then %d; want the draw to repeat", first, again)
 	}
 
@@ -38,11 +38,11 @@ func TestRingsAreAddressedAndRepeat(t *testing.T) {
 	// is what makes a hop to the planet a ship is already at draw a fresh ring
 	// -- two factions, and the same orbit of a different system.
 	differs := map[string]int{
-		"another ship":    drawRing(t, loaded, at, 3, 1, 41),
-		"a later turn":    drawRing(t, loaded, at, 4, 1, 40),
-		"another orbit":   drawRing(t, loaded, Location{StelliumID: 10, SystemID: 20, PlanetID: 31}, 3, 1, 40),
-		"another system":  drawRing(t, loaded, Location{StelliumID: 10, SystemID: 21, PlanetID: 32}, 3, 1, 40),
-		"another faction": drawRing(t, loaded, at, 3, 2, 40),
+		"another ship":    drawRing(t, loaded, at, 3, 1, 100041),
+		"a later turn":    drawRing(t, loaded, at, 4, 1, 100040),
+		"another orbit":   drawRing(t, loaded, Location{StelliumID: 10, SystemID: 20, PlanetID: 31}, 3, 1, 100040),
+		"another system":  drawRing(t, loaded, Location{StelliumID: 10, SystemID: 21, PlanetID: 32}, 3, 1, 100040),
+		"another faction": drawRing(t, loaded, at, 3, 2, 100040),
 	}
 	for what, ring := range differs {
 		if ring == first {
@@ -54,8 +54,8 @@ func TestRingsAreAddressedAndRepeat(t *testing.T) {
 	// cluster: 400 ships at one planet spread across the range rather than
 	// bunching, which a poorly mixed address would produce.
 	seen := make(map[int]bool)
-	for entityID := int64(1); entityID <= 400; entityID++ {
-		ring := drawRing(t, loaded, at, 3, 1, entityID)
+	for entityNumber := int64(100_000); entityNumber < 100_400; entityNumber++ {
+		ring := drawRing(t, loaded, at, 3, 1, entityNumber)
 		if ring < MinShipRing || ring > MaxShipRing {
 			t.Fatalf("ring = %d; want it between %d and %d", ring, MinShipRing, MaxShipRing)
 		}
@@ -70,14 +70,16 @@ func TestRingsAreAddressedAndRepeat(t *testing.T) {
 // rather than a number.
 func TestRingsAreOnlyDrawnAtAPlanet(t *testing.T) {
 	loaded := loadWorld(t, openInventoryTestDatabase(t))
-	if _, err := loaded.DrawRing(Location{StelliumID: 10}, 3, 1, 40); err == nil {
+	if _, err := loaded.DrawRing(Location{StelliumID: 10}, 3, &Entity{Number: 100040, FactionNumber: 1}); err == nil {
 		t.Error("drawing a ring in the stellium orbit succeeded; want an error")
 	}
 }
 
-func drawRing(t *testing.T, w *World, at Location, turn int, factionID, entityID int64) int {
+// drawRing draws for a ship named only by the two numbers the address uses, so
+// a test can vary either without a row behind it.
+func drawRing(t *testing.T, w *World, at Location, turn int, factionNumber, entityNumber int64) int {
 	t.Helper()
-	ring, err := w.DrawRing(at, turn, factionID, entityID)
+	ring, err := w.DrawRing(at, turn, &Entity{Number: entityNumber, FactionNumber: factionNumber})
 	if err != nil {
 		t.Fatal(err)
 	}

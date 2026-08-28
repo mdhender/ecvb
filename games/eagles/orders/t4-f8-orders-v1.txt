@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 4
 id faction 8
 
-colony 25 transfer 2 CNGD to colony 27
+colony 867793 transfer 2 CNGD to colony 100872

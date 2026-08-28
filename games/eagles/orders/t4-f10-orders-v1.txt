@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 4
 id faction 10
 
-colony 33 create mine-group with 5 MINE-1 working deposit 1
+colony 450174 create mine-group with 5 MINE-1 working deposit 1

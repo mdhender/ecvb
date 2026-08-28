@@ -43,8 +43,10 @@ func TestRunAddPlayer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run add player: %v", err)
 	}
-	if got := stdout.String(); got != "1\n" {
-		t.Fatalf("stdout = %q; want %q", got, "1\n")
+	// Faction 1 is the uncontrolled agent, which the kit's derelicts need and
+	// which is made before the first player, so the first player is faction 2.
+	if got := stdout.String(); got != "2\n" {
+		t.Fatalf("stdout = %q; want %q", got, "2\n")
 	}
 	if got := stderr.String(); got != "" {
 		t.Fatalf("stderr = %q; want empty", got)
@@ -68,8 +70,10 @@ func TestRunAddPlayer(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if factionUserID != 1 || planetFactionID != 1 || orbit != 4 || habitability != 25 {
-		t.Fatalf("home assignment = (user %d, faction %d, orbit %d, habitability %d); want (1, 1, 4, 25)", factionUserID, planetFactionID, orbit, habitability)
+	// The player's faction is row 2, because the uncontrolled agent's faction
+	// is written first.
+	if factionUserID != 1 || planetFactionID != 2 || orbit != 4 || habitability != 25 {
+		t.Fatalf("home assignment = (user %d, faction %d, orbit %d, habitability %d); want (1, 2, 4, 25)", factionUserID, planetFactionID, orbit, habitability)
 	}
 }
 
@@ -126,7 +130,8 @@ func TestAddPlayerUsesRoundedUpDistance(t *testing.T) {
 				INSERT INTO system (stellium_id, sequence) VALUES (1, 'A'), (2, 'A');
 				INSERT INTO planet (system_id, orbit, kind, habitability) VALUES
 					(1, 4, 'rocky', 25), (2, 4, 'rocky', 25);
-				INSERT INTO faction (game_id, user_id) VALUES (1, 1);
+				INSERT INTO faction (game_id, number, user_id) VALUES (1, 1, 1);
+				UPDATE game SET next_faction_number = 1;
 				UPDATE planet SET faction_id = 1 WHERE system_id = 1 AND orbit = 4;
 			`, tt.x, tt.y)
 			if err := sqlitex.ExecuteScript(conn, script, nil); err != nil {
@@ -207,7 +212,8 @@ func TestAddPlayerRejectsDuplicateUser(t *testing.T) {
 	if err := sqlitex.ExecuteScript(conn, `
 		INSERT INTO users (email, role) VALUES ('player@example.com', 'non-administrator');
 		INSERT INTO game (code) VALUES ('TEST');
-		INSERT INTO faction (game_id, user_id) VALUES (1, 1);
+		INSERT INTO faction (game_id, number, user_id) VALUES (1, 1, 1);
+		UPDATE game SET next_faction_number = 1;
 	`, nil); err != nil {
 		t.Fatal(err)
 	}

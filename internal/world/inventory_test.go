@@ -404,7 +404,9 @@ func loadWorld(t *testing.T, conn *sqlite.Conn) *World {
 }
 
 // Entity 40 is a ship with something in every section and a cadre; 41 is a
-// bare colony beside it, so that a transfer has somewhere to go.
+// bare colony beside it, so that a transfer has somewhere to go. Both are
+// written under their row ids here and under 100040 and 100041 -- the numbers a
+// player would write -- wherever a test speaks as a player would.
 func openInventoryTestDatabase(t *testing.T) *sqlite.Conn {
 	t.Helper()
 	conn := testdb.New(t)
@@ -412,15 +414,15 @@ func openInventoryTestDatabase(t *testing.T) *sqlite.Conn {
 		INSERT INTO users (id, email, role) VALUES (1, 'player@example.com', 'non-administrator');
 		INSERT INTO agent (id, code, description) VALUES (1, 'uncontrolled', 'Uncontrolled');
 		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 0);
-		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
-		INSERT INTO faction (id, game_id, agent_id) VALUES (2, 1, 1);
+		INSERT INTO faction (id, game_id, number, user_id) VALUES (1, 1, 1, 1);
+		INSERT INTO faction (id, game_id, number, agent_id) VALUES (2, 1, 2, 1);
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES (10, 1, 0, 0, 0);
 		INSERT INTO system (id, stellium_id, sequence) VALUES (20, 10, 'A');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES (30, 20, 4, 'rocky', 10);
-		INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
+		INSERT INTO entity (id, game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
 			faction_id, enclosed_volume, mass) VALUES
-			(40, 'SHIP', 1, 10, 20, 30, 64, 1, 400, 5000),
-			(41, 'COPN', 1, 10, 20, 30, 0, 1, 400, 500);
+			(40, 1, 100040, 'SHIP', 1, 10, 20, 30, 64, 1, 400, 5000),
+			(41, 1, 100041, 'COPN', 1, 10, 20, 30, 0, 1, 400, 500);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(40, 'component', 'HDRV', 1, 10),
 			(40, 'component', 'SNSR', 2, 2),

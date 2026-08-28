@@ -22,7 +22,9 @@ OUT=games/eagles/reports
 MAP=games/claude
 FIRST="${1:-0}"
 LAST="${2:-6}"
-FACTIONS="1 3 4 5 6 7 8 9 10 11"
+# Faction 1 is the uncontrolled agent that holds the derelicts a kit hands over.
+# It is made before the first player, so the ten players are 2 through 11.
+FACTIONS="2 3 4 5 6 7 8 9 10 11"
 
 BIN="$(mktemp -d)"
 trap 'rm -rf "${BIN}"' EXIT

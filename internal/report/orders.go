@@ -21,7 +21,7 @@ func Orders(conn *sqlite.Conn, gameCode, email string, factionID int64, turn int
 
 	rpt := New("ORDERS REPORT")
 	rpt.Table("", "GAME", "TURN", "FACTION", "CONTROLLER").
-		Row(gameCode, turn, faction.id, faction.controller)
+		Row(gameCode, turn, faction.number, faction.controller)
 	if err := addOrders(rpt, conn, gameCode, turn, faction.id, "ORDERS"); err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func addOrders(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 	// would burn while it is pending, and what it did burn once it resolves.
 	// An order that has not resolved has no movement row, and reads as "-".
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT o.sequence, o.source_line, o.actor_entity_id, o.verb, o.input, o.fuel_spent, o.status, o.error_message,
+		SELECT o.sequence, o.source_line, o.actor_entity_number, o.verb, o.input, o.fuel_spent, o.status, o.error_message,
 			o.note,
 			m.start_stellium_id, m.start_system_id, m.start_planet_id, m.start_planet_ring,
 			m.final_stellium_id, m.final_system_id, m.final_planet_id, m.final_planet_ring
@@ -79,7 +79,7 @@ func addProbes(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factio
 	// A probe reads a planet or it does not; there is no partial answer to
 	// spend a note on, so the probe section has no NOTE column.
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT o.sequence, o.source_line, o.actor_entity_id, o.input, o.status,
+		SELECT o.sequence, o.source_line, o.actor_entity_number, o.input, o.status,
 			s.stellium_id, s.system_id, s.planet_id, s.habitability, o.error_message
 		FROM game_order AS o
 		LEFT JOIN order_survey AS s

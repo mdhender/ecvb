@@ -1,5 +1,5 @@
 game "EAGLE-01" turn 0
 id faction 4
 
-ship 12 probe system A orbit 1 2 3 4 5 6
-colony 9 probe orbit 1 2
+ship 107998 probe system A orbit 1 2 3 4 5 6
+colony 895038 probe orbit 1 2

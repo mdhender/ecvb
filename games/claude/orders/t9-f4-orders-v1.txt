@@ -1,5 +1,7 @@
 game "CLAUDE-01" turn 9
 id faction 4
 
-ship 12 probe system A orbit 4
-ship 12 move to system A orbit 4
+# A jump begins from the stellium orbit, so the move goes there first;
+# every MOVE resolves before any JUMP, so both fit in one turn.
+ship 107998 move to orbit 11
+ship 107998 jump to (8,1,-9)

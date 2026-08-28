@@ -22,6 +22,13 @@ Entity location rules are defined in [Entity Location](entity-location.md).
 | `turn_state` | One of `open` or `resolved`; defaults to `open`. |
 | `seed_high` | Required high half of the game's PCG seed; defaults to 19. |
 | `seed_low` | Required low half of the game's PCG seed; defaults to 12. |
+| `next_entity_ordinal` | How many entities this game has created. It is not `entity.number`: the number is a keyed permutation of this. |
+| `next_faction_number` | How many factions this game has. This one *is* the number. |
+
+The two counters are per game rather than per database, and that is the point.
+A row id is drawn from one sequence shared by every game in the file, so a
+second game's ids would depend on how many rows the first one wrote. These do
+not, so a game's numbers are a function of its own seeds and nothing else.
 
 ### `agent`
 
@@ -40,10 +47,17 @@ basic orders for entities that have no population.
 | --- | --- |
 | `id` | Primary key. |
 | `game_id` | The game containing the faction. |
+| `number` | The faction as the player knows it, counted from 1 within the game and unique in it. |
 | `user_id` | The user controlling the faction; null for an agent-controlled faction. |
 | `agent_id` | The agent controlling the faction; null for a user-controlled faction. |
 
 Exactly one of `user_id` and `agent_id` is set.
+
+The `id` is the database's handle and the `number` is the game's. Reports print
+the number, `ecrpt --faction` takes it, an order file's `id faction N` header
+writes it, and a `prng` draw about a faction is addressed by it. The
+`uncontrolled` agent's faction is made before the first player, so it is
+faction 1 and the players count from 2.
 
 ## Space
 
@@ -126,7 +140,9 @@ types.
 
 | Column | Description |
 | --- | --- |
-| `id` | Primary key. |
+| `id` | Primary key, and the database's handle. It never leaves the server. |
+| `game_id` | The game containing the entity. It is not reachable through the location: a ship in transit has no stellium. |
+| `number` | The entity as the player knows it: six digits, unique within the game, never reused. |
 | `unit` | One of `SHIP`, `COPN`, `CSFC`, or `CORB`. |
 | `tech_level` | Required technology level, from 0 through 10. |
 | `stellium_id` | The stellium containing the entity. Null only for a `SHIP` in transit, which is nowhere. |
@@ -137,6 +153,21 @@ types.
 | `enclosed_volume` | Raw volume enclosed by assembled structural components. |
 | `mass` | Total mass of the entity's population and inventory. |
 | `trade_station` | 1 when a `create` said `as trade-station`. What it confers is the market's business and is not written yet. |
+
+The two handles do different work and are never interchanged. The `id` is what
+every child table points at and what rises in creation order, which is what
+settles build seniority. The `number` is the only one a player ever sees or
+types: it is what a report prints, what an order line writes as `ship 482137`,
+what `game_order.actor_entity_number` stores, and what addresses a `prng` draw
+about the entity.
+
+The number is a **keyed permutation** of `game.next_entity_ordinal` rather than
+the ordinal itself, computed by `internal/entityid` from the game's seeds. Being
+a permutation makes uniqueness structural — distinct ordinals give distinct
+numbers, so nothing has to check for a collision or retry. Being keyed makes it
+deterministic and, without the seeds, not invertible: a player who could read a
+count off an opponent's ship id could count the opponent's fleet, and this is
+what stops them. A game has 900,000 numbers, which is the size of the range.
 
 An entity has **no status column**. Whether it is finished is the presence of an
 `under_construction` row: when the last line of its build completes, the row
@@ -269,7 +300,7 @@ are what continues after it.
 
 | Column | Description |
 | --- | --- |
-| `entity_id` | The unfinished entity, and the primary key. It is also the build's seniority: an id rises monotonically and is never reused, so one builder's builds are already in the order they started. |
+| `entity_id` | The unfinished entity, and the primary key. It is also the build's seniority: a *row id* rises monotonically and is never reused, so one builder's builds are already in the order they started. It is not `entity.number`, which is a permutation and carries no order at all. |
 | `game_id` | The game the build belongs to. |
 | `builder_entity_id` | The entity feeding the build: it claims from that entity's stock, carries on its transports, and borrows its construction workers a turn at a time. |
 | `cwkr_cap` | The `with` clause: a ceiling on the workers a turn may use, never a reservation. |
@@ -313,7 +344,7 @@ Every order a player writes is a row of `game_order`, whatever its verb.
 | `game_id`, `turn`, `faction_id`, `sequence` | The order's identity. `sequence` is its place in the turn's resolution order. |
 | `source_line` | Its position in the submitted file. |
 | `verb` | Which order it is, lowercase: `move`, `jump`, `probe`. |
-| `actor_entity_id` | The entity the order acts on; null for an order that acts on none. |
+| `actor_entity_number` | The entity the order acts on, by the number the player wrote; null for an order that acts on none. Storing the number rather than the row id is what makes this row hold only what the player said. |
 | `input` | The order rendered back in the words the player wrote. What the reports print and the engine log echoes. |
 | `params` | Everything else the order said, as JSON, in the words the player wrote. |
 | `fuel_spent` | The fuel the order would burn while it is pending, and the fuel it did burn once it resolved, which is zero for a failed order. |

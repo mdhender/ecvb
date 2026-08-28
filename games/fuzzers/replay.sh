@@ -23,9 +23,10 @@ DIAG=games/fuzzers/diagnostics
 MAP=games/claude
 FIRST="${1:-0}"
 LAST="${2:-2}"
-# The ten player factions. Faction 2 is the uncontrolled agent the game load
-# creates and gives no orders.
-FACTIONS="1 3 4 5 6 7 8 9 10 11"
+# The ten player factions. Faction 1 is the uncontrolled agent that holds the
+# derelicts a kit hands over; it is made before the first player and gives no
+# orders, so the players are 2 through 11.
+FACTIONS="2 3 4 5 6 7 8 9 10 11"
 
 BIN="$(mktemp -d)"
 trap 'rm -rf "${BIN}"' EXIT

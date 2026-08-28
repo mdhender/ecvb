@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 11
 id faction 9
-colony 5 assemble 6 snsr!
-colony 5 assemble 6 
-colony 5 assemble 6 -
-colony 5 assemble 6 -1
-colony 5 assemble 6 SNSR-
-colony 5 assemble 6 SNSR-0
-colony 5 assemble 6 SNSR-11
-colony 5 assemble 6 SNSR-1,
-colony 5 assemble 6 SNSR-1, ,
-colony 5 assemble 6 SNSR-1,,6 STRC-2
-colony 5 assemble 6 SNSR-1 6 STRC-2
-colony 5 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
-colony 5 unassemble 10 STRC-10, 5 STRC-10
-colony 5 transfer 1 GOLD to
-colony 5 pay USK 15%,
-colony 5 assemble 1,000 SNSR-1, 500 STRC-2
-ship 2 broadcast system B orbit 8 "hell	"
-ship 2 jump t (1,2,3)
+colony 265054 assemble 6 snsr!
+colony 265054 assemble 6 
+colony 265054 assemble 6 -
+colony 265054 assemble 6 -1
+colony 265054 assemble 6 SNSR-
+colony 265054 assemble 6 SNSR-0
+colony 265054 assemble 6 SNSR-11
+colony 265054 assemble 6 SNSR-1,
+colony 265054 assemble 6 SNSR-1, ,
+colony 265054 assemble 6 SNSR-1,,6 STRC-2
+colony 265054 assemble 6 SNSR-1 6 STRC-2
+colony 265054 assemble 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1, 6 SNSR-1
+colony 265054 unassemble 10 STRC-10, 5 STRC-10
+colony 265054 transfer 1 GOLD to
+colony 265054 pay USK 15%,
+colony 265054 assemble 1,000 SNSR-1, 500 STRC-2
+ship 503683 broadcast system B orbit 8 "hell	"
+ship 503683 jump t (1,2,3)
 ship 
-ship 2 )ove to orbit 6
-ship 2 broadcast system Borbit 8 "hello"
-ship 2 roadcast system B orbit 8 "hello"
+ship 503683 )ove to orbit 6
+ship 503683 broadcast system Borbit 8 "hello"
+ship 503683 roadcast system B orbit 8 "hello"

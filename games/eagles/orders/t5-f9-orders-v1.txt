@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 5
 id faction 9
 
-colony 29 probe orbit 4
+colony 584791 probe orbit 4

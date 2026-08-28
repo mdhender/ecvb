@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mdhender/ecvb/internal/entityid"
 	"github.com/mdhender/ecvb/internal/units"
 )
 
@@ -105,23 +106,49 @@ func (p *Parser) quoted(what string) (string, error) {
 	return current.text, nil
 }
 
-// entityID consumes a positive entity id.
+// entityID consumes the number a player writes for a ship or a colony. Every
+// entity number is six digits, so a mistyped one is caught here and named as a
+// mistyped number rather than reaching Bind and being reported as an entity
+// that does not exist.
 func (p *Parser) entityID(kind string) (int64, error) {
+	id, current, err := p.wholeNumber(kind)
+	if err != nil {
+		return 0, err
+	}
+	if id < entityid.MinNumber || id > entityid.MaxNumber {
+		return 0, p.fail(current, "invalid %s id: %q is not a six-digit entity id", kind, current.text)
+	}
+	return id, nil
+}
+
+// factionID consumes the number a player writes for a faction. A faction is
+// counted from 1 within its game, so unlike an entity there is no width to
+// check -- only that it is a number and positive.
+func (p *Parser) factionID() (int64, error) {
+	id, current, err := p.wholeNumber("faction")
+	if err != nil {
+		return 0, err
+	}
+	if id < 1 {
+		return 0, p.fail(current, "invalid faction id: must be positive")
+	}
+	return id, nil
+}
+
+// wholeNumber reads the id token itself, which is the half the two share.
+func (p *Parser) wholeNumber(kind string) (int64, token, error) {
 	current, ok := p.word("a " + kind + " id")
 	if !ok {
-		return 0, errShape
+		return 0, token{}, errShape
 	}
 	id, err := strconv.ParseInt(current.text, 10, 64)
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
-			return 0, p.fail(current, "invalid %s id: number is too large", kind)
+			return 0, current, p.fail(current, "invalid %s id: number is too large", kind)
 		}
-		return 0, p.fail(current, "invalid %s id: %q is not a number", kind, current.text)
+		return 0, current, p.fail(current, "invalid %s id: %q is not a number", kind, current.text)
 	}
-	if id < 1 {
-		return 0, p.fail(current, "invalid %s id: must be positive", kind)
-	}
-	return id, nil
+	return id, current, nil
 }
 
 // number consumes a nonnegative whole number, such as a turn or an orbit.

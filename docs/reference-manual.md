@@ -235,13 +235,21 @@ it.
 A faction submits one order file for one turn. Every order names its subject
 first and then what the subject is told to do.
 
-    ship 18 jump to (-1,2,3)
-    colony 24 probe orbit 5
+    ship 482137 jump to (-1,2,3)
+    colony 719042 probe orbit 5
     we name (-1,2,3) "Stellium Joe"
 
 A subject is one of the faction's ships, one of its colonies, or `we`, which is
 the faction itself and takes no id. An order given to a subject that may not be
-given it is refused. Each order below names the subjects it accepts and the
+given it is refused.
+
+An entity's id is the six-digit number the game gave it. It is printed in every
+report, it belongs to the entity for as long as the entity exists, and it is
+never given to anything else. It is not a count of anything: the third entity
+built in a game is no more likely to be numbered 3 than 800,000, which is
+deliberate -- an id an opponent can see would otherwise tell them how much has
+been built. A faction's id is a small number counted from 1 within the game, and
+it is on every report too. Each order below names the subjects it accepts and the
 phase it resolves in; see Turn Sequence.
 
 ### The Order File
@@ -266,7 +274,7 @@ Blank lines are permitted after the identity line. A `#` outside quotes begins a
 comment that runs to the end of the line.
 
     # scout the neighbouring system
-    ship 2 probe system B orbit 4    # before anything moves
+    ship 240118 probe system B orbit 4    # before anything moves
 
 A quantity is a whole number above zero. Above 999 it separates every three
 digits with a comma: `5,000` is accepted and `5000` is refused. A comma also
@@ -287,8 +295,8 @@ Given to a ship or a colony. Resolves in the assemble phase.
 
 Puts unassembled units to work.
 
-    ship 18 assemble 6,000 SNSR-1
-    colony 24 assemble 5 LFSU-1, 60 STRL-1
+    ship 482137 assemble 6,000 SNSR-1
+    colony 719042 assemble 5 LFSU-1, 60 STRL-1
 
 It draws from unassembled inventory first and from cargo after it. The unit code
 determines the section a unit is assembled into; the order does not say. `HDRV`,
@@ -322,7 +330,7 @@ move that turn, and nothing carries over against it.
 It is the one order that may run over several lines, so it is terminated by
 `end`. Line breaks and spacing inside it mean nothing.
 
-    ship 18 create ship
+    ship 482137 create ship
       using 60 STRC-8,
             61 HDRV-1, 5 SDRV-1
             , 5 LFSU-3, 1 SNSR-1
@@ -382,7 +390,7 @@ Given to a ship. Resolves in the jump phase.
 
 Sends a ship from the stellium orbit to another stellium.
 
-    ship 2 jump to (6,-9,8)
+    ship 240118 jump to (6,-9,8)
 
 The coordinates must identify a stellium in the game. A jump begins from the
 stellium orbit: a ship at a planet must `move to orbit 11` first, and may do
@@ -426,9 +434,9 @@ Given to a ship. Resolves in the move phase.
 
 Moves a ship inside its stellium.
 
-    ship 2 move to orbit 6
-    ship 2 move to system B orbit 4
-    ship 2 move to orbit 11
+    ship 240118 move to orbit 6
+    ship 240118 move to system B orbit 4
+    ship 240118 move to orbit 11
 
 The first form names a planet in the ship's current system, and the ship must
 have one. The second names a planet in any system of the ship's current
@@ -477,8 +485,8 @@ Given to a ship, a colony, or `we`. Resolves in the naming phase.
 
 Gives one of the faction's own ships or colonies, or a stellium, a name.
 
-    ship 18 name "Jalopy"
-    colony 24 name "Jingo"
+    ship 482137 name "Jalopy"
+    colony 719042 name "Jingo"
     we name (-1,2,3) "Stellium Joe"
 
 A name is private to the faction that gave it. Naming a ship does not change
@@ -504,9 +512,9 @@ Given to a ship or a colony. Resolves in the probe phase.
 
 Reads planets with an entity's sensors.
 
-    ship 2 probe orbit 6
-    ship 2 probe orbit 1 2 3 4 5 8 9 10
-    ship 4 probe system A orbit 1 2 3
+    ship 240118 probe orbit 6
+    ship 240118 probe orbit 1 2 3 4 5 8 9 10
+    ship 403556 probe system A orbit 1 2 3
 
 One order may name several orbits and spends one probe on each. A probe that
 names no system reads the system the entity is in, so a ship orbiting the
@@ -536,7 +544,7 @@ Given to a ship or a colony. Resolves in the stow phase.
 
 Moves units out of unassembled inventory into cargo.
 
-    ship 18 stow 18,000 FOOD, 800 HDRV-1
+    ship 482137 stow 18,000 FOOD, 800 HDRV-1
 
 Units must be in cargo to be transferred, so a `STOW` readies a load for a
 `TRANSFER`. It is not needed to assemble anything: `ASSEMBLE` draws from cargo
@@ -564,8 +572,8 @@ Given to a ship or a colony. Resolves in the transfer phase.
 
 Hands units or population to another entity at the same place.
 
-    ship 18 transfer 500 SOL to colony 24
-    ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+    ship 482137 transfer 500 SOL to colony 719042
+    ship 482137 transfer 4,500 GOLD, 18,000 FOOD to colony 719042
 
 The recipient must be the faction's own entity or an uncontrolled one, and the
 two must be at the same stellium, system, and planet when the order runs. They
@@ -605,8 +613,8 @@ Given to a ship or a colony. Resolves in the unassemble phase.
 
 Takes working units apart and returns them to unassembled inventory.
 
-    ship 18 unassemble 1,000 SNSR-1
-    colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
+    ship 482137 unassemble 1,000 SNSR-1
+    colony 719042 unassemble and stow 60 STRL-1, 5 LFSU-1
 
 It is lossless: what comes apart is what went together.
 
@@ -632,7 +640,7 @@ Given to a ship or a colony. Resolves in the unstow phase.
 
 Moves units out of cargo into unassembled inventory.
 
-    colony 24 unstow 800 HDRV-1, 18,000 FOOD
+    colony 719042 unstow 800 HDRV-1, 18,000 FOOD
 
 It reaches the same units a `STOW` does and refuses the same two. It is not
 needed to assemble anything.

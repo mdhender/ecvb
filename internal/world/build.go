@@ -35,9 +35,10 @@ const (
 // Build is a ship or colony under construction: the entity being built, who is
 // feeding it, and the two lists the order named.
 type Build struct {
-	// EntityID is the unfinished entity, and is also the build's seniority. An
-	// id rises monotonically and is never reused, so one builder's builds are
-	// already in the order they started.
+	// EntityID is the unfinished entity's row id, and is also the build's
+	// seniority. A row id rises monotonically and is never reused, so one
+	// builder's builds are already in the order they started. It is the row id
+	// and not entity.number, which is a permutation and carries no order.
 	EntityID int64
 	// BuilderID is the entity feeding this build: it claims from that entity's
 	// stock, carries on its transports, and borrows its construction workers a
@@ -128,33 +129,42 @@ func (w *World) Builds(builderID int64) []*Build {
 // the turns that follow.
 //
 // A ship built at a planet settles into a ring of its own, drawn the way an
-// arriving ship draws one. The draw is addressed by the entity's id and the id
-// does not exist until the row does, so the ring is set after the insert rather
-// than handed in: the row goes down in the lowest ring a ship may hold and the
-// draw moves it. One built from an entity in the stellium orbit is built there
-// and has no ring at all.
+// arriving ship draws one. The draw is addressed by the entity's number, which
+// is taken before the row is written, so the ring is known before the insert
+// and the entity goes down where it belongs. One built from an entity in the
+// stellium orbit is built there and has no ring at all.
 func (w *World) CreateEntity(factionID int64, kind string, techLevel, turn int, at Location, build *Build) (*Entity, error) {
-	drawsRing := kind == "SHIP" && at.PlanetID != 0
-	if drawsRing {
-		at.Ring = MinShipRing
+	number, err := NextEntityNumber(w.conn, w.game.ID)
+	if err != nil {
+		return nil, err
 	}
-	if err := sqlitex.ExecuteTransient(w.conn, `
-		INSERT INTO entity (unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
-			faction_id, enclosed_volume, mass, trade_station)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?);`, &sqlitex.ExecOptions{
-		Args: []any{kind, techLevel, nullableID(at.StelliumID), nullableID(at.SystemID),
-			nullableID(at.PlanetID), nullableRing(at), factionID, boolean(build.TradeStation)},
-	}); err != nil {
-		return nil, fmt.Errorf("create a %s for faction %d: %w", kind, factionID, err)
-	}
-	id := w.conn.LastInsertRowID()
 	entity := &Entity{
-		ID: id, Unit: kind, FactionID: factionID, Location: at,
+		Number: number, Unit: kind, FactionID: factionID,
+		FactionNumber: w.factions[factionID], Location: at,
 		TradeStation: build.TradeStation,
 		Inventory:    make(Inventory),
 		Population:   make(map[string]int64),
 		Cadre:        make(map[string]int64),
 	}
+	if kind == "SHIP" && at.PlanetID != 0 {
+		ring, err := w.DrawRing(at, turn, entity)
+		if err != nil {
+			return nil, err
+		}
+		at.Ring = ring
+		entity.Location = at
+	}
+	if err := sqlitex.ExecuteTransient(w.conn, `
+		INSERT INTO entity (game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
+			faction_id, enclosed_volume, mass, trade_station)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?);`, &sqlitex.ExecOptions{
+		Args: []any{w.game.ID, number, kind, techLevel, nullableID(at.StelliumID), nullableID(at.SystemID),
+			nullableID(at.PlanetID), nullableRing(at), factionID, boolean(build.TradeStation)},
+	}); err != nil {
+		return nil, fmt.Errorf("create a %s for faction %d: %w", kind, factionID, err)
+	}
+	id := w.conn.LastInsertRowID()
+	entity.ID = id
 	build.EntityID = id
 	entity.Build = build
 	if err := sqlitex.ExecuteTransient(w.conn, `
@@ -174,16 +184,7 @@ func (w *World) CreateEntity(factionID int64, kind string, techLevel, turn int, 
 		}
 	}
 	w.entities[id] = entity
-	if drawsRing {
-		ring, err := w.DrawRing(at, turn, factionID, id)
-		if err != nil {
-			return nil, err
-		}
-		at.Ring = ring
-		if err := w.Move(entity, at); err != nil {
-			return nil, err
-		}
-	}
+	w.byNumber[number] = entity
 	return entity, nil
 }
 
@@ -272,7 +273,7 @@ func (w *World) FinishBuild(entity *Entity) error {
 		if err := sqlitex.ExecuteTransient(w.conn, statement, &sqlitex.ExecOptions{
 			Args: []any{entity.ID},
 		}); err != nil {
-			return fmt.Errorf("finish the build of entity %d: %w", entity.ID, err)
+			return fmt.Errorf("finish the build of entity %d: %w", entity.Number, err)
 		}
 	}
 	entity.Build = nil

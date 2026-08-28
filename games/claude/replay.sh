@@ -13,6 +13,14 @@
 # --json writes the reports as JSON and drops the wall-clock timestamps from
 # the engine log, so replaying the same game twice writes the same bytes. That
 # is what a golden file needs; the default text output is what a player reads.
+#
+# Every faction plays the same three-turn cycle, ten times over in parallel:
+# leave the planets and jump, spend the next turn nowhere, then probe the new
+# stellium and drop to one of its planets. The middle turn is what a crossing
+# costs -- a jump departs in the last stage of one turn and lands in the last
+# stage of the next, so the ship is out of reach for the whole of the turn it
+# arrives in and no file is filed for it. Turn 9 opens a fourth cycle that the
+# game ends before, so the last report shows a crossing still in flight.
 
 set -euo pipefail
 
@@ -42,13 +50,13 @@ DB=games/claude
 ORDERS=games/claude/orders
 OUT="${1:-games/claude/reports}"
 LAST_TURN=9
-# Faction 2 is the uncontrolled agent the game load creates; the ten player
-# factions are not contiguous with the player numbers.
-FACTIONS="1 3 4 5 6 7 8 9 10 11"
+# Faction 1 is the uncontrolled agent that holds the derelicts a kit hands over.
+# It is made before the first player, so the ten players are 2 through 11.
+FACTIONS="2 3 4 5 6 7 8 9 10 11"
 
 mkdir -p "${OUT}"
 
-# Build once. Replaying seven turns takes a few hundred command invocations and
+# Build once. Replaying ten turns takes a few hundred command invocations and
 # `go run` would recompile for every one of them.
 BIN="$(mktemp -d)"
 trap 'rm -rf "${BIN}"' EXIT

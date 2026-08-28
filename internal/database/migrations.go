@@ -30,6 +30,11 @@ CREATE TABLE agent (
 
 -- A game's seed is every random decision it will ever make. Re-resolving a
 -- turn draws from it again and reaches the same answers.
+--
+-- The two counters are how a game hands out the numbers it shows the player.
+-- They are per game rather than per database, which is the point: a row id is
+-- drawn from one sequence shared by every game in the file, so a second game's
+-- ids would depend on how many rows the first one wrote. These do not.
 CREATE TABLE game (
     id INTEGER PRIMARY KEY,
     code TEXT NOT NULL,
@@ -37,7 +42,14 @@ CREATE TABLE game (
     turn_state TEXT NOT NULL DEFAULT 'open'
         CHECK (turn_state IN ('open', 'resolved')),
     seed_high INTEGER NOT NULL DEFAULT 19 CHECK (seed_high >= 0),
-    seed_low INTEGER NOT NULL DEFAULT 12 CHECK (seed_low >= 0)
+    seed_low INTEGER NOT NULL DEFAULT 12 CHECK (seed_low >= 0),
+    -- How many entities this game has created. It is not entity.number: the
+    -- number is a keyed permutation of this, so that a number tells a player
+    -- nothing about how many entities exist. See internal/entityid.
+    next_entity_ordinal INTEGER NOT NULL DEFAULT 0 CHECK (next_entity_ordinal >= 0),
+    -- Faction numbers need no such cover -- a player already knows how many
+    -- factions there are -- so this counter is the number itself, from 1.
+    next_faction_number INTEGER NOT NULL DEFAULT 0 CHECK (next_faction_number >= 0)
 );
 
 -- A faction is played by a person or by an agent, never by both and never by
@@ -45,8 +57,14 @@ CREATE TABLE game (
 CREATE TABLE faction (
     id INTEGER PRIMARY KEY,
     game_id INTEGER NOT NULL REFERENCES game(id),
+    -- The faction as the player knows it, counted from 1 within this game. The
+    -- id is a row id and belongs to the database; this belongs to the game, and
+    -- it is what a report prints, what "ecrpt --faction" takes, and what
+    -- addresses a prng draw about this faction.
+    number INTEGER NOT NULL CHECK (number > 0),
     user_id INTEGER REFERENCES users(id),
     agent_id INTEGER REFERENCES agent(id),
+    UNIQUE (game_id, number),
     CHECK ((user_id IS NOT NULL) <> (agent_id IS NOT NULL))
 );
 
@@ -93,11 +111,28 @@ CREATE TABLE deposit (
 
 -- THINGS IN THE WORLD -----------------------------------------------------
 
+-- The game_id column is not redundant with faction_id. A ship crossing between
+-- stellia has a null stellium_id, so without it the only path from an entity to
+-- its game is the faction join, and the per-game uniqueness of number has
+-- nothing to be written against.
+--
 -- Where an entity may stand is a rule of the unit it is: a ship sits at
 -- stellium level or in ring 1 through 99 of a planet, a surface colony or
 -- factory in ring 0, an orbital colony in ring 1. See docs/entity-location.md.
 CREATE TABLE entity (
+    -- The id is the database's handle and never leaves it: every child table
+    -- points at it, and the order entities were created in -- which is what
+    -- settles build seniority -- is the order it rises in.
+    --
+    -- The number is the game's handle and is the only one a player ever sees or
+    -- types. It is unique within the game and never reused, and it is a keyed
+    -- permutation of the game's entity ordinal rather than the ordinal itself,
+    -- so it says nothing about how many entities the game has made. A player
+    -- who could read a count off an opponent's ship id could count the
+    -- opponent's fleet. See internal/entityid.
     id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES game(id),
+    number INTEGER NOT NULL CHECK (number BETWEEN 100000 AND 999999),
     unit TEXT NOT NULL CHECK (unit IN ('SHIP', 'COPN', 'CSFC', 'CORB')),
     tech_level INTEGER NOT NULL CHECK (tech_level BETWEEN 0 AND 10),
     -- Null for a ship crossing between stellia, which is nowhere until it
@@ -109,6 +144,8 @@ CREATE TABLE entity (
     faction_id INTEGER NOT NULL REFERENCES faction(id),
     enclosed_volume INTEGER NOT NULL,
     mass INTEGER NOT NULL DEFAULT 0 CHECK (mass >= 0),
+    UNIQUE (game_id, number),
+    FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
     FOREIGN KEY (system_id, stellium_id) REFERENCES system(id, stellium_id),
     FOREIGN KEY (planet_id, system_id) REFERENCES planet(id, system_id),
     CHECK (
@@ -199,7 +236,12 @@ CREATE TABLE work_group_units (
 --
 -- The two ids worth enforcing are still columns: the faction belongs to the
 -- game, and the actor belongs to the faction. An order that acts on no entity
--- at all leaves actor_entity_id null.
+-- at all leaves actor_entity_number null.
+--
+-- The actor is stored as the entity's number rather than its row id, which is
+-- what makes the paragraph above true rather than nearly true: every value in
+-- this row is now a word or a number the player wrote, and a stored order can
+-- render itself back without resolving anything.
 CREATE TABLE game_order (
     game_id INTEGER NOT NULL,
     turn INTEGER NOT NULL CHECK (turn >= 0),
@@ -207,7 +249,7 @@ CREATE TABLE game_order (
     sequence INTEGER NOT NULL CHECK (sequence > 0),
     source_line INTEGER NOT NULL CHECK (source_line > 0),
     verb TEXT NOT NULL CHECK (verb = lower(trim(verb)) AND verb <> ''),
-    actor_entity_id INTEGER,
+    actor_entity_number INTEGER,
     input TEXT NOT NULL CHECK (input <> ''),
     params TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(params)),
     fuel_spent INTEGER NOT NULL DEFAULT 0 CHECK (fuel_spent >= 0),
@@ -216,7 +258,7 @@ CREATE TABLE game_order (
     error_message TEXT,
     PRIMARY KEY (game_id, turn, faction_id, sequence),
     FOREIGN KEY (faction_id, game_id) REFERENCES faction(id, game_id),
-    FOREIGN KEY (actor_entity_id, faction_id) REFERENCES entity(id, faction_id),
+    FOREIGN KEY (actor_entity_number, faction_id) REFERENCES entity(number, faction_id),
     -- What a status means, written once for every order there will ever be
     -- rather than once per order table. A pending order carries the fuel it is
     -- projected to burn; a failed one burned none and says why it failed.
@@ -359,7 +401,7 @@ CREATE TABLE sensor_contact (
 -- SQLite requires a foreign key's parent columns to be a unique index.
 CREATE UNIQUE INDEX game_code_idx ON game(code);
 CREATE UNIQUE INDEX faction_id_game_id_idx ON faction(id, game_id);
-CREATE UNIQUE INDEX entity_id_faction_id_idx ON entity(id, faction_id);
+CREATE UNIQUE INDEX entity_number_faction_id_idx ON entity(number, faction_id);
 CREATE UNIQUE INDEX stellium_id_game_id_idx ON stellium(id, game_id);
 
 -- One person plays one faction in a game, and one agent plays the rest.
@@ -374,7 +416,7 @@ CREATE INDEX stellium_game_id_idx ON stellium(game_id);
 CREATE INDEX planet_faction_id_idx ON planet(faction_id);
 CREATE INDEX entity_faction_id_idx ON entity(faction_id);
 CREATE INDEX work_group_deposit_id_idx ON work_group(deposit_id);
-CREATE INDEX game_order_actor_entity_id_idx ON game_order(actor_entity_id);
+CREATE INDEX game_order_actor_entity_number_idx ON game_order(actor_entity_number);
 
 -- The arrival step asks one question: which ships are due this turn.
 CREATE INDEX in_transit_arrival_idx ON in_transit(game_id, arrival_turn);
@@ -419,11 +461,13 @@ CREATE UNIQUE INDEX faction_name_entity_idx ON faction_name(faction_id, entity_i
 -- entity table needs no status column: when the last item completes, both rows go and what
 -- is left is an ordinary entity.
 --
--- Seniority is entity_id. An id is unique, rises monotonically, and is never
--- reused, so one builder's unfinished entities are already in the order their
--- builds started -- within a turn, because create orders execute in the order
--- they were written, and across turns for the obvious reason. Nothing is stored
--- to settle it and nothing references game_order, which is purged anyway.
+-- Seniority is entity_id, the row id -- not entity.number, which is a
+-- permutation and carries no order at all. A row id is unique, rises
+-- monotonically, and is never reused, so one builder's unfinished entities are
+-- already in the order their builds started -- within a turn, because create
+-- orders execute in the order they were written, and across turns for the
+-- obvious reason. Nothing is stored to settle it and nothing references
+-- game_order, which is purged anyway.
 CREATE TABLE under_construction (
     entity_id INTEGER PRIMARY KEY REFERENCES entity(id),
     game_id INTEGER NOT NULL REFERENCES game(id),

@@ -1,5 +1,5 @@
 game "EAGLE-01" turn 4
 id faction 7
 
-colony 21 unstow 90 GOLD
-colony 21 stow 2 CNGD
+colony 234806 unstow 90 GOLD
+colony 234806 stow 2 CNGD

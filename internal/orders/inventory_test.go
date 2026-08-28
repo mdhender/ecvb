@@ -20,13 +20,13 @@ func TestQuantitiesReadTheirOwnSeparatorsApartFromTheListsOwn(t *testing.T) {
 		line string
 		want string
 	}{
-		{"colony 50 assemble 6 SNSR-1", "6 SNSR-1"},
-		{"colony 50 assemble 6,000 SNSR-1", "6,000 SNSR-1"},
-		{"colony 50 assemble 1,234,567 SNSR-1", "1,234,567 SNSR-1"},
-		{"colony 50 assemble 1,000 SNSR-1, 500 STRC-2", "1,000 SNSR-1, 500 STRC-2"},
-		{"colony 50 assemble 500 SNSR-1, 1,000 STRC-2", "500 SNSR-1, 1,000 STRC-2"},
-		{"colony 50 assemble 5 SNSR-1, 600 STRC-2", "5 SNSR-1, 600 STRC-2"},
-		{"colony 50 assemble 6 snsr-1", "6 SNSR-1"},
+		{"colony 100050 assemble 6 SNSR-1", "6 SNSR-1"},
+		{"colony 100050 assemble 6,000 SNSR-1", "6,000 SNSR-1"},
+		{"colony 100050 assemble 1,234,567 SNSR-1", "1,234,567 SNSR-1"},
+		{"colony 100050 assemble 1,000 SNSR-1, 500 STRC-2", "1,000 SNSR-1, 500 STRC-2"},
+		{"colony 100050 assemble 500 SNSR-1, 1,000 STRC-2", "500 SNSR-1, 1,000 STRC-2"},
+		{"colony 100050 assemble 5 SNSR-1, 600 STRC-2", "5 SNSR-1, 600 STRC-2"},
+		{"colony 100050 assemble 6 snsr-1", "6 SNSR-1"},
 	} {
 		order, err := parseOne(item.line)
 		if err != nil {
@@ -41,16 +41,16 @@ func TestQuantitiesReadTheirOwnSeparatorsApartFromTheListsOwn(t *testing.T) {
 
 func TestQuantitiesRefuseWhatTheGrammarDoesNotAllow(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
-		{"colony 50 assemble 5000 SNSR-1", "a quantity over 999 separates every three digits with a comma, as in 5,000"},
-		{"colony 50 assemble 0 SNSR-1", "a quantity is greater than zero"},
-		{"colony 50 assemble 012 SNSR-1", "carries no leading zero"},
-		{"colony 50 assemble six SNSR-1", `invalid quantity "six"`},
-		{"colony 50 assemble 6 SNSR-99", `invalid unit tag "SNSR-99"`},
-		{"colony 50 assemble 6 snsr!", `invalid unit code "SNSR!"`},
+		{"colony 100050 assemble 5000 SNSR-1", "a quantity over 999 separates every three digits with a comma, as in 5,000"},
+		{"colony 100050 assemble 0 SNSR-1", "a quantity is greater than zero"},
+		{"colony 100050 assemble 012 SNSR-1", "carries no leading zero"},
+		{"colony 100050 assemble six SNSR-1", `invalid quantity "six"`},
+		{"colony 100050 assemble 6 SNSR-99", `invalid unit tag "SNSR-99"`},
+		{"colony 100050 assemble 6 snsr!", `invalid unit code "SNSR!"`},
 		// A line that ran out before its order did is told what was missing,
 		// and shown that order's forms after it.
-		{"colony 50 assemble 6", "expected a unit code, found the end of the order"},
-		{"colony 50 assemble 6", "  colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ..."},
+		{"colony 100050 assemble 6", "expected a unit code, found the end of the order"},
+		{"colony 100050 assemble 6", "  colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ..."},
 	} {
 		_, err := parseOne(item.line)
 		if err == nil {
@@ -68,10 +68,10 @@ func TestQuantitiesRefuseWhatTheGrammarDoesNotAllow(t *testing.T) {
 // whole.
 func TestSubmitRefusesAssemblingWhatIsNeverAssembled(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
-		{"colony 50 assemble 100 GOLD", "GOLD is a resource"},
-		{"colony 50 assemble 100 SOL", "SOL is population"},
-		{"colony 50 assemble 100 CWKR", "CWKR is a cadre"},
-		{"colony 50 assemble 100 SNSR-1, 5 SNSR-1", "SNSR-1 is named twice"},
+		{"colony 100050 assemble 100 GOLD", "GOLD is a resource"},
+		{"colony 100050 assemble 100 SOL", "SOL is population"},
+		{"colony 100050 assemble 100 CWKR", "CWKR is a cadre"},
+		{"colony 100050 assemble 100 SNSR-1, 5 SNSR-1", "SNSR-1 is named twice"},
 	} {
 		_, err := Check(context.Background(), openInventoryOrderDatabase(t), strings.NewReader(header+item.line+"\n"))
 		if err == nil {
@@ -87,7 +87,7 @@ func TestSubmitRefusesAssemblingWhatIsNeverAssembled(t *testing.T) {
 // Nothing in the order says where a unit goes; the unit code does.
 func TestAssembleSendsTheSixToComponentsAndTheRestToOperational(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 assemble 20 SNSR-1, 10 FARM-1\n")
+	apply(t, conn, "colony 100050 assemble 20 SNSR-1, 10 FARM-1\n")
 	if got := storedQuantity(t, conn, 50, "component", "SNSR", 1); got != 20 {
 		t.Errorf("component SNSR-1 = %d; want 20", got)
 	}
@@ -111,7 +111,7 @@ func TestAssembleDrawsFromUnassembledFirstAndThenFromCargo(t *testing.T) {
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
 			VALUES (50, 'cargo', 'SNSR', 1, 30);
 		UPDATE entity_cadre SET quantity = 20 WHERE entity_id = 50;`)
-	apply(t, conn, "colony 50 assemble 110 SNSR-1\n")
+	apply(t, conn, "colony 100050 assemble 110 SNSR-1\n")
 	if got := storedQuantity(t, conn, 50, "component", "SNSR", 1); got != 110 {
 		t.Errorf("component SNSR-1 = %d; want 110", got)
 	}
@@ -132,7 +132,7 @@ func TestTheCadreRationsAnAssembleAcrossBothItsSections(t *testing.T) {
 			VALUES (50, 'cargo', 'SNSR', 1, 30);`)
 	// Five workers do 2,500 MU and a sensor masses 40 MU, so 62 are assembled
 	// however they are split between the sections, and cargo is untouched.
-	result := check(t, conn, "colony 50 assemble 110 SNSR-1\n")
+	result := check(t, conn, "colony 100050 assemble 110 SNSR-1\n")
 	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0].Message, "assembled 62 of 110 SNSR-1") {
 		t.Fatalf("warnings = %+v; want the order stopped at 62", result.Warnings)
 	}
@@ -144,16 +144,16 @@ func TestAssembleDoesWhatTheCadrePaysForAndSaysSo(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
 	// Five workers do 2,500 MU a turn, and a SNSR-1 masses 40 MU, so 62 of the
 	// 100 are assembled and the sixty-third is not.
-	result := check(t, conn, "colony 50 assemble 100 SNSR-1\n")
+	result := check(t, conn, "colony 100050 assemble 100 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want := "colony 50 assembled 62 of 100 SNSR-1; its 5 CWKR had 2,500 MU of work left this turn"
+	want := "colony 100050 assembled 62 of 100 SNSR-1; its 5 CWKR had 2,500 MU of work left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
 	// A shortage is a rate, not a failure: the order still succeeds.
-	if got := apply(t, conn, "colony 50 assemble 100 SNSR-1\n"); got.Orders != 1 {
+	if got := apply(t, conn, "colony 100050 assemble 100 SNSR-1\n"); got.Orders != 1 {
 		t.Fatalf("orders = %d; want the order kept", got.Orders)
 	}
 	if got := storedQuantity(t, conn, 50, "component", "SNSR", 1); got != 62 {
@@ -165,7 +165,7 @@ func TestAssembleDoesWhatTheCadrePaysForAndSaysSo(t *testing.T) {
 // are reckoned from one total rather than order by order.
 func TestTheWorkPoolIsDrawnDownAcrossEveryOrderOfTheTurn(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	result := check(t, conn, "colony 50 assemble 30 SNSR-1\ncolony 50 assemble 30 SNSR-1\ncolony 50 assemble 30 SNSR-1\n")
+	result := check(t, conn, "colony 100050 assemble 30 SNSR-1\ncolony 100050 assemble 30 SNSR-1\ncolony 100050 assemble 30 SNSR-1\n")
 	// 1,200 MU, then 1,200 MU, and the 2,500 MU pool has 100 MU left, which is
 	// two more sensors.
 	if len(result.Warnings) != 1 {
@@ -182,7 +182,7 @@ func TestUnassemblyTakesAWholeWorkerFromAssembly(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
 	// One STRC-10 unassembled is 20 MU of work and one whole worker, leaving
 	// four for assembly: 2,000 MU, which is 50 sensors and not 62.
-	result := check(t, conn, "colony 50 unassemble 1 STRC-10\ncolony 50 assemble 100 SNSR-1\n")
+	result := check(t, conn, "colony 100050 unassemble 1 STRC-10\ncolony 100050 assemble 100 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
@@ -196,14 +196,14 @@ func TestUnassemblyTakesAWholeWorkerFromAssembly(t *testing.T) {
 // unassemble outright.
 func TestUnassemblingStructureFailsWhenItWouldLeaveTheEntityOverpacked(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	result := check(t, conn, "colony 50 unassemble 100 STRC-10\n")
+	result := check(t, conn, "colony 100050 unassemble 100 STRC-10\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	if !strings.Contains(result.Warnings[0].Message, "colony 50 would hold") {
+	if !strings.Contains(result.Warnings[0].Message, "colony 100050 would hold") {
 		t.Errorf("warning = %q; want it to say the colony would be overpacked", result.Warnings[0].Message)
 	}
-	apply(t, conn, "colony 50 unassemble 100 STRC-10\n")
+	apply(t, conn, "colony 100050 unassemble 100 STRC-10\n")
 	if got := storedQuantity(t, conn, 50, "component", "STRC", 10); got != 100 {
 		t.Errorf("component STRC-10 = %d; want all 100 still there: a failed order moves nothing", got)
 	}
@@ -213,7 +213,7 @@ func TestUnassemblingStructureFailsWhenItWouldLeaveTheEntityOverpacked(t *testin
 // is where a transfer needs them.
 func TestUnassembleIsLosslessAndStowsToCargoWhenAsked(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 unassemble and stow 10 STRC-10\n")
+	apply(t, conn, "colony 100050 unassemble and stow 10 STRC-10\n")
 	if got := storedQuantity(t, conn, 50, "cargo", "STRC", 10); got != 10 {
 		t.Errorf("cargo STRC-10 = %d; want all 10, unassembly being lossless", got)
 	}
@@ -227,7 +227,7 @@ func TestUnassembleIsLosslessAndStowsToCargoWhenAsked(t *testing.T) {
 
 func TestTransferHandsUnitsOverAndChargesItsTransportsFuel(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 transfer 300 GOLD to ship 51\n")
+	apply(t, conn, "colony 100050 transfer 300 GOLD to ship 100051\n")
 	if got := storedQuantity(t, conn, 51, "cargo", "GOLD", 0); got != 300 {
 		t.Errorf("recipient GOLD = %d; want 300", got)
 	}
@@ -244,7 +244,7 @@ func TestTransferHandsUnitsOverAndChargesItsTransportsFuel(t *testing.T) {
 // once, so a second transfer that shares the round trip pays only what it adds.
 func TestTransferFuelIsReckonedOverTheWholeTurn(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 transfer 300 GOLD to ship 51\ncolony 50 transfer 100 GOLD to ship 51\n")
+	apply(t, conn, "colony 100050 transfer 300 GOLD to ship 100051\ncolony 100050 transfer 100 GOLD to ship 100051\n")
 	if got := storedQuantity(t, conn, 51, "cargo", "GOLD", 0); got != 400 {
 		t.Errorf("recipient GOLD = %d; want all 400 across the two orders", got)
 	}
@@ -258,11 +258,11 @@ func TestTransferFuelIsReckonedOverTheWholeTurn(t *testing.T) {
 // A shortage of transports fills the order partway rather than failing it.
 func TestTransferIsFilledPartwayWhenTheTransportsRunOut(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	result := check(t, conn, "colony 50 transfer 1,000 GOLD to ship 51\n")
+	result := check(t, conn, "colony 100050 transfer 1,000 GOLD to ship 100051\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want := "colony 50 transferred 400 of 1,000 GOLD; it had 400 MU and 1,200 VU of transport left this turn"
+	want := "colony 100050 transferred 400 of 1,000 GOLD; it had 400 MU and 1,200 VU of transport left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
@@ -270,7 +270,7 @@ func TestTransferIsFilledPartwayWhenTheTransportsRunOut(t *testing.T) {
 
 func TestTransferMovesPopulation(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 transfer 20 SOL to ship 51\n")
+	apply(t, conn, "colony 100050 transfer 20 SOL to ship 100051\n")
 	if got := storedPopulation(t, conn, 51, "SOL"); got != 20 {
 		t.Errorf("recipient SOL = %d; want 20", got)
 	}
@@ -283,7 +283,7 @@ func TestTransferMovesPopulation(t *testing.T) {
 // order runs. There is no partial answer to being in the wrong place.
 func TestTransferFailsWhenTheTwoAreNotAtTheSamePlace(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	result := check(t, conn, "colony 50 transfer 100 GOLD to ship 52\n")
+	result := check(t, conn, "colony 100050 transfer 100 GOLD to ship 100052\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
@@ -296,16 +296,16 @@ func TestTransferFailsWhenTheTwoAreNotAtTheSamePlace(t *testing.T) {
 // holds, but not to another faction's.
 func TestTransferReachesOwnEntitiesAndDerelictsAndNoOneElse(t *testing.T) {
 	if _, err := Check(context.Background(), openInventoryOrderDatabase(t),
-		strings.NewReader(header+"colony 50 transfer 100 GOLD to ship 53\n")); err != nil {
+		strings.NewReader(header+"colony 100050 transfer 100 GOLD to ship 100053\n")); err != nil {
 		t.Errorf("transfer to an uncontrolled entity was refused: %v", err)
 	}
 	_, err := Check(context.Background(), openInventoryOrderDatabase(t),
-		strings.NewReader(header+"colony 50 transfer 100 GOLD to ship 54\n"))
+		strings.NewReader(header+"colony 100050 transfer 100 GOLD to ship 100054\n"))
 	if err == nil || !strings.Contains(err.Error(), "belongs to another faction") {
 		t.Errorf("transfer to another faction's ship: err = %v; want it refused", err)
 	}
 	_, err = Check(context.Background(), openInventoryOrderDatabase(t),
-		strings.NewReader(header+"colony 50 transfer 100 GOLD to colony 50\n"))
+		strings.NewReader(header+"colony 100050 transfer 100 GOLD to colony 100050\n"))
 	if err == nil || !strings.Contains(err.Error(), "cannot transfer to itself") {
 		t.Errorf("transfer to itself: err = %v; want it refused", err)
 	}
@@ -315,14 +315,14 @@ func TestTransferReachesOwnEntitiesAndDerelictsAndNoOneElse(t *testing.T) {
 // be the one that uses it: assembly resolves before probes.
 func TestAssembledSensorsAreReadyForTheSameTurnsProbes(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	// Colony 50 has no assembled sensors to start with, so the probe only
+	// Colony 100050 has no assembled sensors to start with, so the probe only
 	// binds because the assemble in the same file ran first.
 	if _, err := Check(context.Background(), conn,
-		strings.NewReader(header+"colony 50 probe orbit 4\n")); err == nil {
+		strings.NewReader(header+"colony 100050 probe orbit 4\n")); err == nil {
 		t.Fatal("a probe bound with no assembled SNSR; want it refused")
 	}
 	if _, err := Check(context.Background(), conn,
-		strings.NewReader(header+"colony 50 probe orbit 4\ncolony 50 assemble 20 SNSR-1\n")); err != nil {
+		strings.NewReader(header+"colony 100050 probe orbit 4\ncolony 100050 assemble 20 SNSR-1\n")); err != nil {
 		t.Errorf("a probe after an assemble in the same file was refused: %v", err)
 	}
 }
@@ -334,9 +334,9 @@ func TestAssembledSensorsAreReadyForTheSameTurnsProbes(t *testing.T) {
 func TestCheckPutsTheInventoryBackTheWayItFoundIt(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
 	before := worldSnapshot(t, conn)
-	body := `colony 50 unassemble and stow 10 STRC-10
-colony 50 transfer 300 GOLD, 20 SOL to ship 51
-colony 50 assemble 20 SNSR-1
+	body := `colony 100050 unassemble and stow 10 STRC-10
+colony 100050 transfer 300 GOLD, 20 SOL to ship 100051
+colony 100050 assemble 20 SNSR-1
 `
 	if _, err := Check(context.Background(), conn, strings.NewReader(header+body)); err != nil {
 		t.Fatal(err)
@@ -392,8 +392,8 @@ func apply(t *testing.T, conn *sqlite.Conn, body string) Result {
 	return validated.result
 }
 
-// Colony 50 is an open-air colony with a cadre, transports, stock in every
-// section, and room to spare. Ship 51 is beside it, 52 is at another planet,
+// Colony 100050 is an open-air colony with a cadre, transports, stock in every
+// section, and room to spare. Ship 100051 is beside it, 52 is at another planet,
 // 53 is a derelict, and 54 belongs to somebody else.
 func openInventoryOrderDatabase(t *testing.T) *sqlite.Conn {
 	t.Helper()
@@ -404,19 +404,19 @@ func openInventoryOrderDatabase(t *testing.T) *sqlite.Conn {
 			(2, 'rival@example.com', 'non-administrator');
 		INSERT INTO agent (id, code, description) VALUES (1, 'uncontrolled', 'Uncontrolled');
 		INSERT INTO game (id, code, turn) VALUES (1, 'TEST', 0);
-		INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1), (3, 1, 2);
-		INSERT INTO faction (id, game_id, agent_id) VALUES (2, 1, 1);
+		INSERT INTO faction (id, game_id, number, user_id) VALUES (1, 1, 1, 1), (3, 1, 3, 2);
+		INSERT INTO faction (id, game_id, number, agent_id) VALUES (2, 1, 2, 1);
 		INSERT INTO stellium (id, game_id, x, y, z) VALUES (10, 1, 0, 0, 0);
 		INSERT INTO system (id, stellium_id, sequence) VALUES (20, 10, 'A');
 		INSERT INTO planet (id, system_id, orbit, kind, habitability) VALUES
 			(30, 20, 4, 'rocky', 10), (31, 20, 6, 'rocky', 10);
-		INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
+		INSERT INTO entity (id, game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring,
 			faction_id, enclosed_volume, mass) VALUES
-			(50, 'COPN', 1, 10, 20, 30, 0, 1, 10000, 100000),
-			(51, 'SHIP', 1, 10, 20, 30, 64, 1, 50000, 10000),
-			(52, 'SHIP', 1, 10, 20, 31, 64, 1, 50000, 10000),
-			(53, 'SHIP', 1, 10, 20, 30, 64, 2, 50000, 10000),
-			(54, 'SHIP', 1, 10, 20, 30, 64, 3, 50000, 10000);
+			(50, 1, 100050, 'COPN', 1, 10, 20, 30, 0, 1, 10000, 100000),
+			(51, 1, 100051, 'SHIP', 1, 10, 20, 30, 64, 1, 50000, 10000),
+			(52, 1, 100052, 'SHIP', 1, 10, 20, 31, 64, 1, 50000, 10000),
+			(53, 1, 100053, 'SHIP', 1, 10, 20, 30, 64, 2, 50000, 10000),
+			(54, 1, 100054, 'SHIP', 1, 10, 20, 30, 64, 3, 50000, 10000);
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
 			(50, 'component', 'STRC', 10, 100),
 			(50, 'operational', 'TRAN', 1, 20),
@@ -471,14 +471,14 @@ func inventoryScalar(t *testing.T, conn *sqlite.Conn, query string, args ...any)
 // a transport picks a load up; unstowing moves them back.
 func TestStowAndUnstowMoveUnitsBetweenUnassembledInventoryAndCargo(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 stow 40 SNSR-1\n")
+	apply(t, conn, "colony 100050 stow 40 SNSR-1\n")
 	if got := storedQuantity(t, conn, 50, "cargo", "SNSR", 1); got != 40 {
 		t.Errorf("cargo SNSR-1 = %d; want 40", got)
 	}
 	if got := storedQuantity(t, conn, 50, "unassembled", "SNSR", 1); got != 60 {
 		t.Errorf("unassembled SNSR-1 = %d; want 60 left", got)
 	}
-	apply(t, conn, "colony 50 unstow 25 SNSR-1\n")
+	apply(t, conn, "colony 100050 unstow 25 SNSR-1\n")
 	if got := storedQuantity(t, conn, 50, "cargo", "SNSR", 1); got != 15 {
 		t.Errorf("cargo SNSR-1 = %d; want 15 left", got)
 	}
@@ -492,7 +492,7 @@ func TestStowAndUnstowMoveUnitsBetweenUnassembledInventoryAndCargo(t *testing.T)
 // else, and unstowing one is what readies it for the market.
 func TestStowReachesTheResourcesAnAssembleNeverCan(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
-	apply(t, conn, "colony 50 unstow 400 GOLD\n")
+	apply(t, conn, "colony 100050 unstow 400 GOLD\n")
 	if got := storedQuantity(t, conn, 50, "unassembled", "GOLD", 0); got != 400 {
 		t.Errorf("unassembled GOLD = %d; want 400", got)
 	}
@@ -504,10 +504,10 @@ func TestStowReachesTheResourcesAnAssembleNeverCan(t *testing.T) {
 // Only two things are never stowed, and neither is inventory at all.
 func TestSubmitRefusesStowingWhatIsNotFreight(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
-		{"colony 50 stow 100 SOL", "SOL is population; people are carried rather than stowed"},
-		{"colony 50 stow 100 CWKR", "CWKR is a cadre"},
-		{"colony 50 unstow 100 SOL", "SOL is population; people are carried rather than stowed"},
-		{"colony 50 stow 100 SNSR-1, 5 SNSR-1", "SNSR-1 is named twice"},
+		{"colony 100050 stow 100 SOL", "SOL is population; people are carried rather than stowed"},
+		{"colony 100050 stow 100 CWKR", "CWKR is a cadre"},
+		{"colony 100050 unstow 100 SOL", "SOL is population; people are carried rather than stowed"},
+		{"colony 100050 stow 100 SNSR-1, 5 SNSR-1", "SNSR-1 is named twice"},
 	} {
 		_, err := Check(context.Background(), openInventoryOrderDatabase(t), strings.NewReader(header+item.line+"\n"))
 		if err == nil {
@@ -526,11 +526,11 @@ func TestStowIsRationedByProductionLabourAndNotByTheCadre(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
 	// The colony holds a hundred sensors and nothing else to stow, so the
 	// stock is what stops this one.
-	result := check(t, conn, "colony 50 stow 1,000 SNSR-1\n")
+	result := check(t, conn, "colony 100050 stow 1,000 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want := "colony 50 stowed 100 of 1,000 SNSR-1; it holds no more"
+	want := "colony 100050 stowed 100 of 1,000 SNSR-1; it holds no more"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
@@ -540,11 +540,11 @@ func TestStowIsRationedByProductionLabourAndNotByTheCadre(t *testing.T) {
 	// not.
 	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
 		VALUES (50, 'cargo', 'SNSR', 1, 1000);`)
-	result = check(t, conn, "colony 50 unstow 1,000 SNSR-1\n")
+	result = check(t, conn, "colony 100050 unstow 1,000 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want = "colony 50 unstowed 562 of 1,000 SNSR-1; " +
+	want = "colony 100050 unstowed 562 of 1,000 SNSR-1; " +
 		"its 45 units of production labour had 22,500 MU of freight left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
@@ -563,7 +563,7 @@ func TestAutomationStandsInForUnskilledWorkersWhenItIsAssembled(t *testing.T) {
 	// Ten assembled AUTO-2 add 20 to the 45 unassigned USK: 65 units of labour
 	// move 32,500 MU a turn, which is 812 sensors. The hundred unassembled
 	// ones add nothing, being freight until somebody puts them to work.
-	result := check(t, conn, "colony 50 unstow 1,000 SNSR-1\n")
+	result := check(t, conn, "colony 100050 unstow 1,000 SNSR-1\n")
 	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0].Message,
 		"unstowed 812 of 1,000 SNSR-1; its 65 units of production labour") {
 		t.Fatalf("warnings = %+v; want the order stopped at 812", result.Warnings)
@@ -578,11 +578,11 @@ func TestStowingTakesAWholeWorkerFromUnstowing(t *testing.T) {
 		VALUES (50, 'cargo', 'SNSR', 1, 1000);`)
 	// One sensor stowed is 40 MU of freight and one whole worker, leaving 44
 	// to unstow with: 22,000 MU, which is 550 sensors rather than 562.
-	result := check(t, conn, "colony 50 stow 1 SNSR-1\ncolony 50 unstow 1,000 SNSR-1\n")
+	result := check(t, conn, "colony 100050 stow 1 SNSR-1\ncolony 100050 unstow 1,000 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	want := "colony 50 unstowed 550 of 1,000 SNSR-1; " +
+	want := "colony 100050 unstowed 550 of 1,000 SNSR-1; " +
 		"its 45 units of production labour had 22,000 MU of freight left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
@@ -598,11 +598,11 @@ func TestTheShortfallNoteSaysWhatWasLeftRatherThanTheTurnsWholeRate(t *testing.T
 	// Two orders of one pool: the first takes 1,200 MU of the cadre's 2,500
 	// and the second is answered by the 1,300 that is left, not by the 2,500
 	// the five workers are worth over a turn.
-	result := check(t, conn, "colony 50 assemble 30 SNSR-1\ncolony 50 assemble 100 SNSR-1\n")
+	result := check(t, conn, "colony 100050 assemble 30 SNSR-1\ncolony 100050 assemble 100 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one, on the second order", result.Warnings)
 	}
-	want := "colony 50 assembled 32 of 100 SNSR-1; its 5 CWKR had 1,300 MU of work left this turn"
+	want := "colony 100050 assembled 32 of 100 SNSR-1; its 5 CWKR had 1,300 MU of work left this turn"
 	if result.Warnings[0].Message != want {
 		t.Errorf("warning = %q; want %q", result.Warnings[0].Message, want)
 	}
@@ -615,7 +615,7 @@ func TestStowingAndAssemblingDrawOnDifferentPeople(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
 	// The cadre still assembles its full 62 sensors even though the stow moved
 	// 400 MU of gold in the same turn.
-	result := check(t, conn, "colony 50 unstow 400 GOLD\ncolony 50 assemble 100 SNSR-1\n")
+	result := check(t, conn, "colony 100050 unstow 400 GOLD\ncolony 100050 assemble 100 SNSR-1\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one, on the assemble", result.Warnings)
 	}
@@ -632,9 +632,9 @@ func TestStowFeedsATransferAndUnstowTakesTheLoadBackOutInOneTurn(t *testing.T) {
 	// The ship needs people of its own: production labour is the entity's, and
 	// nothing rides out with the freight to unload it at the far end.
 	testdb.Exec(t, conn, "INSERT INTO entity_population (entity_id, class, quantity) VALUES (51, 'USK', 10);")
-	apply(t, conn, `ship 51 unstow 10 SNSR-1
-colony 50 transfer 10 SNSR-1 to ship 51
-colony 50 stow 10 SNSR-1
+	apply(t, conn, `ship 100051 unstow 10 SNSR-1
+colony 100050 transfer 10 SNSR-1 to ship 100051
+colony 100050 stow 10 SNSR-1
 `)
 	if got := storedQuantity(t, conn, 51, "unassembled", "SNSR", 1); got != 10 {
 		t.Errorf("ship unassembled SNSR-1 = %d; want 10, the unstow having run last", got)
@@ -659,14 +659,14 @@ func TestUnstowingAutomationFailsWhenItWouldLeaveTheEntityOverpacked(t *testing.
 	// and unstowing them all would need 16,000 VU.
 	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
 		VALUES (50, 'cargo', 'AUTO', 10, 400);`)
-	result := check(t, conn, "colony 50 unstow 400 AUTO-10\n")
+	result := check(t, conn, "colony 100050 unstow 400 AUTO-10\n")
 	if len(result.Warnings) != 1 {
 		t.Fatalf("warnings = %+v; want one", result.Warnings)
 	}
-	if !strings.Contains(result.Warnings[0].Message, "colony 50 would hold") {
+	if !strings.Contains(result.Warnings[0].Message, "colony 100050 would hold") {
 		t.Errorf("warning = %q; want it to say the colony would be overpacked", result.Warnings[0].Message)
 	}
-	apply(t, conn, "colony 50 unstow 400 AUTO-10\n")
+	apply(t, conn, "colony 100050 unstow 400 AUTO-10\n")
 	if got := storedQuantity(t, conn, 50, "cargo", "AUTO", 10); got != 400 {
 		t.Errorf("cargo AUTO-10 = %d; want all 400 still there: a failed order moves nothing", got)
 	}
@@ -678,7 +678,7 @@ func TestStowingAutomationFreesTheRoomItTakesUnassembled(t *testing.T) {
 	conn := openInventoryOrderDatabase(t)
 	testdb.Exec(t, conn, `INSERT INTO inventory (entity_id, section, unit, tech_level, quantity)
 		VALUES (50, 'unassembled', 'AUTO', 2, 100);`)
-	apply(t, conn, "colony 50 stow 100 AUTO-2\n")
+	apply(t, conn, "colony 100050 stow 100 AUTO-2\n")
 	if got := storedQuantity(t, conn, 50, "cargo", "AUTO", 2); got != 100 {
 		t.Errorf("cargo AUTO-2 = %d; want all 100", got)
 	}

@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 5
 id faction 11
-	ship 2 move to orbti 6
-				ship 2 move to orbti 6
-ééé ship 2 move to orbit 6
-ship 2 move to éééééééééééééééééééééééééééééééééééééééé 6
-ship 2 move to 世世世世世世世世世世世世世世世世世世世世世世世世世世世世世世 6
-世界 ship 2 move to orbit 6
-ship 2 ́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́move to orbit 6
+	ship 503683 move to orbti 6
+				ship 503683 move to orbti 6
+ééé ship 503683 move to orbit 6
+ship 503683 move to éééééééééééééééééééééééééééééééééééééééé 6
+ship 503683 move to 世世世世世世世世世世世世世世世世世世世世世世世世世世世世世世 6
+世界 ship 503683 move to orbit 6
+ship 503683 ́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́move to orbit 6
 ship 2 move to orbit 6
 ship 2 move to orbit 6
-ship 2 move to orbit 6
-ship 2 move to ‮orbti 6
-ship 2 move to orbtí 6
-colony 5 create ship using 60 STRC-8 transfering 25 FOOD with5 CWKR end
+ship 503683 move to orbit 6
+ship 503683 move to ‮orbti 6
+ship 503683 move to orbtí 6
+colony 265054 create ship using 60 STRC-8 transfering 25 FOOD with5 CWKR end
 we name (1,2,3) 7system A orbit 8 "x"
-ship 2 7broadcast system B orbit 8 "hello"
-ship 2 broadcasPt system B orbit 8 "hello"
-colony 5 create ship using 60 STRC-8 tranwsfering 25 FOOD with 5 CWKR end
-colony 5 sEell 100 FOOD 1,000.50 GOLD 75%
+ship 503683 7broadcast system B orbit 8 "hello"
+ship 503683 broadcasPt system B orbit 8 "hello"
+colony 265054 create ship using 60 STRC-8 tranwsfering 25 FOOD with 5 CWKR end
+colony 265054 sEell 100 FOOD 1,000.50 GOLD 75%
 we name (1,2,3 system A orbit 8 "x"
 w
-colony 5 pay USK	 15%, SKW 20%
-ship 2 probe system A orbit 1 2N 3
+colony 265054 pay USK	 15%, SKW 20%
+ship 503683 probe system A orbit 1 2N 3

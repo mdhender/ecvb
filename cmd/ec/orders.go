@@ -50,7 +50,7 @@ func processOrderFile(ctx context.Context, directory, path string, submit bool) 
 // accepted and then what may still go wrong when the turn resolves.
 func writeOrderResult(w io.Writer, action string, result orderpkg.Result) error {
 	_, err := fmt.Fprintf(w, "%s %d orders for game %s turn %d faction %d\n",
-		action, result.Orders, result.GameCode, result.Turn, result.FactionID)
+		action, result.Orders, result.GameCode, result.Turn, result.FactionNumber)
 	if err != nil {
 		return fmt.Errorf("write orders result: %w", err)
 	}

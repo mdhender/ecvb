@@ -38,12 +38,12 @@ for faction in 1 2 3; do
     go run ./cmd/ecrpt --db-path games/beta show --output games/beta/reports/t0-f${faction}-turn-report.txt turn --game BETA-001 --faction ${faction}
 done
 
-go run ./cmd/ec --db-path games/beta orders check  games/beta/orders/t0-f1-orders-v1.txt
+go run ./cmd/ec --db-path games/beta orders check  games/beta/orders/t0-f2-orders-v1.txt
 
-go run ./cmd/ec --db-path games/beta orders submit games/beta/orders/t0-f1-orders-v1.txt
+go run ./cmd/ec --db-path games/beta orders submit games/beta/orders/t0-f2-orders-v1.txt
 
 go run ./cmd/ecrpt --db-path games/beta show orders --game BETA-001 --email user01@example.com
-go run ./cmd/ecrpt --db-path games/beta show orders --game BETA-001 --faction 2
+go run ./cmd/ecrpt --db-path games/beta show orders --game BETA-001 --faction 1
 
 go run ./cmd/ec --db-path games/beta turn resolve --game BETA-001 --turn 0 \
     2>games/beta/reports/t0-engine.log

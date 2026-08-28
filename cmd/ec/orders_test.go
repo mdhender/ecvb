@@ -12,7 +12,7 @@ import (
 
 func TestWriteOrderResultReportsWarningsAfterTheSummary(t *testing.T) {
 	var out bytes.Buffer
-	result := orderpkg.Result{GameCode: "TEST", Turn: 3, FactionID: 1, Orders: 2, Warnings: []orderpkg.Warning{
+	result := orderpkg.Result{GameCode: "TEST", Turn: 3, FactionID: 7, FactionNumber: 1, Orders: 2, Warnings: []orderpkg.Warning{
 		{Line: 4, Message: "ship 40 needs 160 FUEL to jump and will hold 36; the order fails unless fuel reaches the ship first"},
 		{Line: 5, Message: "ship 40 needs 4 FUEL to move and will hold 0; the order fails unless fuel reaches the ship first"},
 	}}
@@ -32,7 +32,7 @@ func TestWriteOrderResultReportsWarningsAfterTheSummary(t *testing.T) {
 
 func TestWriteOrderResultOmitsWarningsWhenThereAreNone(t *testing.T) {
 	var out bytes.Buffer
-	if err := writeOrderResult(&out, "checked", orderpkg.Result{GameCode: "TEST", Turn: 3, FactionID: 1, Orders: 2}); err != nil {
+	if err := writeOrderResult(&out, "checked", orderpkg.Result{GameCode: "TEST", Turn: 3, FactionID: 7, FactionNumber: 1, Orders: 2}); err != nil {
 		t.Fatal(err)
 	}
 	if want := "checked 2 orders for game TEST turn 3 faction 1\n"; out.String() != want {

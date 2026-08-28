@@ -333,7 +333,7 @@ func (e *Entity) RoomAfter(shifts []Shift) (occupied, usable int64, err error) {
 func (w *World) ShiftAll(entity *Entity, shifts []Shift) error {
 	for _, shift := range shifts {
 		if shift.Quantity < 0 {
-			return fmt.Errorf("move %s on entity %d: quantity must be nonnegative", shift.Unit, entity.ID)
+			return fmt.Errorf("move %s on entity %d: quantity must be nonnegative", shift.Unit, entity.Number)
 		}
 		if shift.Quantity == 0 {
 			continue
@@ -360,7 +360,7 @@ func (w *World) ShiftAll(entity *Entity, shifts []Shift) error {
 // where units leave the entity altogether.
 func (w *World) Hand(from, to *Entity, unit string, techLevel int, quantity int64) error {
 	if quantity < 0 {
-		return fmt.Errorf("hand %s from entity %d: quantity must be nonnegative", unit, from.ID)
+		return fmt.Errorf("hand %s from entity %d: quantity must be nonnegative", unit, from.Number)
 	}
 	if quantity == 0 {
 		return nil
@@ -390,7 +390,7 @@ func (w *World) Hand(from, to *Entity, unit string, techLevel int, quantity int6
 // the same way.
 func (w *World) HandPopulation(from, to *Entity, class string, quantity int64) error {
 	if quantity < 0 {
-		return fmt.Errorf("hand %s from entity %d: quantity must be nonnegative", class, from.ID)
+		return fmt.Errorf("hand %s from entity %d: quantity must be nonnegative", class, from.Number)
 	}
 	if quantity == 0 {
 		return nil
@@ -417,7 +417,7 @@ func (w *World) HandPopulation(from, to *Entity, class string, quantity int64) e
 // the entity, so the entity's mass falls with it.
 func (w *World) burn(entity *Entity, unit string, quantity int64, sections []string) error {
 	if quantity < 0 {
-		return fmt.Errorf("burn %s on entity %d: quantity must be nonnegative", unit, entity.ID)
+		return fmt.Errorf("burn %s on entity %d: quantity must be nonnegative", unit, entity.Number)
 	}
 	if quantity == 0 {
 		return nil
@@ -425,7 +425,7 @@ func (w *World) burn(entity *Entity, unit string, quantity int64, sections []str
 	// Count it all before drawing any, so a shortfall leaves the entity
 	// untouched rather than half-drained.
 	if held := entity.HeldEverywhere(unit); held < quantity {
-		return fmt.Errorf("burn %s on entity %d: needs %d and holds %d", unit, entity.ID, quantity, held)
+		return fmt.Errorf("burn %s on entity %d: needs %d and holds %d", unit, entity.Number, quantity, held)
 	}
 	remaining, drawnMass := quantity, int64(0)
 	for _, section := range sections {
@@ -445,7 +445,7 @@ func (w *World) burn(entity *Entity, unit string, quantity int64, sections []str
 		}
 	}
 	if remaining != 0 {
-		return fmt.Errorf("burn %s on entity %d: drew %d of %d", unit, entity.ID, quantity-remaining, quantity)
+		return fmt.Errorf("burn %s on entity %d: drew %d of %d", unit, entity.Number, quantity-remaining, quantity)
 	}
 	return w.setMass(entity, entity.Mass-drawnMass)
 }
@@ -460,7 +460,7 @@ func (w *World) burn(entity *Entity, unit string, quantity int64, sections []str
 // second order of a turn measuring the entity as the first order left it.
 func (w *World) setStack(entity *Entity, stack Stack, quantity int64) error {
 	if quantity < 0 {
-		return fmt.Errorf("set entity %d %s %s: quantity must be nonnegative", entity.ID, stack.Section, stack.Unit)
+		return fmt.Errorf("set entity %d %s %s: quantity must be nonnegative", entity.Number, stack.Section, stack.Unit)
 	}
 	statement := `
 		INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES (?, ?, ?, ?, ?)
@@ -471,7 +471,7 @@ func (w *World) setStack(entity *Entity, stack Stack, quantity int64) error {
 		args = args[:4]
 	}
 	if err := sqlitex.ExecuteTransient(w.conn, statement, &sqlitex.ExecOptions{Args: args}); err != nil {
-		return fmt.Errorf("set entity %d %s %s: %w", entity.ID, stack.Section, stack.Tag(), err)
+		return fmt.Errorf("set entity %d %s %s: %w", entity.Number, stack.Section, stack.Tag(), err)
 	}
 	before := entity.Inventory[stack]
 	if quantity == 0 {
@@ -492,15 +492,15 @@ func (w *World) setStack(entity *Entity, stack Stack, quantity int64) error {
 
 func (w *World) setMass(entity *Entity, mass int64) error {
 	if mass < 0 {
-		return fmt.Errorf("set entity %d mass: mass must be nonnegative", entity.ID)
+		return fmt.Errorf("set entity %d mass: mass must be nonnegative", entity.Number)
 	}
 	if err := sqlitex.ExecuteTransient(w.conn, "UPDATE entity SET mass = ? WHERE id = ?;", &sqlitex.ExecOptions{
 		Args: []any{mass, entity.ID},
 	}); err != nil {
-		return fmt.Errorf("set entity %d mass: %w", entity.ID, err)
+		return fmt.Errorf("set entity %d mass: %w", entity.Number, err)
 	}
 	if w.conn.Changes() != 1 {
-		return fmt.Errorf("set entity %d mass: entity does not exist", entity.ID)
+		return fmt.Errorf("set entity %d mass: entity does not exist", entity.Number)
 	}
 	entity.Mass = mass
 	return nil
@@ -508,15 +508,15 @@ func (w *World) setMass(entity *Entity, mass int64) error {
 
 func (w *World) setEnclosedVolume(entity *Entity, volume int64) error {
 	if volume < 0 {
-		return fmt.Errorf("set entity %d enclosed volume: volume must be nonnegative", entity.ID)
+		return fmt.Errorf("set entity %d enclosed volume: volume must be nonnegative", entity.Number)
 	}
 	if err := sqlitex.ExecuteTransient(w.conn, "UPDATE entity SET enclosed_volume = ? WHERE id = ?;", &sqlitex.ExecOptions{
 		Args: []any{volume, entity.ID},
 	}); err != nil {
-		return fmt.Errorf("set entity %d enclosed volume: %w", entity.ID, err)
+		return fmt.Errorf("set entity %d enclosed volume: %w", entity.Number, err)
 	}
 	if w.conn.Changes() != 1 {
-		return fmt.Errorf("set entity %d enclosed volume: entity does not exist", entity.ID)
+		return fmt.Errorf("set entity %d enclosed volume: entity does not exist", entity.Number)
 	}
 	entity.EnclosedVolume = volume
 	return nil
@@ -524,7 +524,7 @@ func (w *World) setEnclosedVolume(entity *Entity, volume int64) error {
 
 func (w *World) setPopulation(entity *Entity, class string, quantity int64) error {
 	if quantity < 0 {
-		return fmt.Errorf("set entity %d %s: quantity must be nonnegative", entity.ID, class)
+		return fmt.Errorf("set entity %d %s: quantity must be nonnegative", entity.Number, class)
 	}
 	statement := `
 		INSERT INTO entity_population (entity_id, class, quantity) VALUES (?, ?, ?)
@@ -535,7 +535,7 @@ func (w *World) setPopulation(entity *Entity, class string, quantity int64) erro
 		args = args[:2]
 	}
 	if err := sqlitex.ExecuteTransient(w.conn, statement, &sqlitex.ExecOptions{Args: args}); err != nil {
-		return fmt.Errorf("set entity %d %s: %w", entity.ID, class, err)
+		return fmt.Errorf("set entity %d %s: %w", entity.Number, class, err)
 	}
 	if quantity == 0 {
 		delete(entity.Population, class)
@@ -588,7 +588,7 @@ func (w *World) setCadre(entity *Entity, name string, quantity int64) error {
 		args = args[:2]
 	}
 	if err := sqlitex.ExecuteTransient(w.conn, statement, &sqlitex.ExecOptions{Args: args}); err != nil {
-		return fmt.Errorf("set entity %d %s cadre: %w", entity.ID, name, err)
+		return fmt.Errorf("set entity %d %s cadre: %w", entity.Number, name, err)
 	}
 	if quantity == 0 {
 		delete(entity.Cadre, name)

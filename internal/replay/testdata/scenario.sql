@@ -32,10 +32,16 @@
 INSERT INTO users (id, email, role) VALUES
     (1, 'player@example.com', 'non-administrator');
 INSERT INTO agent (id, code, description) VALUES (1, 'uncontrolled', 'Uncontrolled');
-INSERT INTO game (id, code, turn, turn_state, seed_high, seed_low) VALUES
-    (1, 'GOLD-01', 0, 'open', 19, 12);
-INSERT INTO faction (id, game_id, user_id) VALUES (1, 1, 1);
-INSERT INTO faction (id, game_id, agent_id) VALUES (2, 1, 1);
+-- next_entity_ordinal is set past the eleven entities below, and each of their
+-- numbers is entityid.Number(prng.New(19, 12), ordinal) for ordinals 0 through
+-- 10 -- exactly what the game would have handed out had it created them. That
+-- is what keeps a create order in this scenario from being given a number a
+-- fixture row already holds.
+INSERT INTO game (id, code, turn, turn_state, seed_high, seed_low,
+                  next_entity_ordinal, next_faction_number) VALUES
+    (1, 'GOLD-01', 0, 'open', 19, 12, 11, 2);
+INSERT INTO faction (id, game_id, number, user_id) VALUES (1, 1, 1, 1);
+INSERT INTO faction (id, game_id, number, agent_id) VALUES (2, 1, 2, 1);
 
 -- Home is the origin. NEAR is 3 ly away and FAR is 5. Technology level does not
 -- cap the distance -- every drive reaches everywhere -- it divides it: a HDRV-3
@@ -60,36 +66,47 @@ INSERT INTO deposit (id, planet_id, sequence, resource, quality, initial_qty, cu
     (41, 30, 2, 'gold', 35, 900, 900),
     (42, 31, 1, 'metals', 10, 60000, 60000);
 
--- 100 is the working ship: a drive it can afford to run and sensors to spend.
--- 101 is its home colony, which may probe but never move. It carries a small
---     cadre so that it can assemble what 107 hands it, in the turn it arrives.
--- 102 has no drive at all. 103 is too massive for the drive it has.
--- 104 has a drive and no fuel to run it.
--- 105 has the slowest drive there is, so its crossing spans turns.
--- 106 is parked in the stellium orbit, which is the one place a move can go
---     nowhere and the one place a probe has to name its system.
--- 107 is the depot: a cadre to assemble with, transports to hand things over
---     with, and enough structure that unassembling it all leaves no room.
--- 109 is the shipyard: transports enough to reach a build, a cadre to lend it,
---     and its materials in cargo, which is the only section a transport loads
---     from. It builds an open-air colony, which needs no life support, so the
---     build's population line can finish rather than waiting on an LFSU.
--- 108 is the freight yard. It has no cadre and never assembles anything: its
---     ten unskilled workers and five assembled AUTO-2 are twenty units of
---     production labour, which move 10,000 MU of freight a turn between them.
--- 200 belongs to the other faction and exists to be seen.
-INSERT INTO entity (id, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
-    (100, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 2270),
-    (101, 'COPN', 1, 10, 20, 30,  0, 1, 5000, 1010),
-    (102, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  500),
-    (103, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 9000),
-    (104, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  271),
-    (105, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  400),
-    (106, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 5000, 500),
-    (107, 'COPN', 1, 10, 20, 30,  0, 1, 10000, 7940),
-    (108, 'COPN', 1, 10, 20, 30,  0, 1, 13000, 14740),
-    (109, 'COPN', 1, 10, 20, 30,  0, 1,  5000,  2920),
-    (200, 'SHIP', 1, 10, 20, 31, 55, 2, 5000, 7400);
+-- Each entity is written here under two handles. The row id -- 100, 101, ... --
+-- is the one the rest of this file joins on, and it is short. The number beside
+-- it is what the game hands the player: it is what the order files write and
+-- what every report prints, and it is a permutation of the entity's ordinal,
+-- so it does not read in creation order and is not meant to.
+--
+-- 100 / 985070 is the working ship: a drive it can afford to run and sensors to
+--     spend.
+-- 101 / 503683 is its home colony, which may probe but never move. It carries a
+--     small cadre so that it can assemble what 107 hands it, in the turn it
+--     arrives.
+-- 102 / 327307 has no drive at all. 103 / 896680 is too massive for its drive.
+-- 104 / 265054 has a drive and no fuel to run it.
+-- 105 / 603919 has the slowest drive there is, so its crossing spans turns.
+-- 106 / 219454 is parked in the stellium orbit, which is the one place a move
+--     can go nowhere and the one place a probe has to name its system.
+-- 107 / 802784 is the depot: a cadre to assemble with, transports to hand
+--     things over with, and enough structure that unassembling it all leaves no
+--     room.
+-- 109 / 650056 is the shipyard: transports enough to reach a build, a cadre to
+--     lend it, and its materials in cargo, which is the only section a
+--     transport loads from. It builds an open-air colony, which needs no life
+--     support, so the build's population line can finish rather than waiting on
+--     an LFSU.
+-- 108 / 895038 is the freight yard. It has no cadre and never assembles
+--     anything: its ten unskilled workers and five assembled AUTO-2 are twenty
+--     units of production labour, which move 10,000 MU of freight a turn
+--     between them.
+-- 200 / 560344 belongs to the other faction and exists to be seen.
+INSERT INTO entity (id, game_id, number, unit, tech_level, stellium_id, system_id, planet_id, planet_ring, faction_id, enclosed_volume, mass) VALUES
+    (100, 1, 985070, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 2270),
+    (101, 1, 503683, 'COPN', 1, 10, 20, 30,  0, 1, 5000, 1010),
+    (102, 1, 327307, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  500),
+    (103, 1, 896680, 'SHIP', 1, 10, 20, 30, 64, 1, 5000, 9000),
+    (104, 1, 265054, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  271),
+    (105, 1, 603919, 'SHIP', 1, 10, 20, 30, 64, 1, 5000,  400),
+    (106, 1, 219454, 'SHIP', 1, 10, NULL, NULL, NULL, 1, 5000, 500),
+    (107, 1, 802784, 'COPN', 1, 10, 20, 30,  0, 1, 10000, 7940),
+    (108, 1, 895038, 'COPN', 1, 10, 20, 30,  0, 1, 13000, 14740),
+    (109, 1, 650056, 'COPN', 1, 10, 20, 30,  0, 1,  5000,  2920),
+    (200, 1, 560344, 'SHIP', 1, 10, 20, 31, 55, 2, 5000, 7400);
 
 INSERT INTO inventory (entity_id, section, unit, tech_level, quantity) VALUES
     -- 2 HDRV-3: range 3, capacity 6,270 MU, 8 FUEL a hop, 240 FUEL for a 3 ly jump.

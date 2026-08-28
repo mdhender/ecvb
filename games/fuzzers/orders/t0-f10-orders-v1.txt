@@ -1,7 +1,7 @@
 game "FUZZ-01" turn 0
 id faction 10
 game "FUZZ-01" turn 0
-id faction 1
+id faction 2
 game
 id
 game turn 0
@@ -15,10 +15,10 @@ id player "not an address"
 id faction
 id faction 0
 sghip 2 move to orbit 6
-colony 5 create ship u.sing 60 STRC-8 transfering 25 FOOD with 5 CWKR end
-ship 2 jum9 to (1,2,3)
-ship 2 probe system A orbit 1 2 F3
+colony 265054 create ship u.sing 60 STRC-8 transfering 25 FOOD with 5 CWKR end
+ship 503683 jum9 to (1,2,3)
+ship 503683 probe system A orbit 1 2 F3
 
 shiAp 2 jump to (1,2,3)
-colony 5 payUSK 15%, SKW 20%
-ship 2 probe system A orbt 1 2 3
+colony 265054 payUSK 15%, SKW 20%
+ship 503683 probe system A orbt 1 2 3

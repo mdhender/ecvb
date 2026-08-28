@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 4
 id faction 3
-colony 5 assemble 1,0000 SNSR-1
-colony 5 assemble 0 SNSR-1
-colony 5 assemble 00 SNSR-1
-colony 5 assemble 012 SNSR-1
-colony 5 assemble -1 SNSR-1
-colony 5 assemble +1 SNSR-1
-colony 5 assemble 1e3 SNSR-1
-colony 5 assemble 1.0 SNSR-1
-colony 5 assemble 999999999999999999999999 SNSR-1
-colony 5 assemble 9223372036854775808 SNSR-1
-colony 5 assemble 1,000,000,000,000,000,000,000 SNSR-1
-ship 2 move to orbit 99999999999999999999999999
-ship 2 move to orbit -1
-ship 2 move to orbit +6
-colony 5 buy tech-level TLm4 800,000 GOLD
+colony 265054 assemble 1,0000 SNSR-1
+colony 265054 assemble 0 SNSR-1
+colony 265054 assemble 00 SNSR-1
+colony 265054 assemble 012 SNSR-1
+colony 265054 assemble -1 SNSR-1
+colony 265054 assemble +1 SNSR-1
+colony 265054 assemble 1e3 SNSR-1
+colony 265054 assemble 1.0 SNSR-1
+colony 265054 assemble 999999999999999999999999 SNSR-1
+colony 265054 assemble 9223372036854775808 SNSR-1
+colony 265054 assemble 1,000,000,000,000,000,000,000 SNSR-1
+ship 503683 move to orbit 99999999999999999999999999
+ship 503683 move to orbit -1
+ship 503683 move to orbit +6
+colony 265054 buy tech-level TLm4 800,000 GOLD
 coloy 5 pay USK 15%, SKW 20%
-ship 2 broadcast system B orbit 8 ihello"
-ship 2 probe system A obit 1 2 3
-ship 2 broadcast system 0B orbit 8 "hello"
+ship 503683 broadcast system B orbit 8 ihello"
+ship 503683 probe system A obit 1 2 3
+ship 503683 broadcast system 0B orbit 8 "hello"
 ship 2w jump to (1,2,3)
-colony 56 pay USK 15%, SKW 20%
-colony 5 sell 100 FOOD 1,0	0.50 GOLD 75%
+colony 445482 pay USK 15%, SKW 20%
+colony 265054 sell 100 FOOD 1,0	0.50 GOLD 75%

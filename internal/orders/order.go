@@ -34,14 +34,19 @@ import (
 // Params is one parsed order: what the player wrote, with nothing looked up.
 //
 // A Params is also how an order is stored. It marshals to the params column of
-// game_order, which holds the words the player used and never an id: the actor
-// is a column of its own with a foreign key on it, and everything else is
-// resolved again when the turn runs, so a name that stops resolving is a
-// failed order rather than a corrupt row. Every Params therefore tags its
-// actor field `json:"-"`, and its Spec's Decode puts the actor back.
+// game_order, which holds the words the player used and no row id: the actor is
+// a column of its own with a foreign key on it, and everything else is resolved
+// again when the turn runs, so a name that stops resolving is a failed order
+// rather than a corrupt row. Every Params therefore tags its actor field
+// `json:"-"`, and its Spec's Decode puts the actor back.
+//
+// The entity numbers a Params does carry -- the actor, a transfer's recipient,
+// a target -- are the numbers the player wrote, which is why they are stored as
+// written: entity.number belongs to the game and is stable, where a row id is
+// drawn from a sequence the database shares between games.
 type Params interface {
-	// Actor is the entity the order acts on, or 0 for an order that acts on
-	// none.
+	// Actor is the entity the order acts on by its number, or 0 for an order
+	// that acts on none.
 	Actor() int64
 	// Input is the order rendered back in the words the player used. It is
 	// stored with the order, and it is what the reports print and what the
@@ -144,31 +149,37 @@ func failed(at world.Location, message string) Outcome {
 // actor finds the entity an order names and checks that the player may name it
 // that way and that their faction owns it.
 //
+// The number is the one the player wrote, which is entity.number and never a
+// row id. A number belongs to one game, so a number from another game is not in
+// this world and reads as absent -- the same way a row id from another game
+// used to.
+//
 // kind is the word the player wrote, "ship" or "colony", and only a probe may
 // write "colony". It is empty for an order read back out of the database,
 // where which word was written was settled when it was written. An entity that
 // exists is named in the message by what it actually is, so one wording serves
 // a file being checked and a turn being resolved, where nobody wrote anything.
-func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
-	entity := b.World.Entity(id)
+func (b *Binder) actor(number int64, kind string) (*world.Entity, error) {
+	entity := b.World.EntityByNumber(number)
 	if entity == nil {
 		if kind == "" {
-			return nil, fmt.Errorf("entity %d does not exist", id)
+			return nil, fmt.Errorf("entity %d does not exist", number)
 		}
-		return nil, fmt.Errorf("%s %d does not exist", kind, id)
+		return nil, fmt.Errorf("%s %d does not exist", kind, number)
 	}
 	switch kind {
 	case "colony":
 		if entity.Unit == "SHIP" {
-			return nil, fmt.Errorf("entity %d is a ship, not a colony", id)
+			return nil, fmt.Errorf("entity %d is a ship, not a colony", number)
 		}
 	case "ship":
 		if entity.Unit != "SHIP" {
-			return nil, fmt.Errorf("entity %d is a %s, not a ship", id, entity.Unit)
+			return nil, fmt.Errorf("entity %d is a %s, not a ship", number, entity.Unit)
 		}
 	}
 	if entity.FactionID != b.FactionID {
-		return nil, fmt.Errorf("%s %d does not belong to faction %d", noun(entity), id, b.FactionID)
+		return nil, fmt.Errorf("%s %d does not belong to faction %d",
+			noun(entity), number, b.World.FactionNumber(b.FactionID))
 	}
 	// A ship crossing between stellia is nowhere, and nowhere is out of reach.
 	// This is checked once, here, rather than by each order, because it holds
@@ -178,7 +189,7 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 	// ship due this turn is still out of reach for the whole of it.
 	if entity.InTransit() {
 		return nil, fmt.Errorf("%s %d is in transit; it arrives on turn %d and can be given orders from turn %d",
-			noun(entity), id, entity.Transit.ArrivalTurn, entity.Transit.ArrivalTurn+1)
+			noun(entity), number, entity.Transit.ArrivalTurn, entity.Transit.ArrivalTurn+1)
 	}
 	// An entity still being built exists and is visible, but it is not yet a
 	// thing that acts: it has no people, nothing assembled, and a standing
@@ -186,7 +197,7 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 	// the one above, written once for every order there will ever be.
 	if entity.UnderConstruction() {
 		return nil, fmt.Errorf("%s %d is under construction and can be given no orders until it is finished",
-			noun(entity), id)
+			noun(entity), number)
 	}
 	return entity, nil
 }
@@ -206,7 +217,7 @@ func (b *Binder) actor(id int64, kind string) (*world.Entity, error) {
 func (b *Binder) once(verb string, entity *world.Entity) error {
 	if b.World.OrdersGiven(verb, entity.ID) > 0 {
 		return fmt.Errorf("%s %d already has a %s order this turn and may be given one a turn",
-			noun(entity), entity.ID, strings.ToUpper(verb))
+			noun(entity), entity.Number, strings.ToUpper(verb))
 	}
 	b.World.RecordOrder(verb, entity.ID)
 	return nil
@@ -216,33 +227,33 @@ func (b *Binder) once(verb string, entity *world.Entity) error {
 // actor: a faction may hand things to its own entities and to the derelicts
 // nobody holds, but not to another faction's -- so ownership is checked here
 // against two answers rather than one.
-func (b *Binder) recipient(id int64, kind string) (*world.Entity, error) {
-	entity := b.World.Entity(id)
+func (b *Binder) recipient(number int64, kind string) (*world.Entity, error) {
+	entity := b.World.EntityByNumber(number)
 	if entity == nil {
-		return nil, fmt.Errorf("%s %d does not exist", kind, id)
+		return nil, fmt.Errorf("%s %d does not exist", kind, number)
 	}
 	switch kind {
 	case "colony":
 		if entity.Unit == "SHIP" {
-			return nil, fmt.Errorf("entity %d is a ship, not a colony", id)
+			return nil, fmt.Errorf("entity %d is a ship, not a colony", number)
 		}
 	case "ship":
 		if entity.Unit != "SHIP" {
-			return nil, fmt.Errorf("entity %d is a %s, not a ship", id, entity.Unit)
+			return nil, fmt.Errorf("entity %d is a %s, not a ship", number, entity.Unit)
 		}
 	}
 	if entity.FactionID != b.FactionID && entity.FactionID != b.World.Game().Uncontrolled {
-		return nil, fmt.Errorf("%s %d belongs to another faction", noun(entity), id)
+		return nil, fmt.Errorf("%s %d belongs to another faction", noun(entity), number)
 	}
 	if entity.InTransit() {
 		return nil, fmt.Errorf("%s %d is in transit; it arrives on turn %d and nothing can reach it before turn %d",
-			noun(entity), id, entity.Transit.ArrivalTurn, entity.Transit.ArrivalTurn+1)
+			noun(entity), number, entity.Transit.ArrivalTurn, entity.Transit.ArrivalTurn+1)
 	}
 	// A build is fed by the entity that ordered it and by nothing else, so an
 	// unfinished entity is not somewhere a transfer may put things down.
 	if entity.UnderConstruction() {
 		return nil, fmt.Errorf("%s %d is under construction; only the build that began it may deliver to it",
-			noun(entity), id)
+			noun(entity), number)
 	}
 	return entity, nil
 }
@@ -271,7 +282,7 @@ func (b *Binder) system(entity *world.Entity, letter string) (int64, error) {
 func spendFuel(t *Turn, entity *world.Entity, verb string, cost int64) (string, error) {
 	if held := entity.Fuel(); held < cost {
 		return fmt.Sprintf("%s %d needs %d %s to %s and holds %d",
-			noun(entity), entity.ID, cost, fuel.Unit, verb, held), nil
+			noun(entity), entity.Number, cost, fuel.Unit, verb, held), nil
 	}
 	return "", t.World.BurnFuel(entity, cost)
 }

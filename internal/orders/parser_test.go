@@ -20,14 +20,14 @@ import (
 // compiler does, because a player editing an order file wants the same two
 // things a programmer does.
 func TestADiagnosticShowsTheLineAndPointsAtTheWord(t *testing.T) {
-	want := "line 4, column 16: expected `system` or `orbit`, found \"orbti\"\n" +
-		"  4 | ship 2 move to orbti 6\n" +
-		"    |                ^^^^^\n" +
+	want := "line 4, column 21: expected `system` or `orbit`, found \"orbti\"\n" +
+		"  4 | ship 100002 move to orbti 6\n" +
+		"    |                     ^^^^^\n" +
 		"    = did you mean `orbit`?\n" +
 		"    = MOVE is written:\n" +
 		"    =   ship SHIP-ID move to orbit ORBIT\n" +
 		"    =   ship SHIP-ID move to system SYSTEM orbit ORBIT"
-	if got := parseProblems(t, "ship 2 move to orbti 6\n"); got != want {
+	if got := parseProblems(t, "ship 100002 move to orbti 6\n"); got != want {
 		t.Errorf("error =\n%s\n  want exactly\n%s", got, want)
 	}
 }
@@ -40,7 +40,7 @@ func TestADiagnosticShowsTheLineAndPointsAtTheWord(t *testing.T) {
 // MOVE -- the system letter that is not there -- rather than that a `to` could
 // have been wanted six words back.
 func TestTheMessageComesFromWhereTheParseGotFurthest(t *testing.T) {
-	got := parseProblems(t, "ship 2 move to system\n")
+	got := parseProblems(t, "ship 100002 move to system\n")
 	if want := "expected a system letter, found the end of the order"; !strings.Contains(got, want) {
 		t.Errorf("error =\n%s\n  want it to say %q", got, want)
 	}
@@ -54,7 +54,7 @@ func TestTheMessageComesFromWhereTheParseGotFurthest(t *testing.T) {
 // remembers which one it came from, so a mistake three lines into a CREATE is
 // reported there and not against the line the CREATE opened on.
 func TestAMistakeInsideAMultiLineOrderIsPlacedOnItsOwnLine(t *testing.T) {
-	got := parseProblems(t, "colony 50 create ship\n"+
+	got := parseProblems(t, "colony 100050 create ship\n"+
 		"  using 60 STRC-8\n"+
 		"  transfering 25 SNSR-99\n"+
 		"  with 5 CWKR\n"+
@@ -75,10 +75,10 @@ func TestANearMissIsSuggestedAndAFarOneIsNot(t *testing.T) {
 		line    string
 		suggest string
 	}{
-		{"ship 2 move to orbti 6", "did you mean `orbit`?"},
+		{"ship 100002 move to orbti 6", "did you mean `orbit`?"},
 		{"colnoy 2 move to orbit 4", "did you mean `colony`?"},
-		{"ship 2 jumpp to (1,2,3)", "did you mean `jump`?"},
-		{"ship 2 move to planet 6", ""},
+		{"ship 100002 jumpp to (1,2,3)", "did you mean `jump`?"},
+		{"ship 100002 move to planet 6", ""},
 		{"fleet 2 probe orbit 1", ""},
 	} {
 		got := parseProblems(t, item.line+"\n")
@@ -130,10 +130,10 @@ func TestTheEditDistanceCountsATranspositionOnce(t *testing.T) {
 // Columns are counted in the characters a player sees, and a tab is one of
 // them, so the caret lands under the word rather than a tab stop away from it.
 func TestATabCountsAsOneColumnSoTheCaretLandsUnderTheWord(t *testing.T) {
-	got := parseProblems(t, "\tcolony 50 assemble 6 SNSR-99\n")
-	want := "line 4, column 23: invalid unit tag \"SNSR-99\"\n" +
-		"  4 |  colony 50 assemble 6 SNSR-99\n" +
-		"    |                       ^^^^^^^"
+	got := parseProblems(t, "\tcolony 100050 assemble 6 SNSR-99\n")
+	want := "line 4, column 27: invalid unit tag \"SNSR-99\"\n" +
+		"  4 |  colony 100050 assemble 6 SNSR-99\n" +
+		"    |                           ^^^^^^^"
 	if got != want {
 		t.Errorf("error =\n%s\n  want exactly\n%s", got, want)
 	}
@@ -145,12 +145,12 @@ func TestATabCountsAsOneColumnSoTheCaretLandsUnderTheWord(t *testing.T) {
 // mistake, three of them about lines the player wrote correctly.
 func TestGivingUpOnAMultiLineOrderResumesAtTheNextOrder(t *testing.T) {
 	_, err := Parse(strings.NewReader(header +
-		"colony 50 create ship\n" +
+		"colony 100050 create ship\n" +
 		"  using 60 STRC-8\n" +
 		"  transfering 25 \"FOOD\n" +
 		"  with 5 CWKR\n" +
 		"end\n" +
-		"colony 50 assemble 20 SNSR-1\n"))
+		"colony 100050 assemble 20 SNSR-1\n"))
 	if err == nil {
 		t.Fatal("the file was accepted; want it refused")
 	}
@@ -169,16 +169,16 @@ func TestGivingUpOnAMultiLineOrderResumesAtTheNextOrder(t *testing.T) {
 // is not a sentence.
 func TestAFieldIsNamedWithoutAnArticleWhenItIsInvalid(t *testing.T) {
 	for _, item := range []struct{ line, want string }{
-		{"colony 5 sell 100 FOOD 1. GOLD", `invalid price "1."`},
-		{"colony 5 sell 100 FOOD 1,00 GOLD", `invalid price "1,00"`},
-		{"colony 5 assemble , SNSR-1", `invalid quantity ","`},
-		{"colony 5 assemble six SNSR-1", `invalid quantity "six"`},
-		{"colony 5 attack ship 1 -5%", `invalid commitment "-5%"`},
-		{"colony 5 attack ship 1 150%", "invalid commitment 150%"},
+		{"colony 100005 sell 100 FOOD 1. GOLD", `invalid price "1."`},
+		{"colony 100005 sell 100 FOOD 1,00 GOLD", `invalid price "1,00"`},
+		{"colony 100005 assemble , SNSR-1", `invalid quantity ","`},
+		{"colony 100005 assemble six SNSR-1", `invalid quantity "six"`},
+		{"colony 100005 attack ship 100001 -5%", `invalid commitment "-5%"`},
+		{"colony 100005 attack ship 100001 150%", "invalid commitment 150%"},
 		// The same rule read the other way: a missing field still takes one.
-		{"ship 2 broadcast system B orbit 8", "expected a quoted message"},
-		{"colony 5 assemble 6", "expected a unit code"},
-		{"ship 2 move to orbit", "expected an orbit"},
+		{"ship 100002 broadcast system B orbit 8", "expected a quoted message"},
+		{"colony 100005 assemble 6", "expected a unit code"},
+		{"ship 100002 move to orbit", "expected an orbit"},
 	} {
 		got := parseProblems(t, item.line+"\n")
 		if !strings.Contains(got, item.want) {
@@ -196,16 +196,16 @@ func TestAFieldIsNamedWithoutAnArticleWhenItIsInvalid(t *testing.T) {
 // looks perfectly ordinary. Every rune that does not print is shown as one
 // that does.
 func TestAControlCharacterKeepsItsColumnInTheEcho(t *testing.T) {
-	got := parseProblems(t, "ship 2 move to orbit\x7f6\n")
-	want := "line 4, column 16: expected `system` or `orbit`, found \"orbit\\x7f6\"\n" +
-		"  4 | ship 2 move to orbit?6\n" +
-		"    |                ^^^^^^^"
+	got := parseProblems(t, "ship 100002 move to orbit\x7f6\n")
+	want := "line 4, column 21: expected `system` or `orbit`, found \"orbit\\x7f6\"\n" +
+		"  4 | ship 100002 move to orbit?6\n" +
+		"    |                     ^^^^^^^"
 	if !strings.HasPrefix(got, want) {
 		t.Errorf("error =\n%s\n  want it to begin\n%s", got, want)
 	}
 	// Whatever the line held, the echo and the caret agree on how wide it is.
-	for _, text := range []string{"ship 2 move to orbit\x00 6", "ship\x016 move to orbit 6",
-		"\tship 2 move to orbti 6", "ship 2 move to \x1b[31morbti 6"} {
+	for _, text := range []string{"ship 100002 move to orbit\x00 6", "ship\x016 move to orbit 6",
+		"\tship 100002 move to orbti 6", "ship 100002 move to \x1b[31morbti 6"} {
 		report := parseProblems(t, text+"\n")
 		lines := strings.Split(report, "\n")
 		echo, caret := lines[1], lines[2]
@@ -230,17 +230,18 @@ func TestALongLineIsShownAsAWindowAroundTheCaret(t *testing.T) {
 	}{
 		{
 			name:  "the problem near the start",
-			line:  "ship 2 move to orbit 6 " + strings.Repeat("y", 300),
+			line:  "ship 100002 move to " + strings.Repeat("y", 300),
 			under: "y", trail: true,
 		},
 		{
+			// Far enough in that the window cuts both ends.
 			name:  "the problem in the middle",
-			line:  "ship 2 move to " + strings.Repeat("x", 300) + " 6",
-			under: "x", trail: true,
+			line:  "ship 100002 move to orbit 6 " + strings.Repeat("x", 300) + " 6",
+			under: "x", lead: true, trail: true,
 		},
 		{
 			name:  "the problem at the end",
-			line:  "colony 5 assemble 6 SNSR-1, " + strings.Repeat("6 STRC-2, ", 40) + "6 SNSR-99",
+			line:  "colony 100005 assemble 6 SNSR-1, " + strings.Repeat("6 STRC-2, ", 40) + "6 SNSR-99",
 			under: "SNSR-99", lead: true,
 		},
 	} {
@@ -281,7 +282,7 @@ func TestALongLineIsShownAsAWindowAroundTheCaret(t *testing.T) {
 // The message text quotes what it found, and an 8 KB token wants eliding there
 // as much as in the echo.
 func TestAMessageElidesALongToken(t *testing.T) {
-	got := parseProblems(t, "ship 2 move to "+strings.Repeat("x", 300)+" 6\n")
+	got := parseProblems(t, "ship 100002 move to "+strings.Repeat("x", 300)+" 6\n")
 	head := strings.SplitN(got, "\n", 2)[0]
 	if len(head) > 200 {
 		t.Errorf("the message is %d characters:\n%s", len(head), head)
@@ -298,7 +299,7 @@ func TestAMessageElidesALongToken(t *testing.T) {
 // line the order began on.
 func TestAParseErrorAlwaysCarriesAtLeastItsLine(t *testing.T) {
 	// The guard itself, against the error a future order parser might return.
-	p := fieldParser("ship 2 move to orbit 6")
+	p := fieldParser("ship 100002 move to orbit 6")
 	placed := p.place(errors.New("something a new order parser decided"))
 	if !strings.HasPrefix(placed.Error(), "line 1: something a new order parser") {
 		t.Errorf("place() = %q; want it to carry the order's line", placed)
@@ -314,16 +315,16 @@ func TestAParseErrorAlwaysCarriesAtLeastItsLine(t *testing.T) {
 	}
 	// And the four paths that used to arrive this way now point at a token.
 	for _, item := range []struct{ line, want string }{
-		{"colony 5 raid ship 1 seeking GOLD, FUEL, METL 22%",
-			"line 4, column 42: a raid seeks one unit or two, and this one names 3"},
-		{"ship 51 add 5 FACT-1 to factory-group 3",
-			"line 4, column 25: a factory-group belongs to a colony"},
-		{"colony 50 add 5 FARM-1, 3 FARM-2 to farm-group 1",
-			"line 4, column 15: a farm-group order names one unit, and this one names 2"},
-		{"colony 50 draft 100 USK",
-			"line 4, column 21: only SOL and the cadres may be drafted"},
-		{"ship 51 create factory-group with 5 FACT-1 making CNGD",
-			"line 4, column 16: a factory-group belongs to a colony"},
+		{"colony 100005 raid ship 100001 seeking GOLD, FUEL, METL 22%",
+			"line 4, column 52: a raid seeks one unit or two, and this one names 3"},
+		{"ship 100051 add 5 FACT-1 to factory-group 3",
+			"line 4, column 29: a factory-group belongs to a colony"},
+		{"colony 100050 add 5 FARM-1, 3 FARM-2 to farm-group 1",
+			"line 4, column 19: a farm-group order names one unit, and this one names 2"},
+		{"colony 100050 draft 100 USK",
+			"line 4, column 25: only SOL and the cadres may be drafted"},
+		{"ship 100051 create factory-group with 5 FACT-1 making CNGD",
+			"line 4, column 20: a factory-group belongs to a colony"},
 	} {
 		got := parseProblems(t, item.line+"\n")
 		if !strings.HasPrefix(got, item.want) {
@@ -345,9 +346,9 @@ func TestAParseErrorAlwaysCarriesAtLeastItsLine(t *testing.T) {
 // ahead of it.
 func TestAReportReadsDownTheFile(t *testing.T) {
 	_, err := Check(context.Background(), openInventoryOrderDatabase(t), strings.NewReader(header+
-		"ship 999 name \"the naming phase is late\"\n"+
-		"ship 999 probe orbit 4\n"+
-		"ship 999 move to orbit 4\n"))
+		"ship 100999 name \"the naming phase is late\"\n"+
+		"ship 100999 probe orbit 4\n"+
+		"ship 100999 move to orbit 4\n"))
 	if err == nil {
 		t.Fatal("the file was accepted; want it refused")
 	}

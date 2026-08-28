@@ -1,23 +1,23 @@
 game "FUZZ-01" turn 0
 id faction 7
-ship 4 move to orbit 6
-ship 4 jump to (1,2,3)
-ship 4 name "Stolen"
-ship 4 draft 10 SOL
-ship 4 pay USK 15%
-ship 8 move to orbit 11
-colony 1 assemble 1 STRC-10
-colony 2 unassemble 1 STRC-10
-colony 3 name "Squatter"
-colony 5 probe orbit 4
-colony 3 create farm-group with 5 FARM-1
-colony 1 transfer 1 GOLD to colony 5
-ship 24 transfer 1 GOLD to ship 4
-colony 21 transfer 1 GOLD to colony 1
-colony 1 transfer 1 GOLD to colony 21
-we name player 1 ship 4 "Target"
+ship 896680 move to orbit 6
+ship 896680 jump to (1,2,3)
+ship 896680 name "Stolen"
+ship 896680 draft 10 SOL
+ship 896680 pay USK 15%
+ship 802784 move to orbit 11
+colony 985070 assemble 1 STRC-10
+colony 503683 unassemble 1 STRC-10
+colony 327307 name "Squatter"
+colony 265054 probe orbit 4
+colony 327307 create farm-group with 5 FARM-1
+colony 985070 transfer 1 GOLD to colony 265054
+ship 955357 transfer 1 GOLD to ship 896680
+colony 234806 transfer 1 GOLD to colony 985070
+colony 985070 transfer 1 GOLD to colony 234806
+we name player 1 ship 896680 "Target"
 we name faction 3 "Doomed"
 ship 999999 move to orbit 6
 colony 999999 name "x"
-ship 21 move to orbit 6
-colony 24 name "wrong kind"
+ship 234806 move to orbit 6
+colony 955357 name "wrong kind"

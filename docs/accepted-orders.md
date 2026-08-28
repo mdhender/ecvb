@@ -66,33 +66,33 @@ or granting a permission, and it takes no id because the file header already nam
 
 (`ship` | `colony`) _id_ `attack` (`ship` | `colony`) _id_ _commitment_
 
-> colony 24 attack ship 18 75%
+> colony 719042 attack ship 482137 75%
 
 ### Invade Orders
 
 (`ship` | `colony`) _id_ `invade` (`ship` | `colony`) _id_  _commitment_
 
-> colony 24 invade ship 18 55%
+> colony 719042 invade ship 482137 55%
 
 ### Raid Orders
 
 (`ship` | `colony`) _id_ `raid` (`ship` | `colony`) _id_ `seeking` _unitCode_ (`,` _unitCode_)? _commitment_
 
-> ship 18 raid colony 24 seeking GOLD, FUEL 22%
+> ship 482137 raid colony 719042 seeking GOLD, FUEL 22%
 
 ### Support Orders
 
 (`ship` | `colony`) _id_ `support` (`ship` | `colony`) _id_ `attacking` ((`ship` | `colony`) _id_)? _commitment_
 
-> ship 18 support ship 97 attacking 35%
+> ship 482137 support ship 972641 attacking 35%
 
-> ship 18 support ship 97 attacking colony 24 35%
+> ship 482137 support ship 972641 attacking colony 719042 35%
 
 (`ship` | `colony`) _id_ `support` (`ship` | `colony`) _id_ `defending` (`against` (`ship` | `colony`) _id_)? _commitment_
 
-> ship 18 support colony 14 defending 40%
+> ship 482137 support colony 147330 defending 40%
 
-> ship 18 support colony 14 defending against ship 33 45%
+> ship 482137 support colony 147330 defending against ship 336205 45%
 
 ## Create Orders
 
@@ -169,7 +169,7 @@ build is served first, and each takes up to its own cap.
 (`ship` | `colony`) _id_ `create` (`ship` | ((`open-air` | `enclosed` | `orbital`) `colony` (`as` `trade-station`)?)) `using` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `transfering` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `with` _quantity_ `CWKR`
 
 > # line breaks and spacing do not matter in this order
-> ship 18 create ship
+> ship 482137 create ship
 >   using 60 STRC-8,
 >         61 HDRV-1, 5 SDRV-1
 >         , 5 LFSU-3, 1 SNSR-1
@@ -195,17 +195,17 @@ Only colonies are permitted to create factory groups.
 
 `colony` _id_ `create` `factory-group` `with` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `making` _unitCode_
 
-> colony 24 create factory-group with 54,000 FACT-6 making CNGD
+> colony 719042 create factory-group with 54,000 FACT-6 making CNGD
 
 Units within a factory group may have different tech-levels.
 
 `colony` _id_ `add` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `to` `factory-group` _groupNo_
 
-> colony 24 add 63 FACT-9 to factory-group 3
+> colony 719042 add 63 FACT-9 to factory-group 3
 
 `colony` _id_ `remove` _quantity_ _unitCode_ (`,`_quantity_ _unitCode_)* `from` `factory-group` _groupNo_ (`and` `stow`)?
 
-> colony 24 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow
+> colony 719042 remove 12,000 FACT-6, 63 FACT-9 from factory-group 3 and stow
 
 Units removed from the factory group will be unassembled and optionally moved to cargo.
 There are rules about the work in progress - the engine will salvage what it can and recycle what it can't.
@@ -235,7 +235,7 @@ This discards the entire work in progress - all materials in the production line
 
 (`ship` | `colony`) _id_ `create` `farm-group` `with` _quantity_ _unitCode_
 
-> ship 18 create farm-group with 1,234,000 FARM-6
+> ship 482137 create farm-group with 1,234,000 FARM-6
 
 Note: The table below summarizes the tech-level of farming units that may created on an entity.
 The inputs are entity type and orbit number.
@@ -257,27 +257,27 @@ All units within a farm group must have the same tech-level.
 
 (`ship` | `colony`) _id_ `add` _quantity_ _unitCode_ `to` `farm-group` _groupNo_
 
-> ship 18 add 250,000 FARM-6 to farm-group 2
+> ship 482137 add 250,000 FARM-6 to farm-group 2
 
 The units added must be at the group's tech-level.
 
 (`ship` | `colony`) _id_ `remove` _quantity_ _unitCode_ `from` `farm-group` _groupNo_ (`and` `stow`)?
 
-> colony 24 remove 40,000 FARM-3 from farm-group 1 and stow
+> colony 719042 remove 40,000 FARM-3 from farm-group 1 and stow
 
 Units removed from the farm group will be unassembled and optionally moved to cargo.
 There are rules about the work in progress - the engine will salvage what it can and recycle what it can't.
 
 (`ship` | `colony`) _id_ `idle` _quantity_ _unitCode_ `in` `farm-group` _groupNo_
 
-> ship 18 idle 50,000 FARM-6 in farm-group 2
+> ship 482137 idle 50,000 FARM-6 in farm-group 2
 
 Units in the farm group will be idled but left in the group.
 They will remain active until the work in progress is drained from them.
 
 (`ship` | `colony`) _id_ `activate` _quantity_ _unitCode_ `in` `farm-group` _groupNo_
 
-> ship 18 activate 50,000 FARM-6 in farm-group 2
+> ship 482137 activate 50,000 FARM-6 in farm-group 2
 
 Idle units in the farm group will be activated.
 Production in them will resume immediately.
@@ -288,7 +288,7 @@ Only surface colonies are permitted to create mine groups.
 
 `colony` _id_ `create` `mine-group` `with` _quantity_ _unitCode_ `working` `deposit` _depositNo_
 
-> colony 83 create mine-group with 25,680 MINE-2 working deposit 18
+> colony 831470 create mine-group with 25,680 MINE-2 working deposit 18
 
 All units within a mine group must have the same tech-level.
 
@@ -297,26 +297,26 @@ To work a different deposit, remove the group and create a new one at the new de
 
 `colony` _id_ `add` _quantity_ _unitCode_ `to` `mine-group` _groupNo_
 
-> colony 83 add 5,000 MINE-2 to mine-group 4
+> colony 831470 add 5,000 MINE-2 to mine-group 4
 
 The units added must be at the group's tech-level.
 
 `colony` _id_ `remove` _quantity_ _unitCode_ `from` `mine-group` _groupNo_ (`and` `stow`)?
 
-> colony 83 remove 5,000 MINE-2 from mine-group 4 and stow
+> colony 831470 remove 5,000 MINE-2 from mine-group 4 and stow
 
 Units removed from the mine group will be unassembled and optionally moved to cargo.
 
 `colony` _id_ `idle` _quantity_ _unitCode_ `in` `mine-group` _groupNo_
 
-> colony 83 idle 10,000 MINE-2 in mine-group 4
+> colony 831470 idle 10,000 MINE-2 in mine-group 4
 
 Units in the mine group will be idled but left in the group.
 A mine group has no work in progress, so they idle immediately.
 
 `colony` _id_ `activate` _quantity_ _unitCode_ `in` `mine-group` _groupNo_
 
-> colony 83 activate 10,000 MINE-2 in mine-group 4
+> colony 831470 activate 10,000 MINE-2 in mine-group 4
 
 Idle units in the mine group will be activated.
 Production in them will resume immediately.
@@ -330,9 +330,9 @@ One order may assemble several kinds of units once.
 
 (`ship` | `colony`) _id_ `assemble` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
-> ship 18 assemble 6,000 SNSR-1
+> ship 482137 assemble 6,000 SNSR-1
 
-> colony 24 assemble 5 LFSU-1, 60 STRL-1
+> colony 719042 assemble 5 LFSU-1, 60 STRL-1
 
 ### What a construction worker does
 
@@ -371,9 +371,9 @@ construction workers and none of it to the unskilled workers a plain
 
 (`ship` | `colony`) _id_ `unassemble` (`and` `stow`)? _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
-> ship 18 unassemble 1,000 SNSR-1
+> ship 482137 unassemble 1,000 SNSR-1
 
-> colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
+> colony 719042 unassemble and stow 60 STRL-1, 5 LFSU-1
 
 ## Stow Orders
 
@@ -387,11 +387,11 @@ may move several kinds of units at once.
 
 (`ship` | `colony`) _id_ `stow` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
-> ship 18 stow 18,000 FOOD, 800 HDRV-1
+> ship 482137 stow 18,000 FOOD, 800 HDRV-1
 
 (`ship` | `colony`) _id_ `unstow` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)*
 
-> colony 24 unstow 800 HDRV-1, 18,000 FOOD
+> colony 719042 unstow 800 HDRV-1, 18,000 FOOD
 
 `stow` moves units from unassembled inventory into cargo. `unstow` moves them
 back out of cargo into unassembled inventory.
@@ -441,9 +441,9 @@ over from a build.
 
 (`ship` | `colony`) _id_ `transfer` _quantity_ _unitCode_ (`,` _quantity_ _unitCode_)* `to` (`ship` | `colony`) _id_
 
-> ship 18 transfer 500 SOL to colony 24
+> ship 482137 transfer 500 SOL to colony 719042
 
-> ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+> ship 482137 transfer 4,500 GOLD, 18,000 FOOD to colony 719042
 
 Transfer orders fail if the two entities are not at the same location when the order is executed.
 
@@ -482,11 +482,11 @@ Selling one pays a commission like any other sale.
 
 (`ship` | `colony`) _id_ `buy` `tech-level` _techLevel_ _goldPrice_ _commission_?
 
-> ship 18 buy tech-level TL-6 1,000,000 GOLD
+> ship 482137 buy tech-level TL-6 1,000,000 GOLD
 
 (`ship` | `colony`) _id_ `sell` `tech-level` _techLevel_ _goldPrice_ _commission_?
 
-> colony 24 sell tech-level TL-4 800,000 GOLD 5%
+> colony 719042 sell tech-level TL-4 800,000 GOLD 5%
 
 A tech level order names no quantity, because a technology level is bought once.
 
@@ -494,41 +494,41 @@ A tech level order names no quantity, because a technology level is bought once.
 
 (`ship` | `colony`) _id_ `survey`
 
-> ship 18 survey
+> ship 482137 survey
 
 ## Probe Orders
 
 (`ship` | `colony`) _id_ `probe` (`system` _seq_)? `orbit` _orbitNo_+
 
-> ship 18 probe orbit 1
+> ship 482137 probe orbit 1
 
-> colony 24 probe system B orbit 3 1 8
+> colony 719042 probe system B orbit 3 1 8
 
 ## Spy Orders
 
-> colony 24 assess rebels using 1 spies
+> colony 719042 assess rebels using 1 spies
 
-> colony 24 detect spies using 4 spies
+> colony 719042 detect spies using 4 spies
 
-> colony 24 obtain information from ship 18 using 200 spies
+> colony 719042 obtain information from ship 482137 using 200 spies
 
-> colony 24 convert rebels using 3 spies
+> colony 719042 convert rebels using 3 spies
 
-> colony 24 incite rebels using 21 spies
+> colony 719042 incite rebels using 21 spies
 
-> colony 24 neutralize faction 1 spies using 11 spies
+> colony 719042 neutralize faction 1 spies using 11 spies
 
 ## News Release
 
-> ship 18 broadcast system B orbit 8 "message" "optional signature"
+> ship 482137 broadcast system B orbit 8 "message" "optional signature"
 
 ## Move Orders
 
 `ship` _id_ `move` `to` (`system` _seq_)? `orbit` _orbitNo_
 
-> ship 18 move to orbit 5
+> ship 482137 move to orbit 5
 
-> ship 18 move to system B orbit 8
+> ship 482137 move to system B orbit 8
 
 A ship moves once a turn. It may also jump in the same turn -- that is how a
 ship at a planet leaves, since a jump begins from the stellium orbit -- but the
@@ -540,7 +540,7 @@ given.
 
 `ship` _id_ `jump` `to` _coordinates_
 
-> ship 18 jump to (-1,2,3)
+> ship 482137 jump to (-1,2,3)
 
 A jump begins from the stellium orbit, so a ship at a planet must be moved out
 to orbit 11 first. Every move resolves before any jump, so both orders may be
@@ -588,13 +588,13 @@ second is refused for being the second.
 
 (`ship` | `colony`) _id_ `draft` _quantity_ (`SOL` | _cadre_) (`,` _quantity_ (`SOL` | _cadre_))*
 
-> ship 18 draft 13 SOL
+> ship 482137 draft 13 SOL
 
-> colony 24 draft 3,600 SOL
+> colony 719042 draft 3,600 SOL
 
-> ship 18 draft 4,250 CWKR
+> ship 482137 draft 4,250 CWKR
 
-> colony 24 draft 200 SOL, 1,000 CWKR
+> colony 719042 draft 200 SOL, 1,000 CWKR
 
 Only `SOL` and the cadres may be drafted. No other population class can be.
 
@@ -603,25 +603,25 @@ workers off the rolls and makes them soldiers, one for one. It is the only draft
 that changes anyone's type.
 
 Drafting a cadre assigns population rather than converting it. One `CWKR` is one
-`SKW` plus one `USK`, so `ship 18 draft 4,250 CWKR` assigns 4,250 of each to a
+`SKW` plus one `USK`, so `ship 482137 draft 4,250 CWKR` assigns 4,250 of each to a
 cadre of 4,250 construction workers, and they are skilled and unskilled workers
 still while they serve in it.
 
 **A draft partially fills.** Short population is not an error: the order drafts
-as many as it can and says so. `colony 24 draft 3,600 SOL` on a colony with
+as many as it can and says so. `colony 719042 draft 3,600 SOL` on a colony with
 1,000 `USK` drafts 1,000 soldiers. A cadre is limited by whichever of its
-classes runs out first, so `ship 18 draft 4,250 CWKR` on a ship with 4,250 `SKW`
+classes runs out first, so `ship 482137 draft 4,250 CWKR` on a ship with 4,250 `SKW`
 and 900 `USK` drafts 900 construction workers.
 
 ### Disband Orders
 
 (`ship` | `colony`) _id_ `disband` _quantity_ (`SOL` | _cadre_) (`,` _quantity_ (`SOL` | _cadre_))*
 
-> ship 18 disband 13 SOL
+> ship 482137 disband 13 SOL
 
-> colony 24 disband 3,600 SOL
+> colony 719042 disband 3,600 SOL
 
-> ship 18 disband 1,000 CWKR
+> ship 482137 disband 1,000 CWKR
 
 Disband is the reverse of draft, and only the same things may be disbanded.
 
@@ -630,24 +630,24 @@ workers, one for one. It is the only disband that changes anyone's type, and
 `USK` is where they go — the same pool a draft took them from.
 
 Disbanding a cadre returns the population it was assigned from to the pools it
-came from, unchanged: `ship 18 disband 1,000 CWKR` returns 1,000 `SKW` and
+came from, unchanged: `ship 482137 disband 1,000 CWKR` returns 1,000 `SKW` and
 1,000 `USK`.
 
 ## Pay Orders
 
 (`ship` | `colony`) _id_ `pay` _population_ _payRate_ (`,` _population_ _payRate_)*
 
-> ship 18 pay USK 120%
+> ship 482137 pay USK 120%
 
-> colony 24 pay SKW 15%, USK 18%
+> colony 719042 pay SKW 15%, USK 18%
 
 ## Ration Orders
 
 (`ship` | `colony`) _id_ `rations` _rationRate_
 
-> ship 18 rations 75%
+> ship 482137 rations 75%
 
-> colony 24 rations 130%
+> colony 719042 rations 130%
 
 ## Control Orders
 
@@ -655,11 +655,11 @@ came from, unchanged: `ship 18 disband 1,000 CWKR` returns 1,000 `SKW` and
 
 (`ship` | `colony`) _id_ `control` (`ship` | `colony`) _id_
 
-> ship 18 control colony 24
+> ship 482137 control colony 719042
 
 (`ship` | `colony`) _id_ `control` `system` _seq_ `orbit` _orbitNo_
 
-> colony 8 control system A orbit 5
+> colony 815902 control system A orbit 5
 
 Control orders against an entity or planet that is already controlled automatically fail.
 
@@ -673,7 +673,7 @@ A faction may release a planet whose garrison is gone.
 
 `we` `release` (`ship` | `colony`) _id_
 
-> we release ship 18
+> we release ship 482137
 
 Release has a variant that allows you to release control of a planet.
 
@@ -714,9 +714,9 @@ You may name a ship or colony that you control.
 
 (`ship` | `colony`) _id_ `name` _quotedText_
 
-> ship 18 name "Jalopy"
+> ship 482137 name "Jalopy"
 
-> colony 24 name "Jingo"
+> colony 719042 name "Jingo"
 
 You may name another player or faction.
 You are not allowed to name one that you have not yet encountered.
@@ -730,9 +730,9 @@ You are not allowed to name one that you have not yet encountered.
 
 `we` `name` (`player` | `faction`) _id_ (`ship` | `colony`) _id_ _quotedText_
 
-> we name player 5 ship 19 "Easy Target"
+> we name player 5 ship 193864 "Easy Target"
 
-> we name player 5 colony 33 "Avoid"
+> we name player 5 colony 336205 "Avoid"
 
 ## Trade Station Orders
 

@@ -1,24 +1,24 @@
 game "FUZZ-01" turn 1
 id faction 5
-colony 5 sell tech-level TL 1 GOLD
-colony 5 sell tech-level TL-0 1 GOLD
-colony 5 sell tech-level TL-11 1 GOLD
-colony 5 sell tech-level TL-99999999999999999999 1 GOLD
-colony 5 sell tech-level tl-4 1 GOLD
-colony 5 sell tech-level TL-4.5 1 GOLD
-colony 5 attack ship 1 %
-colony 5 attack ship 1 %%%%
-colony 5 attack ship 1 75
-colony 5 attack ship 1 75 %
-colony 5 attack ship 1 -5%
-colony 5 attack ship 1 0%
-colony 5 attack ship 1 101%
-colony 5 attack ship 1 999999999999999999999%
-colony 5 create ship using m0 STRC-8 transfering 25 FOOD with 5 CWKR end
-colony 5 assemble 1,000 SNSR-1, 50 STRC-2
-ship 2 
-colony 5 buy tech-level TL-4 80
-colony 5 assemble 1,000 SNSR-1,(500 STRC-2
+colony 265054 sell tech-level TL 1 GOLD
+colony 265054 sell tech-level TL-0 1 GOLD
+colony 265054 sell tech-level TL-11 1 GOLD
+colony 265054 sell tech-level TL-99999999999999999999 1 GOLD
+colony 265054 sell tech-level tl-4 1 GOLD
+colony 265054 sell tech-level TL-4.5 1 GOLD
+colony 265054 attack ship 985070 %
+colony 265054 attack ship 985070 %%%%
+colony 265054 attack ship 985070 75
+colony 265054 attack ship 985070 75 %
+colony 265054 attack ship 985070 -5%
+colony 265054 attack ship 985070 0%
+colony 265054 attack ship 985070 101%
+colony 265054 attack ship 985070 999999999999999999999%
+colony 265054 create ship using m0 STRC-8 transfering 25 FOOD with 5 CWKR end
+colony 265054 assemble 1,000 SNSR-1, 50 STRC-2
+ship 503683 
+colony 265054 buy tech-level TL-4 80
+colony 265054 assemble 1,000 SNSR-1,(500 STRC-2
 ship 2l jump to (1,2,3)
-colony 5 assembleb1,000 SNSR-1, 500 STRC-2
-colony 5 pay USK 15%, SK
+colony 265054 assembleb1,000 SNSR-1, 500 STRC-2
+colony 265054 pay USK 15%, SK

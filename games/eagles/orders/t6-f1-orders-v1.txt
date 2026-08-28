@@ -1,4 +1,0 @@
-game "EAGLE-01" turn 6
-id faction 1
-
-ship 4 move to system B orbit 4

@@ -14,11 +14,11 @@ id faction
 id faction 0
 id faction -1
 id nobody 1
-colony 5 buy Stech-level TL-4 800,000 GOLD
-colony 5 create ship using 60 STRC-8 tansfering 25 FOOD with 5 CWKR end
-colony 5 create ship using 60 STRC-8 transfering 25 FOOD wbth 5 CWKR end
-colony 5 pay USK 15%, SKW 29%
-colony 5 Uassemble 1,000 SNSR-1, 500 STRC-2
-colony 5 assemble ,000 SNSR-1, 500 STRC-2
-ship 2 prohbe system A orbit 1 2 3
-ship 2 probe system A orbit 11 2 3
+colony 265054 buy Stech-level TL-4 800,000 GOLD
+colony 265054 create ship using 60 STRC-8 tansfering 25 FOOD with 5 CWKR end
+colony 265054 create ship using 60 STRC-8 transfering 25 FOOD wbth 5 CWKR end
+colony 265054 pay USK 15%, SKW 29%
+colony 265054 Uassemble 1,000 SNSR-1, 500 STRC-2
+colony 265054 assemble ,000 SNSR-1, 500 STRC-2
+ship 503683 prohbe system A orbit 1 2 3
+ship 503683 probe system A orbit 11 2 3

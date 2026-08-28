@@ -1,5 +1,7 @@
 game "CLAUDE-01" turn 5
 id faction 6
 
-ship 20 probe system A orbit 4
-ship 20 move to system A orbit 4
+# The ship landed in the stellium orbit last turn. From there a probe has
+# to name its system, and the move takes the ship down to the planet.
+ship 310738 probe system A orbit 4
+ship 310738 move to system A orbit 4

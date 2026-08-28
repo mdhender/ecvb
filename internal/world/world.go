@@ -42,14 +42,24 @@ type Point struct {
 
 // Entity is one ship, colony, or station, with everything the rules weigh.
 type Entity struct {
-	ID        int64
+	// ID is the row id: the database's handle, and the order entities were
+	// created in, which is what settles build seniority. It never leaves the
+	// server.
+	ID int64
+	// Number is the game's handle, and the only one a player ever sees or
+	// types. It is also what addresses a prng draw about this entity, because
+	// unlike the row id it does not depend on what else the database holds.
+	Number    int64
 	Unit      string
 	TechLevel int
 	FactionID int64
-	Location  Location
-	Mass      int64
-	Drive     jumpdrive.Drive
-	Sensors   sensors.Array
+	// FactionNumber is the controlling faction as the player knows it, carried
+	// here so a draw addressed by faction and entity needs only the entity.
+	FactionNumber int64
+	Location      Location
+	Mass          int64
+	Drive         jumpdrive.Drive
+	Sensors       sensors.Array
 	// EnclosedVolume is the raw volume the entity's assembled structure
 	// encloses. What it can actually hold things in is that volume after the
 	// efficiency of its kind; see UsableEnclosedSpace.
@@ -120,6 +130,14 @@ type World struct {
 	conn     *sqlite.Conn
 	game     Game
 	entities map[int64]*Entity
+	// byNumber is the same entities under the handle the player writes. Every
+	// other map here is keyed by row id, because every other map is the
+	// server talking to itself.
+	byNumber map[int64]*Entity
+	// factions is every faction of the game by row id, holding the number the
+	// player knows it by. It is small and it is read whenever an entity is
+	// created or a faction is named in a message.
+	factions map[int64]int64
 	stellia  map[int64]Point
 	atPoint  map[Point]int64
 	// probes counts the probes each entity has launched this turn. It is turn
@@ -179,6 +197,8 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 		hulls:    make(map[hullKey]int64),
 		squares:  make(map[int64]int64),
 		workers:  make(map[int64]int64),
+		byNumber: make(map[int64]*Entity),
+		factions: make(map[int64]int64),
 	}
 	loaded.game.Code = gameCode
 	if err := sqlitex.ExecuteTransient(conn,
@@ -208,6 +228,16 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 	}); err != nil {
 		return nil, false, fmt.Errorf("find the uncontrolled faction of game %q: %w", gameCode, err)
 	}
+	if err := sqlitex.ExecuteTransient(conn,
+		"SELECT id, number FROM faction WHERE game_id = ?;", &sqlitex.ExecOptions{
+			Args: []any{loaded.game.ID},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				loaded.factions[stmt.ColumnInt64(0)] = stmt.ColumnInt64(1)
+				return nil
+			},
+		}); err != nil {
+		return nil, false, fmt.Errorf("load the factions of game %q: %w", gameCode, err)
+	}
 	if err := loaded.loadStellia(); err != nil {
 		return nil, false, err
 	}
@@ -220,12 +250,24 @@ func Load(conn *sqlite.Conn, gameCode string) (w *World, found bool, err error) 
 // Game is the game this World holds.
 func (w *World) Game() Game { return w.game }
 
-// Entity is the entity with an id, or nil when the game holds none. An entity
-// of another game is not in this world and reads as absent.
+// Entity is the entity with a row id, or nil when the game holds none. An
+// entity of another game is not in this world and reads as absent.
 func (w *World) Entity(id int64) *Entity { return w.entities[id] }
 
-// Entities lists every entity of the game, ordered by id so that a turn step
-// walking all of them reaches them in the same order every time.
+// EntityByNumber is the entity a player named, or nil when the game holds none
+// with that number. It is the only way an id a player wrote becomes an entity:
+// a number belongs to one game, so a number from another game reads as absent
+// here just as a row id from another game does.
+func (w *World) EntityByNumber(number int64) *Entity { return w.byNumber[number] }
+
+// FactionNumber is the number a faction is known by in this game, or zero when
+// the faction is not in it.
+func (w *World) FactionNumber(factionID int64) int64 { return w.factions[factionID] }
+
+// Entities lists every entity of the game, ordered by row id so that a turn
+// step walking all of them reaches them in the same order every time. It is the
+// row id and not the number, because the row id is creation order and the
+// number is a permutation with no order in it at all.
 func (w *World) Entities() []*Entity {
 	ids := make([]int64, 0, len(w.entities))
 	for id := range w.entities {
@@ -305,10 +347,10 @@ func (w *World) Move(entity *Entity, to Location) error {
 		&sqlitex.ExecOptions{
 			Args: []any{nullableID(to.StelliumID), nullableID(to.SystemID), nullableID(to.PlanetID), nullableRing(to), entity.ID},
 		}); err != nil {
-		return fmt.Errorf("update entity %d location: %w", entity.ID, err)
+		return fmt.Errorf("update entity %d location: %w", entity.Number, err)
 	}
 	if w.conn.Changes() != 1 {
-		return fmt.Errorf("update entity %d location: entity does not exist", entity.ID)
+		return fmt.Errorf("update entity %d location: entity does not exist", entity.Number)
 	}
 	entity.Location = to
 	return nil
@@ -328,7 +370,7 @@ func (w *World) Depart(entity *Entity, destinationID int64, arrivalTurn int) err
 		VALUES (?, ?, ?, ?);`, &sqlitex.ExecOptions{
 		Args: []any{w.game.ID, entity.ID, destinationID, arrivalTurn},
 	}); err != nil {
-		return fmt.Errorf("send entity %d in transit: %w", entity.ID, err)
+		return fmt.Errorf("send entity %d in transit: %w", entity.Number, err)
 	}
 	if err := w.Move(entity, Location{}); err != nil {
 		return err
@@ -355,7 +397,7 @@ func (w *World) LandArrivals(turn int) error {
 			"DELETE FROM in_transit WHERE entity_id = ?;", &sqlitex.ExecOptions{
 				Args: []any{entity.ID},
 			}); err != nil {
-			return fmt.Errorf("land entity %d: %w", entity.ID, err)
+			return fmt.Errorf("land entity %d: %w", entity.Number, err)
 		}
 		entity.Transit = nil
 		if err := w.Move(entity, Location{StelliumID: destination}); err != nil {
@@ -465,7 +507,7 @@ func (w *World) RecordSensors(turn int) error {
 			Args: []any{w.game.ID, turn, entity.FactionID, entity.ID, entity.Location.StelliumID,
 				nullableID(entity.Location.SystemID), entity.Location.StelliumID},
 		}); err != nil {
-			return fmt.Errorf("record sensor survey for entity %d: %w", entity.ID, err)
+			return fmt.Errorf("record sensor survey for entity %d: %w", entity.Number, err)
 		}
 		if entity.Location.SystemID == 0 {
 			continue
@@ -480,7 +522,7 @@ func (w *World) RecordSensors(turn int) error {
 			WHERE p.system_id = ? AND c.unit IN ('SHIP', 'CORB');`, &sqlitex.ExecOptions{
 			Args: []any{w.game.ID, turn, entity.FactionID, entity.ID, entity.Location.SystemID},
 		}); err != nil {
-			return fmt.Errorf("record sensor contacts for entity %d: %w", entity.ID, err)
+			return fmt.Errorf("record sensor contacts for entity %d: %w", entity.Number, err)
 		}
 	}
 	return nil
@@ -505,23 +547,27 @@ func (w *World) loadStellia() error {
 func (w *World) loadEntities() error {
 	if err := sqlitex.ExecuteTransient(w.conn, `
 		SELECT e.id, e.unit, e.faction_id, e.stellium_id, e.system_id, e.planet_id, e.planet_ring,
-		       e.mass, e.enclosed_volume, e.trade_station, e.tech_level
+		       e.mass, e.enclosed_volume, e.trade_station, e.tech_level, e.number, f.number
 		FROM entity AS e
 		JOIN faction AS f ON f.id = e.faction_id
-		WHERE f.game_id = ?;`, &sqlitex.ExecOptions{
+		WHERE e.game_id = ?;`, &sqlitex.ExecOptions{
 		Args: []any{w.game.ID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			id := stmt.ColumnInt64(0)
-			w.entities[id] = &Entity{
+			entity := &Entity{
 				ID: id, Unit: stmt.ColumnText(1), FactionID: stmt.ColumnInt64(2),
 				Location: readLocation(stmt, 3), Mass: stmt.ColumnInt64(7),
 				EnclosedVolume: stmt.ColumnInt64(8),
 				TradeStation:   stmt.ColumnInt(9) != 0,
 				TechLevel:      stmt.ColumnInt(10),
+				Number:         stmt.ColumnInt64(11),
+				FactionNumber:  stmt.ColumnInt64(12),
 				Inventory:      make(Inventory),
 				Population:     make(map[string]int64),
 				Cadre:          make(map[string]int64),
 			}
+			w.entities[id] = entity
+			w.byNumber[entity.Number] = entity
 			return nil
 		},
 	}); err != nil {

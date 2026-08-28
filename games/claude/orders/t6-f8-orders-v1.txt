@@ -1,5 +1,7 @@
 game "CLAUDE-01" turn 6
 id faction 8
 
-ship 28 move to orbit 11
-ship 28 jump to (9,-10,-13)
+# A jump begins from the stellium orbit, so the move goes there first;
+# every MOVE resolves before any JUMP, so both fit in one turn.
+ship 637610 move to orbit 11
+ship 637610 jump to (10,-11,-11)

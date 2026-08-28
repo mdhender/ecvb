@@ -792,7 +792,7 @@ func init() {
 					order.Target = &target
 				}
 				if item.faction {
-					if order.Faction, err = p.entityID("faction"); err != nil {
+					if order.Faction, err = p.factionID(); err != nil {
 						return nil, err
 					}
 					if err = p.expect("spies"); err != nil {
@@ -1196,7 +1196,7 @@ func init() {
 				if err = p.expect("faction"); err != nil {
 					return nil, err
 				}
-				order.Faction, err = p.entityID("faction")
+				order.Faction, err = p.factionID()
 				return order, err
 			},
 		})

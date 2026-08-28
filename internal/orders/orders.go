@@ -20,11 +20,14 @@ import (
 
 // Result summarizes a checked or submitted order file.
 type Result struct {
-	GameCode  string
-	Turn      int
-	FactionID int64
-	Orders    int
-	Warnings  []Warning
+	GameCode string
+	Turn     int
+	// FactionID is the row id the orders were stored against; FactionNumber is
+	// the faction as the player and the reports know it.
+	FactionID     int64
+	FactionNumber int64
+	Orders        int
+	Warnings      []Warning
 }
 
 // Warning is a condition that does not stop a submission but that the player
@@ -122,7 +125,7 @@ func store(conn *sqlite.Conn, gameID int64, turn int, factionID int64, order pla
 	if err := sqlitex.ExecuteTransient(conn, `
 		INSERT INTO game_order (
 			game_id, turn, faction_id, sequence, source_line,
-			verb, actor_entity_id, input, params, fuel_spent
+			verb, actor_entity_number, input, params, fuel_spent
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`, &sqlitex.ExecOptions{
 		Args: []any{gameID, turn, factionID, order.sequence, order.line,
 			order.verb, nullableID(params.Actor()), params.Input(), string(encoded), order.bound.Fuel()},
@@ -247,7 +250,8 @@ func simulate(ctx context.Context, conn *sqlite.Conn, submission Submission) (va
 	}
 	slices.SortStableFunc(warnings, func(a, b Warning) int { return cmp.Compare(a.Line, b.Line) })
 	return validatedSubmission{
-		result: Result{GameCode: submission.GameCode, Turn: submission.Turn, FactionID: factionID,
+		result: Result{GameCode: submission.GameCode, Turn: submission.Turn,
+			FactionID: factionID, FactionNumber: loaded.FactionNumber(factionID),
 			Orders: len(orders), Warnings: warnings},
 		gameID: game.ID,
 		orders: orders,
@@ -290,21 +294,24 @@ func resolveFaction(conn *sqlite.Conn, gameID int64, identity Identity) (int64, 
 		}
 		return factionID, nil, nil
 	}
-	var belongs bool
-	err := sqlitex.ExecuteTransient(conn, "SELECT EXISTS (SELECT 1 FROM faction WHERE id = ? AND game_id = ?);", &sqlitex.ExecOptions{
-		Args: []any{identity.FactionID, gameID},
+	// The player wrote the number their faction is known by in this game, not
+	// its row id, so a number that belongs to some other game's faction is a
+	// number this game does not have rather than a file about another game.
+	var factionID int64
+	err := sqlitex.ExecuteTransient(conn, "SELECT id FROM faction WHERE number = ? AND game_id = ?;", &sqlitex.ExecOptions{
+		Args: []any{identity.FactionNumber, gameID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			belongs = stmt.ColumnInt(0) != 0
+			factionID = stmt.ColumnInt64(0)
 			return nil
 		},
 	})
 	if err != nil {
-		return 0, nil, fmt.Errorf("find faction %d: %w", identity.FactionID, err)
+		return 0, nil, fmt.Errorf("find faction %d: %w", identity.FactionNumber, err)
 	}
-	if !belongs {
-		return 0, problems{onLine(2, "faction %d does not belong to this game", identity.FactionID)}, nil
+	if factionID == 0 {
+		return 0, problems{onLine(2, "faction %d does not belong to this game", identity.FactionNumber)}, nil
 	}
-	return identity.FactionID, nil, nil
+	return factionID, nil, nil
 }
 
 func nullableString(value string) any {

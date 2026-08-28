@@ -199,9 +199,9 @@ The presence of an `under_construction` row is the entity's status. `entity` has
 no status column and does not need one: when the last item completes, the two
 rows go and what is left is an ordinary entity.
 
-**Seniority is `entity_id`.** An id is unique, rises monotonically, and is never
-reused, so the unfinished entities of one builder are already in the order their
-builds started — within a turn, because create orders execute in the order they
+**Seniority is `entity_id`, the row id.** A row id is unique, rises
+monotonically, and is never reused, so the unfinished entities of one builder
+are already in the order their builds started — within a turn, because create orders execute in the order they
 were written, and across turns for the obvious reason. Nothing has to be stored
 to settle seniority, and nothing has to reference `game_order`, which
 `ec turn open` purges anyway.

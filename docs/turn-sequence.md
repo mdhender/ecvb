@@ -122,7 +122,7 @@ materials over turns, and they are assembled at stage 10 like everything else.
 
 What stage 5 settles for a build is the **claim** -- which build has first call
 on what the creating entity holds. The sweep takes each creating entity's builds
-in seniority order, which is the order of their entity ids, and walks each
+in seniority order, which is the order of their entity row ids, and walks each
 build's lines in the order the player wrote them. A claim lives one turn and is
 released at the end of it, so next turn's claiming runs afresh and a senior
 build's priority is renewed rather than banked. Claiming moves nothing and needs

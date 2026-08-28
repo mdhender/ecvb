@@ -1,0 +1,4 @@
+game "EAGLE-01" turn 5
+id faction 2
+
+ship 896680 move to system A orbit 4

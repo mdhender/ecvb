@@ -1,5 +1,0 @@
-game "CLAUDE-01" turn 5
-id faction 1
-
-ship 4 probe system A orbit 4
-ship 4 move to system A orbit 4

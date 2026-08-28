@@ -3,22 +3,22 @@ id faction 8
 end
 using 60 STRC-8
 with 5 CWKR
-colony 5 create ship using 60 STRC-8 with 5 CWKR end end
-colony 5 create ship using end
-colony 5 create end
-colony 5 create ship using 60 STRC-8 transfering with 5 CWKR end
-colony 5 create farm-group with 5 FARM-1 end
-colony 5 create mine-group with 5 MINE-1 working deposit
-colony 5 create factory-group with 5 FACT-1 making
-colony 5 create open-air colony as trade-station end
-colony 5 create orbital colony using 60 STRC-8 with 5 CWKR
-colony 5 create ship
-colony 5 create ship using 60 STRC-8
-ship 2 move
-colony 5 assemble 1,000 SNSR-1 500 STRC-2
-colony 5 sell %100 FOOD 1,000.50 GOLD 75%
-ship 2 broadcast system B orbit 8 "hell
-ship 2 mov to orbit 6
-ship 2 jump to(1,2,3)
-ship 2 probe slstem A orbit 1 2 3
+colony 265054 create ship using 60 STRC-8 with 5 CWKR end end
+colony 265054 create ship using end
+colony 265054 create end
+colony 265054 create ship using 60 STRC-8 transfering with 5 CWKR end
+colony 265054 create farm-group with 5 FARM-1 end
+colony 265054 create mine-group with 5 MINE-1 working deposit
+colony 265054 create factory-group with 5 FACT-1 making
+colony 265054 create open-air colony as trade-station end
+colony 265054 create orbital colony using 60 STRC-8 with 5 CWKR
+colony 265054 create ship
+colony 265054 create ship using 60 STRC-8
+ship 503683 move
+colony 265054 assemble 1,000 SNSR-1 500 STRC-2
+colony 265054 sell %100 FOOD 1,000.50 GOLD 75%
+ship 503683 broadcast system B orbit 8 "hell
+ship 503683 mov to orbit 6
+ship 503683 jump to(1,2,3)
+ship 503683 probe slstem A orbit 1 2 3
 ship 2A jump to (1,2,3)

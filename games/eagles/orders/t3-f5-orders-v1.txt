@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 3
 id faction 5
 
-ship 16 name "123456789012345678901234"
+ship 504016 name "123456789012345678901234"

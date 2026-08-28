@@ -1,14 +1,14 @@
 game "GOLD-01" turn 2
 id faction 1
 
-ship 100 probe system A orbit 4
-ship 100 move to orbit 11            # a jump begins from the stellium orbit
-ship 100 jump to (1,2,2)             # a HDRV-3 crosses 3 ly in one turn and lands in it
-ship 100 name "Bucephalus"           # renaming replaces the old name
+ship 985070 probe system A orbit 4
+ship 985070 move to orbit 11            # a jump begins from the stellium orbit
+ship 985070 jump to (1,2,2)             # a HDRV-3 crosses 3 ly in one turn and lands in it
+ship 985070 name "Bucephalus"           # renaming replaces the old name
 we name (0,0,0) system A "Home System"
-colony 107 unassemble 90 STRC-10             # every VU it has: the units would have nowhere to go
-colony 107 transfer 5,000 GOLD to colony 101   # more than it holds and more than its transports carry
-colony 107 transfer 100 GOLD to ship 100       # 100 crossed to system B last turn and is out of reach
-colony 108 stow 1,500 METL           # three of the twenty, and they cannot unstow as well
-colony 108 unstow 9,000 METL         # stage 6b feeds stage 10a; seventeen left move 8,500
-colony 107 rations 90%               # accepted, not built: a failed row and nothing else
+colony 802784 unassemble 90 STRC-10             # every VU it has: the units would have nowhere to go
+colony 802784 transfer 5,000 GOLD to colony 503683   # more than it holds and more than its transports carry
+colony 802784 transfer 100 GOLD to ship 985070       # 100 crossed to system B last turn and is out of reach
+colony 895038 stow 1,500 METL           # three of the twenty, and they cannot unstow as well
+colony 895038 unstow 9,000 METL         # stage 6b feeds stage 10a; seventeen left move 8,500
+colony 802784 rations 90%               # accepted, not built: a failed row and nothing else

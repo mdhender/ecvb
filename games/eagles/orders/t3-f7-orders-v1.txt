@@ -1,4 +1,4 @@
 game "EAGLE-01" turn 3
 id faction 7
 
-colony 21 unstow 1 CNGD
+colony 234806 unstow 1 CNGD

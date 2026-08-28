@@ -76,10 +76,10 @@ func TestCreateDatabase(t *testing.T) {
 	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO users (email, role) VALUES ('player@example.com', 'non-administrator');", nil); err != nil {
 		t.Fatalf("insert player: %v", err)
 	}
-	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, user_id) VALUES (1, 1);", nil); err != nil {
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, number, user_id) VALUES (1, 1, 1);", nil); err != nil {
 		t.Fatalf("insert player faction: %v", err)
 	}
-	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, user_id) VALUES (1, 1);", nil); err == nil {
+	if err := sqlitex.ExecuteTransient(conn, "INSERT INTO faction (game_id, number, user_id) VALUES (1, 2, 1);", nil); err == nil {
 		t.Fatal("insert duplicate player faction succeeded; want unique constraint error")
 	}
 }

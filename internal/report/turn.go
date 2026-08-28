@@ -27,7 +27,7 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 
 	rpt := New("TURN REPORT")
 	rpt.Table("", "GAME", "TURN", "FACTION", "CONTROLLER").
-		Row(gameCode, faction.turn, factionID, faction.controller)
+		Row(gameCode, faction.turn, faction.number, faction.controller)
 
 	planets := rpt.Table("CONTROLLED PLANETS", "ID", "STELLIUM", "COORDINATES", "SYSTEM", "ORBIT", "KIND", "HABITABILITY")
 	if err := sqlitex.ExecuteTransient(conn, `
@@ -69,7 +69,7 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 
 	entities := rpt.Table("ENTITIES", "ID", "UNIT", "TECH", "STELLIUM", "SYSTEM", "PLANET", "RING", "MASS", "ENCLOSED VOLUME")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT e.id, e.unit, e.tech_level, e.stellium_id, sy.sequence, e.planet_id, e.planet_ring, e.mass, e.enclosed_volume
+		SELECT e.number, e.unit, e.tech_level, e.stellium_id, sy.sequence, e.planet_id, e.planet_ring, e.mass, e.enclosed_volume
 		FROM entity AS e
 		LEFT JOIN system AS sy ON sy.id = e.system_id
 		WHERE e.faction_id = ?
@@ -93,7 +93,7 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 	// so all they can do is know when it ends.
 	crossings := rpt.Table("IN TRANSIT", "SHIP", "DESTINATION", "COORDINATES", "ARRIVES")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT t.entity_id, st.id, st.x, st.y, st.z, t.arrival_turn
+		SELECT e.number, st.id, st.x, st.y, st.z, t.arrival_turn
 		FROM in_transit AS t
 		JOIN entity AS e ON e.id = t.entity_id
 		JOIN stellium AS st ON st.id = t.destination_stellium_id
@@ -116,10 +116,11 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 	builds := rpt.Table("UNDER CONSTRUCTION",
 		"ENTITY", "KIND", "BUILDER", "WORKERS", "CLAUSE", "UNIT", "TECH", "REQUIRED", "CLAIMED", "DELIVERED", "DONE")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT uc.entity_id, e.unit, uc.builder_entity_id, uc.cwkr_cap,
+		SELECT e.number, e.unit, b.number, uc.cwkr_cap,
 			ci.clause, ci.unit, ci.tech_level, ci.required, ci.claimed, ci.delivered, ci.completed
 		FROM under_construction AS uc
 		JOIN entity AS e ON e.id = uc.entity_id
+		JOIN entity AS b ON b.id = uc.builder_entity_id
 		JOIN construction_item AS ci ON ci.entity_id = uc.entity_id
 		WHERE e.faction_id = ?
 		ORDER BY uc.entity_id, ci.ordinal;`, reportRows(factionID, func(stmt *sqlite.Stmt) {
@@ -140,7 +141,8 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 				WHEN planet_id IS NOT NULL THEN 'planet'
 				ELSE 'entity'
 			END AS subject,
-			coalesce(stellium_id, system_id, planet_id, entity_id) AS id,
+			coalesce(stellium_id, system_id, planet_id,
+				(SELECT number FROM entity WHERE id = faction_name.entity_id)) AS id,
 			name
 		FROM faction_name WHERE faction_id = ?
 		ORDER BY subject, id;`, reportRows(factionID, func(stmt *sqlite.Stmt) {
@@ -151,7 +153,7 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 
 	census := rpt.Table("CENSUS", "ENTITY", "CLASS", "PEOPLE")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT ep.entity_id, ep.class, ep.quantity * 100
+		SELECT e.number, ep.class, ep.quantity * 100
 		FROM entity_population AS ep
 		JOIN entity AS e ON e.id = ep.entity_id
 		WHERE e.faction_id = ?
@@ -163,7 +165,7 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 
 	inventory := rpt.Table("INVENTORY", "ENTITY", "SECTION", "UNIT", "TECH", "QUANTITY")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT i.entity_id, i.section, i.unit, i.tech_level, i.quantity
+		SELECT e.number, i.section, i.unit, i.tech_level, i.quantity
 		FROM inventory AS i
 		JOIN entity AS e ON e.id = i.entity_id
 		WHERE e.faction_id = ?
@@ -191,7 +193,7 @@ func Turn(conn *sqlite.Conn, gameCode, email string, factionID int64, options Tu
 	if options.ShowWorkGroups {
 		groups := rpt.Table("WORK GROUPS", "ENTITY", "UNIT", "SEQUENCE", "DEPOSIT", "TECH", "QUANTITY")
 		if err := sqlitex.ExecuteTransient(conn, `
-			SELECT wg.entity_id, wg.unit, wg.sequence, wg.deposit_id, wgu.tech_level, wgu.quantity
+			SELECT e.number, wg.unit, wg.sequence, wg.deposit_id, wgu.tech_level, wgu.quantity
 			FROM work_group AS wg
 			JOIN entity AS e ON e.id = wg.entity_id
 			LEFT JOIN work_group_units AS wgu ON wgu.work_group_id = wg.id
@@ -226,8 +228,9 @@ func addSensorReport(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, 
 
 	survey := rpt.Table("SENSOR SURVEY", "ENTITY", "STELLIUM", "COORDINATES", "SYSTEM", "SYSTEMS")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT s.entity_id, s.stellium_id, st.x, st.y, st.z, s.system_id, s.systems
+		SELECT e.number, s.stellium_id, st.x, st.y, st.z, s.system_id, s.systems
 		FROM sensor_survey AS s
+		JOIN entity AS e ON e.id = s.entity_id
 		JOIN stellium AS st ON st.id = s.stellium_id
 		WHERE s.game_id = (SELECT id FROM game WHERE code = ?) AND s.turn = ? AND s.faction_id = ?
 		ORDER BY s.entity_id;`, &sqlitex.ExecOptions{
@@ -245,8 +248,9 @@ func addSensorReport(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, 
 
 	planets := rpt.Table("SENSOR PLANETS", "ENTITY", "STELLIUM", "SYSTEM", "ORBIT", "KIND")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT s.entity_id, s.stellium_id, sy.sequence, p.orbit, p.kind
+		SELECT e.number, s.stellium_id, sy.sequence, p.orbit, p.kind
 		FROM sensor_survey AS s
+		JOIN entity AS e ON e.id = s.entity_id
 		JOIN system AS sy ON sy.stellium_id = s.stellium_id
 		JOIN planet AS p ON p.system_id = sy.id
 		WHERE s.game_id = (SELECT id FROM game WHERE code = ?) AND s.turn = ? AND s.faction_id = ?
@@ -262,11 +266,13 @@ func addSensorReport(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, 
 
 	contacts := rpt.Table("SYSTEM CONTACTS", "ENTITY", "PLANET", "ORBIT", "CONTACT UNIT", "RING", "APPROXIMATE MASS")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT c.entity_id, c.planet_id, p.orbit, c.unit, c.planet_ring, c.mass
+		SELECT e.number, c.planet_id, p.orbit, c.unit, c.planet_ring, c.mass
 		FROM sensor_contact AS c
+		JOIN entity AS e ON e.id = c.entity_id
+		JOIN entity AS other ON other.id = c.contact_id
 		JOIN planet AS p ON p.id = c.planet_id
 		WHERE c.game_id = (SELECT id FROM game WHERE code = ?) AND c.turn = ? AND c.faction_id = ?
-		ORDER BY c.entity_id, p.orbit, c.unit, c.contact_id;`, &sqlitex.ExecOptions{
+		ORDER BY c.entity_id, p.orbit, c.unit, other.number;`, &sqlitex.ExecOptions{
 		Args: args,
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			contacts.Row(
@@ -285,10 +291,11 @@ func addSensorReport(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, 
 func addProbeFindings(rpt *Report, conn *sqlite.Conn, gameCode string, turn int, factionID int64) error {
 	contacts := rpt.Table("PROBE CONTACTS", "PLANET", "ENTITY", "UNIT", "RING", "MASS")
 	if err := sqlitex.ExecuteTransient(conn, `
-		SELECT planet_id, entity_id, unit, planet_ring, mass
-		FROM probe_contact
-		WHERE game_id = (SELECT id FROM game WHERE code = ?) AND turn = ? AND faction_id = ?
-		ORDER BY planet_id, planet_ring, entity_id;`, &sqlitex.ExecOptions{
+		SELECT c.planet_id, e.number, c.unit, c.planet_ring, c.mass
+		FROM probe_contact AS c
+		JOIN entity AS e ON e.id = c.entity_id
+		WHERE c.game_id = (SELECT id FROM game WHERE code = ?) AND c.turn = ? AND c.faction_id = ?
+		ORDER BY c.planet_id, c.planet_ring, e.number;`, &sqlitex.ExecOptions{
 		Args: []any{gameCode, turn, factionID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			contacts.Row(stmt.ColumnInt64(0), stmt.ColumnInt64(1), stmt.ColumnText(2), stmt.ColumnInt(3), stmt.ColumnInt64(4))
