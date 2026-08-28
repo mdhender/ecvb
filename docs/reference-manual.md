@@ -55,10 +55,10 @@ a planet in every orbit.
 
 Every planet has a kind and a habitability rating:
 
-|Field       |Values                                            |
-|------------|--------------------------------------------------|
-|Kind        |`rocky`, `asteroid`, `gas-giant`, or `ice-giant`  |
-|Habitability|0 through 25                                      |
+|Field       |Values                                          |
+|------------|------------------------------------------------|
+|Kind        |`rocky`, `asteroid`, `gas-giant`, or `ice-giant`|
+|Habitability|0 through 25                                    |
 
 A `COPN` may be placed only on a planet whose habitability is above 0.
 
@@ -67,11 +67,11 @@ A `COPN` may be placed only on a planet whose habitability is above 0.
 An entity at a planet occupies one of its rings. Ring 0 is the planet's
 surface; rings 1 through 99 are orbits around it.
 
-|Ring |Occupied by      |
-|-----|-----------------|
-|0    |`COPN` and `CSFC`|
-|1    |`CORB`           |
-|1–99 |`SHIP`           |
+|Ring|Occupied by      |
+|----|-----------------|
+|0   |`COPN` and `CSFC`|
+|1   |`CORB`           |
+|1–99|`SHIP`           |
 
 A ship arriving at a planet under its own power draws a ring from 2 through 99,
 leaving ring 1 to orbital colonies. A ship ordered to the planet it is already at stays there and draws a
@@ -82,10 +82,10 @@ new ring.
 A planet holds deposits of raw resource, numbered 1 through 45. The number is
 unique within the planet.
 
-|Field   |Values                                       |
-|--------|---------------------------------------------|
-|Resource|`fuel`, `gold`, `metals`, or `minerals`      |
-|Quality |Yield percentage                             |
+|Field   |Values                                                |
+|--------|------------------------------------------------------|
+|Resource|`fuel`, `gold`, `metals`, or `minerals`               |
+|Quality |Yield percentage                                      |
 |Quantity|What the deposit held initially, and what it holds now|
 
 A `MINE` work group works one deposit.
@@ -109,12 +109,12 @@ raw volume. They are the only units that enclose volume.
 An entity can use a fraction of the raw volume it encloses. The fraction is a
 property of the entity kind:
 
-|Kind|Entity          |Usable fraction|
-|----|----------------|---------------|
-|COPN|Open-air colony |1              |
-|CSFC|Surface colony  |1/5            |
-|CORB|Orbital colony  |1/10           |
-|SHIP|Ship            |1/10           |
+|Kind|Entity         |Usable fraction|
+|----|---------------|---------------|
+|COPN|Open-air colony|1              |
+|CSFC|Surface colony |1/5            |
+|CORB|Orbital colony |1/10           |
+|SHIP|Ship           |1/10           |
 
 Everything an entity holds occupies its usable enclosed volume, with three
 exceptions:
@@ -137,12 +137,12 @@ at the same place, and a `create` order delivers it to a new entity.
 
 ### Classes
 
-|Code|Class            |Assignable to                                                                 |
-|----|-----------------|------------------------------------------------------------------------------|
-|NAS |Non-assignable   |Nothing                                                                       |
-|SKW |Skilled worker   |Operating farms, mines, and factories; crewing ships, colonies, and transports|
-|SOL |Soldier          |Attacking and defending entities                                              |
-|USK |Unskilled worker |Working farms, mines, and factories; moving freight                           |
+|Code|Class           |Assignable to                                                                 |
+|----|----------------|------------------------------------------------------------------------------|
+|NAS |Non-assignable  |Nothing                                                                       |
+|SKW |Skilled worker  |Operating farms, mines, and factories; crewing ships, colonies, and transports|
+|SOL |Soldier         |Attacking and defending entities                                              |
+|USK |Unskilled worker|Working farms, mines, and factories; moving freight                           |
 
 ### Assignment
 
@@ -232,11 +232,473 @@ it.
 
 ## Orders
 
-Order file layout...
+A faction submits one order file for one turn. Every order names its subject
+first and then what the subject is told to do.
 
-List of implemented rules...
+    ship 18 jump to (-1,2,3)
+    colony 24 probe orbit 5
+    we name (-1,2,3) "Stellium Joe"
+
+A subject is one of the faction's ships, one of its colonies, or `we`, which is
+the faction itself and takes no id. An order given to a subject that may not be
+given it is refused. Each order below names the subjects it accepts and the
+phase it resolves in; see Turn Sequence.
+
+### The Order File
+
+The first line names the game and turn. The second identifies the player or
+faction. Both are required.
+
+    game "BETA-001" turn 0
+    id player "user01@example.com"
+
+    game "BETA-001" turn 0
+    id faction 1
+
+`player` and `faction` name the same thing. An email address is trimmed and
+lowercased before it is looked up. The player or faction must belong to the
+game. A file holding only those two lines is an empty order set.
+
+Keywords and system letters are case-insensitive. A game code is matched
+exactly. An id is a positive integer.
+
+Blank lines are permitted after the identity line. A `#` outside quotes begins a
+comment that runs to the end of the line.
+
+    # scout the neighbouring system
+    ship 2 probe system B orbit 4    # before anything moves
+
+A quantity is a whole number above zero. Above 999 it separates every three
+digits with a comma: `5,000` is accepted and `5000` is refused. A comma also
+separates the items of a list.
+
+A unit code is a code on its own, such as `GOLD`, or a code and a technology
+level, such as `LFSU-7`.
+
+Quoted text is closed on the line it opens. A quote with no closing `"` is
+refused where it is written.
+
+### ASSEMBLE
+
+Given to a ship or a colony. Resolves in the assemble phase.
+
+    ship SHIP-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...
+    colony COLONY-ID assemble QUANTITY UNIT, QUANTITY UNIT, ...
+
+Puts unassembled units to work.
+
+    ship 18 assemble 6,000 SNSR-1
+    colony 24 assemble 5 LFSU-1, 60 STRL-1
+
+It draws from unassembled inventory first and from cargo after it. The unit code
+determines the section a unit is assembled into; the order does not say. `HDRV`,
+`SDRV`, `SNSR`, `LFSU`, `STRC`, and `STRL` assemble into component inventory and
+everything else into operational inventory. Resources, population, and cadres
+cannot be assembled, and naming one is an error in the file.
+
+A `CWKR` cadre does the work at 500 MU a turn. An order that asks for more than
+the cadre can do this turn, or for more than the entity holds, does what it can
+and reports how much that was. It is not refused and nothing carries over.
+
+An assemble that would leave the entity holding more than its usable enclosed
+volume fails, and nothing moves.
+
+### CREATE
+
+Given to a ship or a colony. Resolves in the create phase.
+
+    ship SHIP-ID create ship using ... transfering ... with QUANTITY CWKR end
+    ship SHIP-ID create (open-air | enclosed | orbital) colony [as trade-station] using ... transfering ... with QUANTITY CWKR end
+    colony COLONY-ID create ship using ... transfering ... with QUANTITY CWKR end
+    colony COLONY-ID create (open-air | enclosed | orbital) colony [as trade-station] using ... transfering ... with QUANTITY CWKR end
+
+Begins building a ship or a colony.
+
+A create is a commitment rather than a purchase. It succeeds the moment it is
+given, and the build runs for as many turns as it needs. Everything after that
+is a rate: a build that gets no materials, no transport, or no workers does not
+move that turn, and nothing carries over against it.
+
+It is the one order that may run over several lines, so it is terminated by
+`end`. Line breaks and spacing inside it mean nothing.
+
+    ship 18 create ship
+      using 60 STRC-8,
+            61 HDRV-1, 5 SDRV-1
+            , 5 LFSU-3, 1 SNSR-1
+      transfering 25 FOOD, 5 SKW, 16,800 FUEL, 93 GOLD
+      with 500 CWKR
+    end
+
+All three clauses are required and each names at least one line.
+
+|Clause       |Names                                                 |
+|-------------|------------------------------------------------------|
+|`using`      |what the new entity is made of; the build assembles it|
+|`transfering`|what is handed over: cargo and population             |
+|`with`       |a ceiling on the construction workers a turn may use  |
+
+`with` holds nothing back. Each turn the engine assigns the build up to that many
+workers from whatever the builder has idle, and never more. Within each clause,
+the order the lines are written in is their priority.
+
+A build's turn is three steps, hung on three phases:
+
+|Phase       |What the build does                                             |
+|------------|----------------------------------------------------------------|
+|5, create   |claims what the builder holds and has not already promised      |
+|13, transfer|delivers the claim on the builder's transports, with the workers|
+|15, assemble|the workers assemble what is on site                            |
+
+A build claims from the builder's cargo, which is the only section a transport
+loads from. A claim lives one turn: what is not carried is released. Materials
+are carried before workers. Where two builds of one entity compete, the older is
+served first.
+
+Until every structural `using` line is completed, only the `STRC` and `STRL`
+lines are eligible. A population line is eligible only while the new entity's
+assembled `LFSU` supports the people aboard and the people arriving. A line that
+cannot make progress is skipped, and the build goes on to the next.
+
+The new entity appears at the builder's planet, in the ring its kind requires,
+and takes the technology level of the entity that created it. A ship created
+from an entity in the stellium orbit is created there. A colony requires the
+builder to be at a planet, and an open-air colony requires that planet's
+habitability to be above 0; both are refused at submission.
+
+The entity exists from the moment the order is given. It has a mass, and probes
+and sensors read it. It can be given no order, and nothing but its own build may
+deliver to it. Its progress is reported in the turn report's UNDER CONSTRUCTION
+section.
+
+`as trade-station` is accepted on any of the three colony kinds and recorded on
+the entity. What it confers is not specified.
+
+### JUMP
+
+Given to a ship. Resolves in the jump phase.
+
+    ship SHIP-ID jump to (X,Y,Z)
+
+Sends a ship from the stellium orbit to another stellium.
+
+    ship 2 jump to (6,-9,8)
+
+The coordinates must identify a stellium in the game. A jump begins from the
+stellium orbit: a ship at a planet must `move to orbit 11` first, and may do
+both in one turn because every `MOVE` resolves before any `JUMP`.
+
+Distance does not limit a jump. Any ship may be sent to any stellium in the
+game. The ship's mass must be within its drive's capacity.
+
+A jump burns 40 `FUEL` per assembled `HDRV` unit per light year. **The whole
+bill is drawn on departure**, however many turns the crossing takes, so a ship
+that cannot pay never leaves.
+
+A crossing of *d* light years by a drive at technology level *t* takes *d* / *t*
+turns, rounded up, and never fewer than one.
+
+A ship in transit is nowhere: at no stellium, no system, and no planet. It
+cannot be probed, does not appear on a sensor sweep, and can be given no order.
+A crossing cannot be recalled, redirected, or cancelled. The turn report's
+IN TRANSIT section gives its destination and the turn it is due.
+
+A ship jumps once a turn. A second `JUMP` for the same ship in one file is
+refused, and the whole file with it. The order is spent whatever it goes on to
+do: a jump that failed for want of fuel has still been given.
+
+### MOVE
+
+Given to a ship. Resolves in the move phase.
+
+    ship SHIP-ID move to orbit ORBIT
+    ship SHIP-ID move to system SYSTEM orbit ORBIT
+
+Moves a ship inside its stellium.
+
+    ship 2 move to orbit 6
+    ship 2 move to system B orbit 4
+    ship 2 move to orbit 11
+
+The first form names a planet in the ship's current system, and the ship must
+have one. The second names a planet in any system of the ship's current
+stellium. Both place the ship at the destination planet in a ring drawn from 2
+through 99. The draw is seeded from the game and the order, so re-resolving a
+turn puts the ship in the same ring.
+
+Orbit 11 is the stellium orbit. A move to it leaves the ship orbiting the
+stellium with no system, planet, or ring. It may not be qualified with a system
+letter.
+
+The ship's drive moves it. A move fails when the ship has no assembled `HDRV`
+units or when its mass exceeds their capacity. Distance does not enter into a
+move: every move is one of three kinds, each costing a fixed amount of `FUEL`
+per assembled `HDRV` unit.
+
+|Move                                                 |Fuel per unit|
+|-----------------------------------------------------|-------------|
+|Stellium orbit to any planet of the stellium, or back|4            |
+|Planet to planet in the same system                  |4            |
+|Planet to the planet the ship is already at          |4            |
+|Planet to planet in different systems of the stellium|8            |
+|Stellium orbit to the stellium orbit                 |0            |
+
+A failed move burns nothing. Ordering a ship in the stellium orbit to the
+stellium orbit moves it nowhere and burns nothing. Ordering a ship to the planet
+it is already at costs a hop and draws a fresh ring; it is the one way to change
+a ship's ring without going anywhere.
+
+A ship moves once a turn. A second `MOVE` for the same ship in one file is
+refused, and the whole file with it. **The order is spent whatever it goes on to
+do**: a move that failed for want of fuel, and a move to the stellium orbit from
+the stellium orbit that went nowhere and burned nothing, have both been given,
+and the ship gets no other move that turn.
+
+A ship may `MOVE` and `JUMP` in one turn, and those are the only two journeys it
+makes.
+
+### NAME
+
+Given to a ship, a colony, or `we`. Resolves in the naming phase.
+
+    ship SHIP-ID name "NAME"
+    colony COLONY-ID name "NAME"
+    we name (X,Y,Z) "NAME"
+
+Gives one of the faction's own ships or colonies, or a stellium, a name.
+
+    ship 18 name "Jalopy"
+    colony 24 name "Jingo"
+    we name (-1,2,3) "Stellium Joe"
+
+A name is private to the faction that gave it. Naming a ship does not change
+what another faction's report calls it. A stellium may be named without having
+been visited, but it must exist. Naming something again renames it.
+
+Naming something the faction owns is an order to the thing itself, so the ship
+or colony is the subject. Naming a stellium is a faction order, because no ship
+or colony carries it out, so `we` is the subject.
+
+A name is quoted text of at most 24 characters, counting spaces. It may not be
+empty, may not begin or end with a space, may not hold two spaces in a row, and
+may not hold control characters.
+
+### PROBE
+
+Given to a ship or a colony. Resolves in the probe phase.
+
+    ship SHIP-ID probe orbit ORBIT ...
+    colony COLONY-ID probe orbit ORBIT ...
+    ship SHIP-ID probe system SYSTEM orbit ORBIT ...
+    colony COLONY-ID probe system SYSTEM orbit ORBIT ...
+
+Reads planets with an entity's sensors.
+
+    ship 2 probe orbit 6
+    ship 2 probe orbit 1 2 3 4 5 8 9 10
+    ship 4 probe system A orbit 1 2 3
+
+One order may name several orbits and spends one probe on each. A probe that
+names no system reads the system the entity is in, so a ship orbiting the
+stellium must name one. A probe that names a system reads any system of the
+entity's current stellium.
+
+The entity must carry assembled `SNSR` units and have probes left this turn. It
+launches one probe per technology level of each assembled `SNSR`. Each named
+orbit must hold a planet of the probed system.
+
+Probes resolve before anything moves, so a probe reads the system the entity was
+in at the start of the turn. A ship cannot move into a system and probe it in
+the same turn.
+
+A probe reports, for the planet it reads: every ship, orbital colony, and
+surface colony there, each with its identity and exact mass; every deposit, with
+its resource and approximate quantity; and the planet's habitability.
+
+A probe burns no `FUEL` and does not move its entity.
+
+### STOW
+
+Given to a ship or a colony. Resolves in the stow phase.
+
+    ship SHIP-ID stow QUANTITY UNIT, QUANTITY UNIT, ...
+    colony COLONY-ID stow QUANTITY UNIT, QUANTITY UNIT, ...
+
+Moves units out of unassembled inventory into cargo.
+
+    ship 18 stow 18,000 FOOD, 800 HDRV-1
+
+Units must be in cargo to be transferred, so a `STOW` readies a load for a
+`TRANSFER`. It is not needed to assemble anything: `ASSEMBLE` draws from cargo
+as well.
+
+It neither assembles nor unassembles, so it reaches the four resources, which an
+`ASSEMBLE` never can. Population cannot be stowed, and neither can a cadre;
+naming either is an error in the file.
+
+Production labour does the work at 500 MU a turn. A stow that asks for more than
+the entity holds, or for more than its production labour moves this turn, moves
+what it can and reports how much that was.
+
+A stow that would leave the entity holding more than its usable enclosed volume
+fails, and nothing moves. Only `AUTO` can bring that about.
+
+### TRANSFER
+
+Given to a ship or a colony. Resolves in the transfer phase.
+
+    ship SHIP-ID transfer QUANTITY UNIT, ... to ship SHIP-ID
+    ship SHIP-ID transfer QUANTITY UNIT, ... to colony COLONY-ID
+    colony COLONY-ID transfer QUANTITY UNIT, ... to ship SHIP-ID
+    colony COLONY-ID transfer QUANTITY UNIT, ... to colony COLONY-ID
+
+Hands units or population to another entity at the same place.
+
+    ship 18 transfer 500 SOL to colony 24
+    ship 18 transfer 4,500 GOLD, 18,000 FOOD to colony 24
+
+The recipient must be the faction's own entity or an uncontrolled one, and the
+two must be at the same stellium, system, and planet when the order runs. They
+may be in different rings. A transfer to an entity somewhere else fails.
+
+Units must be in cargo to be transferred and are set down in the recipient's
+cargo. The recipient may assemble them in the same turn, because `ASSEMBLE`
+resolves after every transfer. Population moves the same way. A cadre cannot be
+transferred; transfer the population instead.
+
+The sending entity's transports carry the load and it pays their fuel. One
+`TRAN` at technology level *t* carries 20*t*² MU **and** 60*t*² VU in a turn,
+there and back for one charge; both limits hold. One unassigned `SKW` unit crews
+ten of them. The fuel is reckoned over every transport the entity used in the
+turn at once, so a second transfer sharing the round trip pays only what it
+adds.
+
+A transfer that asks for more than is in cargo, or for more than the transports
+carry, moves what it can and reports how much that was. A transfer that cannot
+pay its transports' fuel fails.
+
+### UNASSEMBLE
+
+Given to a ship or a colony. Resolves in the unassemble phase.
+
+    ship SHIP-ID unassemble QUANTITY UNIT, QUANTITY UNIT, ...
+    colony COLONY-ID unassemble QUANTITY UNIT, QUANTITY UNIT, ...
+    ship SHIP-ID unassemble and stow QUANTITY UNIT, QUANTITY UNIT, ...
+    colony COLONY-ID unassemble and stow QUANTITY UNIT, QUANTITY UNIT, ...
+
+Takes working units apart and returns them to unassembled inventory.
+
+    ship 18 unassemble 1,000 SNSR-1
+    colony 24 unassemble and stow 60 STRL-1, 5 LFSU-1
+
+It is lossless: what comes apart is what went together.
+
+`and stow` puts the units down in cargo instead. It costs no more than a plain
+`unassemble`: the whole order is charged to the construction workers and none of
+it to production labour.
+
+The same `CWKR` cadre does the work at the same rate as assembling. Assembly and
+unassembly are separate pools and round up on their own.
+
+An unassemble that would leave the entity holding more than its usable enclosed
+volume fails, and nothing moves. Unassembling `STRC` or `STRL` takes enclosed
+volume away at the same time as the units coming apart need somewhere to go.
+
+Unassembling `LFSU` reduces what the entity supports.
+
+### UNSTOW
+
+Given to a ship or a colony. Resolves in the unstow phase.
+
+    ship SHIP-ID unstow QUANTITY UNIT, QUANTITY UNIT, ...
+    colony COLONY-ID unstow QUANTITY UNIT, QUANTITY UNIT, ...
+
+Moves units out of cargo into unassembled inventory.
+
+    colony 24 unstow 800 HDRV-1, 18,000 FOOD
+
+It reaches the same units a `STOW` does and refuses the same two. It is not
+needed to assemble anything.
+
+Unstowing resolves after every transfer, so what a transfer set down this turn
+can be unstowed in the same turn.
+
+Production labour does the work at 500 MU a turn. Stowing and unstowing are
+separate pools: one unit of production labour does one task a turn, so labour
+that stowed cannot also unstow.
+
+An unstow that asks for more than the entity holds, or for more than its
+production labour moves this turn, moves what it can and reports how much that
+was. An unstow that would leave the entity holding more than its usable enclosed
+volume fails.
+
+### Orders That Parse and Do Not Act
+
+The parser accepts the whole accepted order set. Twenty-seven verbs are not
+built: an order naming one is stored like any other and fails when the turn
+resolves, with the reason. The rest of the file is unaffected.
+
+    activate, add, assess, attack, broadcast, buy, control, convert,
+    detect, disband, draft, grant, idle, incite, invade, neutralize,
+    obtain, pay, raid, rations, refuse, release, remove, retool, sell,
+    support, survey
+
+Two built orders have forms that behave the same way:
+
+- The group forms of `CREATE`: `factory-group`, `farm-group`, and `mine-group`.
+- The forms of `NAME` that name another faction, or another faction's ship or
+  colony.
+
+### Checking and Submitting
+
+Checking and submitting both run the turn against the game's live state and
+report what would happen. Checking keeps nothing; submitting replaces the
+faction's pending orders for that turn.
+
+A file fails in one of two ways:
+
+|Kind     |What causes it                                                                                                             |Effect                                                           |
+|---------|---------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+|Rejection|What a turn cannot change: ownership, a destination that does not exist, a drive out of capacity, a second `MOVE` or `JUMP`|The whole file is refused and nothing is stored                  |
+|Warning  |What a turn can change: fuel on hand, a budget another order spent                                                         |The order is kept, and fails at resolution if it still cannot run|
+
+A rejection reports every reason, not the first.
+
+An order that ran short of workers, labour, transports, or stock is neither. It
+succeeded, did what it could, and reports how much that was.
 
 ## Turn Sequence
+
+A turn resolves in phases. **Every order of one phase resolves before any order
+of the next.** The order of the lines in a file decides only between orders of
+the same phase.
+
+The phases that carry a built order, in the order they happen:
+
+|Phase|Name      |What resolves                                          |
+|-----|----------|-------------------------------------------------------|
+|5    |create    |every `CREATE`, then a build's claim                   |
+|6    |unassemble|every `UNASSEMBLE`                                     |
+|7    |stow      |every `STOW`                                           |
+|13   |transfer  |every `TRANSFER`, then a build's delivery              |
+|14   |unstow    |every `UNSTOW`                                         |
+|15   |assemble  |every `ASSEMBLE`, then a build's assembly              |
+|19   |probe     |every `PROBE`                                          |
+|20   |sensor    |every assembled `SNSR` reads the sky; no order is given|
+|27   |move      |every `MOVE`                                           |
+|28   |jump      |every `JUMP` departs                                   |
+|29   |arrival   |every crossing that finished lands; no order is given  |
+|37   |naming    |every `NAME`                                           |
+
+The numbers are positions in the turn's full list of 39 phases. Those not listed
+carry no built order.
+
+A phase's own work runs after its orders, so explicitly ordered work outranks a
+standing commitment: a `TRANSFER` order is served before a build's claim, and an
+`ASSEMBLE` order before a build's own assembly.
+
+Probes and passive sensors both read where things stood at the start of the
+turn, and both settle before anything moves. Departures settle before arrivals.
 
 ## Appendix A - Tables
 
