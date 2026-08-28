@@ -62,14 +62,15 @@ the dockets need real entities in real states, so EAGLE-01 is a proper game on
 | 10 | The group forms of CREATE, which parse and are not built |
 | 11 | The turn: what order things happen in, and what the report says |
 
-Each files four turns of it. The orders are chosen to make the engine state a
+Each files as many turns of it as its argument needs; the game stands at seven,
+turns 0 through 6. The orders are chosen to make the engine state a
 rule out loud -- a fuel figure, a ring, a shortfall note, a status -- so that
 there is something specific to hold the documentation against.
 
 ## Playing a round
 
 ```sh
-games/eagles/replay.sh [FIRST-TURN] [LAST-TURN]   # default 0 3
+games/eagles/replay.sh [FIRST-TURN] [LAST-TURN]   # default 0 6
 ```
 
 The run writes `games/eagles/reports/`, which is not committed: the arguing is
@@ -89,11 +90,34 @@ they stand as recorded; from round 2 the manual is the only document.
 | Round | Turns | Findings |
 | --- | --- | --- |
 | 1 | 0-3 | five, all in the burndown: a report column that calls a ceiling `WORKERS`; `docs/orders.md` contradicting itself about a second MOVE; no document describing what a starting kit can do; `games/claude/game-rules.md` claiming a ring the engine never draws; and NAME saying nothing about renaming or duplicate names |
+| 2 | 0-6 | twelve, all in the burndown: one High, seven Medium, four Low. Three more turns were filed to reach what the manual claims and round 1 never touched |
 
-Four of the five are documentation rather than engine defects, which is the
-result worth reporting: the engine did almost exactly what it says it does. Of
-the twelve behaviours round 1 probed, seven matched their documentation
+Four of round 1's five are documentation rather than engine defects, which is
+the result worth reporting: the engine did almost exactly what it says it does.
+Of the twelve behaviours round 1 probed, seven matched their documentation
 exactly -- move costs and rings, jump fuel and crossings, probe budgets, the
 not-built group forms, and the phase renumbering. Those are listed in the
 burndown too, because a conformance game is only worth reading if it says what
 it failed to find.
+
+Round 2 was the reference manual's first adversarial reading, and it was a
+harder round for a reason worth stating: a manual is a smaller target than
+`docs/` and a much more exposed one. Half of the twelve are the manual not
+saying anything at all, which is the shape round 1 found too. The other half
+are new: five places where the engine and the manual give different answers,
+and two where the manual disagrees with its own appendix. A lawyer reading five
+documents blames the other four; a lawyer reading one has nowhere to put the
+blame.
+
+The turn report is where the round concentrated. The manual names two of its
+thirteen sections and describes none of them, so four separate findings are
+really one: a player is handed a page of columns the rules never mention, two
+of which -- `APPROXIMATE MASS` and `ENCLOSED VOLUME` -- print a number that is
+not the number the rules use.
+
+Round 2 also lost more arguments than round 1, which is the better half of the
+result. The full MOVE fuel table, the JUMP fuel rule at three distances, phase
+order beating file order twice over, the shortfall rule, NAME on stellia, and
+what a create takes from its builder all matched the manual exactly. Faction 4
+withdrew a docket rather than file a refusal, and the withdrawal became a
+finding of its own.
